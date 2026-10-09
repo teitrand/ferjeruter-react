@@ -10,7 +10,16 @@ export const MAX_EVENTS = 50;
 export const MAX_BODY_BYTES = 64 * 1024;
 export const KINDS = new Set(["sailed", "departed", "arrived", "cancelled"]);
 /** Minste tid mellom godtekne kall per endepunkt (innsamlaren: hendingar kvart 30. s, puls kvart 2. min). */
-export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000 };
+export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000, positions: 10_000 };
+export const MAX_POSITIONS = 10;
+/** AIS-ferskleik, same tersklar som packages/core/crossing.js (docs/ais.md). Testen held dei like. */
+export const AIS_FRESH_MS = 60_000;
+export const AIS_STALE_MS = 5 * 60_000;
+export const AIS_MOORED_FRESH_MS = 4 * 60_000;
+export const AIS_MOORED_STALE_MS = 15 * 60_000;
+export const AIS_MOORED_MAX_KN = 0.5;
+/** Melding frå framtida (feil klokke) blir ikkje teken imot. */
+export const AIS_MAX_FUTURE_MS = 2 * 60_000;
 export const COLLECTOR_STALE_MS = 5 * 60_000;
 export const LIVE_FALLBACK_MS = 3 * 60_000;
 export const EVENTS_KEEP_DAYS = 30;
@@ -22,6 +31,10 @@ export const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS events_day ON events (service_date, line)`,
   `CREATE TABLE IF NOT EXISTS heartbeats (id INTEGER PRIMARY KEY AUTOINCREMENT, received_at TEXT NOT NULL, body TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)`,
+  // Siste AIS-posisjon per fartøy (éi rad per MMSI). Tillegg: gamle tabellar er uendra.
+  `CREATE TABLE IF NOT EXISTS ais_latest (mmsi TEXT PRIMARY KEY, line TEXT NOT NULL, name TEXT, latitude REAL NOT NULL,
+     longitude REAL NOT NULL, speed_kn REAL, course_deg REAL, heading INTEGER, nav_status INTEGER,
+     msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL)`,
 ];
 
 const CORS = {
@@ -69,6 +82,24 @@ export function validateEvent(ev) {
   if (!isIso(ev.at)) return "at";
   if (!optStr(ev.journeyRef) || !optStr(ev.stop, 100) || !optStr(ev.slot, 10)) return "felt";
   if (ev.detail != null && typeof ev.detail !== "object") return "detail";
+  return null;
+}
+
+const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** @returns {string|null} feilmelding, eller null om AIS-meldinga er gyldig */
+export function validatePosition(pos, nowMs) {
+  if (!pos || typeof pos !== "object") return "ikkje objekt";
+  if (typeof pos.mmsi !== "string" || !/^\d{9}$/.test(pos.mmsi)) return "mmsi";
+  if (typeof pos.line !== "string" || !/^[0-9A-Za-z_-]{1,20}$/.test(pos.line)) return "line";
+  if (pos.source !== "ais") return "source";
+  const lat = num(pos.latitude);
+  const lon = num(pos.longitude);
+  if (lat == null || lon == null || Math.abs(lat) > 90 || Math.abs(lon) > 180 || (lat === 0 && lon === 0)) return "posisjon";
+  if (!isIso(pos.msgtime)) return "msgtime";
+  if (Date.parse(pos.msgtime) > nowMs + AIS_MAX_FUTURE_MS) return "msgtime-framtid";
+  for (const key of ["speedKn", "courseDeg", "heading", "navStatus"]) if (pos[key] != null && num(pos[key]) == null) return key;
+  if (!optStr(pos.name, 60)) return "name";
   return null;
 }
 
@@ -120,6 +151,37 @@ async function postEvents(request, env, nowMs) {
   return empty(204);
 }
 
+async function postPositions(request, env, nowMs) {
+  const read = await readBody(request);
+  if (read.status) return empty(read.status);
+  const { body } = read;
+  if (!body || body.schema !== 1 || !Array.isArray(body.positions) || !body.positions.length) return json({ error: "form" }, 400);
+  if (body.positions.length > MAX_POSITIONS) return empty(413);
+  for (const pos of body.positions) {
+    const err = validatePosition(pos, nowMs);
+    if (err) return json({ error: err }, 400);
+  }
+  const wait = await rateLimited(env.DB, "positions", nowMs);
+  if (wait) return empty(429, { "Retry-After": String(wait) });
+  const receivedAt = new Date(nowMs).toISOString();
+  // Berre nyare melding enn den som ligg der (msgtime_ms), så ei forseinka melding ikkje skriv over.
+  const stmt = env.DB.prepare(
+    `INSERT INTO ais_latest (mmsi, line, name, latitude, longitude, speed_kn, course_deg, heading, nav_status, msgtime, msgtime_ms, received_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(mmsi) DO UPDATE SET line = excluded.line, name = excluded.name, latitude = excluded.latitude,
+       longitude = excluded.longitude, speed_kn = excluded.speed_kn, course_deg = excluded.course_deg, heading = excluded.heading,
+       nav_status = excluded.nav_status, msgtime = excluded.msgtime, msgtime_ms = excluded.msgtime_ms, received_at = excluded.received_at
+     WHERE excluded.msgtime_ms > ais_latest.msgtime_ms`,
+  );
+  await env.DB.batch(
+    body.positions.map((pos) =>
+      stmt.bind(pos.mmsi, pos.line, pos.name ?? null, pos.latitude, pos.longitude, num(pos.speedKn), num(pos.courseDeg),
+        num(pos.heading), num(pos.navStatus), new Date(Date.parse(pos.msgtime)).toISOString(), Date.parse(pos.msgtime), receivedAt),
+    ),
+  );
+  return empty(204);
+}
+
 async function postHeartbeat(request, env, nowMs) {
   const read = await readBody(request);
   if (read.status) return empty(read.status);
@@ -152,6 +214,37 @@ export function lineView(entry, { collectorStale, nowMs }) {
   return { lastKnown, observedAt, stale: !fresh, staleReason: fresh ? null : "expired" };
 }
 
+/**
+ * AIS-ferskleik (docs/ais.md): under fart live ≤ 60 s, siste kjende til 5 min, så ukjend.
+ * Ved kai (fortøydd eller under 0,5 kn): 4 min og 15 min.
+ */
+export function aisView(row, nowMs) {
+  const speed = row.speed_kn;
+  const moored = row.nav_status === 5 || (speed != null && speed < AIS_MOORED_MAX_KN);
+  const ageMs = Math.max(0, nowMs - row.msgtime_ms);
+  let state = "unknown";
+  if (ageMs <= (moored ? AIS_MOORED_FRESH_MS : AIS_FRESH_MS)) state = "live";
+  else if (ageMs <= (moored ? AIS_MOORED_STALE_MS : AIS_STALE_MS)) state = "stale";
+  return {
+    source: "ais",
+    mmsi: row.mmsi,
+    name: row.name,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    speedKn: row.speed_kn,
+    courseDeg: row.course_deg,
+    heading: row.heading,
+    navStatus: row.nav_status,
+    msgtime: row.msgtime,
+    receivedAt: row.received_at,
+    moored,
+    ageMs,
+    state,
+    stale: state !== "live",
+    staleReason: state === "live" ? null : "expired",
+  };
+}
+
 export async function buildLatest(db, nowMs) {
   const hb = await db.prepare("SELECT received_at, body FROM heartbeats ORDER BY id DESC LIMIT 1").first();
   let beat = null;
@@ -164,6 +257,18 @@ export async function buildLatest(db, nowMs) {
   const collectorStale = !lastHeartbeatAt || nowMs - Date.parse(lastHeartbeatAt) > COLLECTOR_STALE_MS;
   const lines = {};
   for (const [line, entry] of Object.entries(beat?.lines || {})) lines[line] = lineView(entry, { collectorStale, nowMs });
+
+  // AIS: nyaste fartøy per linje. Tillegg; manglar tabellen eller er ho tom, er svaret som før.
+  try {
+    const { results: ais = [] } = await db.prepare("SELECT * FROM ais_latest ORDER BY msgtime_ms").all();
+    for (const row of ais) {
+      const view = aisView(row, nowMs);
+      lines[row.line] ??= lineView(null, { collectorStale, nowMs });
+      lines[row.line].ais = view; // sortert stigande: nyaste fartøy sist
+    }
+  } catch (error) {
+    console.error("ais-feil", String(error?.message || error));
+  }
 
   const date = osloDate(nowMs);
   const { results = [] } = await db
@@ -193,10 +298,12 @@ export async function handle(request, env, nowMs = Date.now()) {
     if (request.method !== "GET" && request.method !== "HEAD") return empty(405, { Allow: "GET, OPTIONS", ...CORS });
     return json(await buildLatest(env.DB, nowMs), 200, { ...CORS, "Cache-Control": "public, max-age=15" });
   }
-  if (pathname === "/v1/events" || pathname === "/v1/heartbeat") {
+  if (pathname === "/v1/events" || pathname === "/v1/heartbeat" || pathname === "/v1/positions") {
     if (request.method !== "POST") return empty(405, { Allow: "POST" });
     if (!(await keyMatches(request.headers.get(KEY_HEADER), env.COLLECTOR_KEY))) return empty(401);
-    return pathname === "/v1/events" ? postEvents(request, env, nowMs) : postHeartbeat(request, env, nowMs);
+    if (pathname === "/v1/events") return postEvents(request, env, nowMs);
+    if (pathname === "/v1/positions") return postPositions(request, env, nowMs);
+    return postHeartbeat(request, env, nowMs);
   }
   return json({ error: "not found" }, 404);
 }
