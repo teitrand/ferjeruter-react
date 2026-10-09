@@ -277,7 +277,15 @@ async function swSandbox(out, { origin = "https://teitrand.github.io", scope = "
     skipWaiting: () => undefined,
     clients: { matchAll: async () => [{ postMessage: (data) => posted.push(data) }], claim: async () => undefined },
   };
-  const caches = { open: async (name) => cacheFor(name), keys: async () => [...stores.keys()], delete: async (name) => stores.delete(name) };
+  const caches = {
+    open: async (name) => cacheFor(name),
+    keys: async () => [...stores.keys()],
+    delete: async (name) => stores.delete(name),
+    // caches.match leitar i alle cachar på opphavet (òg vanilla sine). Skalet skal aldri bruke han.
+    match: async () => {
+      throw new Error("caches.match søkjer i alle cachar på opphavet");
+    },
+  };
   const fetchImpl = async (req) => {
     const url = typeof req === "string" ? req : req.url;
     if (!(url in server)) throw new TypeError("offline");
@@ -294,7 +302,12 @@ async function swSandbox(out, { origin = "https://teitrand.github.io", scope = "
     await Promise.all(waits);
     return body;
   };
-  return { run, posted, setServer: (next) => (server = next), stores };
+  const activate = async () => {
+    const waits = [];
+    listeners.activate({ waitUntil: (p) => waits.push(p) });
+    await Promise.all(waits);
+  };
+  return { run, activate, posted, setServer: (next) => (server = next), stores, cacheFor };
 }
 
 test("web: service workeren melder ny rutetabell sjølv når sida har lese den gamle", async () => {
@@ -314,6 +327,46 @@ test("web: service workeren melder ny rutetabell sjølv når sida har lese den g
   assert.equal(await sw.run(url), '{"fetchedAt":"B"}');
   // Andre opphav enn sida og datakjelda (Entur, Fjord1) går forbi.
   assert.equal(await sw.run("https://api.entur.io/realtime/v1/rest/vm"), null);
+});
+
+test("web: offline les service workeren berre sin eigen cache, aldri vanilla sin (fergeruter-dev-*)", async () => {
+  const template = readFileSync(new URL("../web/pwa/sw-template.js", import.meta.url), "utf8");
+  const url = "https://teitrand.github.io/fergeruter/data/ruter.json";
+  const out = renderServiceWorker(template, { version: "t", files: [], data: [url] });
+  const sw = await swSandbox(out);
+  // Den gamle testappen har eigne, eldre data i ein cache på same opphav.
+  await sw.cacheFor("fergeruter-dev-v84").put(url, new Response('{"fetchedAt":"2026-10-02"}'));
+  await sw.cacheFor("fergeruter-v84").put(url, new Response('{"fetchedAt":"2026-10-01"}'));
+  await sw.activate();
+  assert.ok(sw.stores.has("fergeruter-dev-v84") && sw.stores.has("fergeruter-v84"), "rører ikkje vanilla sine cachar");
+  // Offline og tom eigen cache: ingen data frå vanilla sin cache (nettlesaren får nettverksfeil,
+  // og skalet brukar rutetabellen det sjølv har lagra).
+  assert.equal(await sw.run(url), null);
+  // Nyaste eigne ruter.json vinn offline.
+  sw.setServer({ [url]: '{"fetchedAt":"2026-10-08"}' });
+  assert.equal(await sw.run(url), '{"fetchedAt":"2026-10-08"}');
+  sw.setServer({});
+  assert.equal(await sw.run(`${url}?t=1`), '{"fetchedAt":"2026-10-08"}');
+});
+
+test("web: utan nett seier fotnoten «Fekk ikkje kontakt med Entur», òg når siste kall gjekk bra", async () => {
+  const { isOnline } = await import("../web/src/hooks/useOnline.js");
+  assert.equal(isOnline({ onLine: false }), false);
+  assert.equal(isOnline({ onLine: true }), true);
+  assert.equal(isOnline(null), true, "ukjent = på nett, som før");
+  const data = { routes: ROUTES, kombirute: null };
+  const entur = { ...emptyEntur(), live: null, liveFailed: false };
+  const online = withEntur(data, entur);
+  const offline = withEntur(data, entur, { offline: true });
+  assert.equal(online.liveFailed, false);
+  assert.equal(offline.liveFailed, true);
+  assert.equal(footnoteModel(online, initialUi(), null).position, "position.planned");
+  assert.equal(footnoteModel(offline, initialUi(), null).position, "position.offline");
+  // Same i kombi og 1136.
+  for (const route of ["1136", "kombi"]) {
+    const ui = { ...initialUi(), routeChoice: route, override: route === "kombi" ? "kombi" : null };
+    assert.equal(footnoteModel({ ...offline, kombirute: KOMBI }, ui, null).position, "position.offline", route);
+  }
 });
 
 test("web: manifest og ikon for skalet kjem frå vanilla-filene", () => {

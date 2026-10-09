@@ -17,6 +17,7 @@ import { useClock } from "./hooks/useClock.js";
 import { useEntur } from "./hooks/useEntur.js";
 import { useInstall } from "./hooks/useInstall.js";
 import { useMessages } from "./hooks/useMessages.js";
+import { useOnline } from "./hooks/useOnline.js";
 import { useWake } from "./hooks/useWake.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
@@ -82,7 +83,8 @@ export function App({
   const base = useMemo(() => ({ ...loaded, messages }), [loaded, messages]);
   const clockMs = useClock(woke.wake);
   const entur = useEntur(base, ui, clockMs, initialEntur);
-  const data = useMemo(() => withEntur(base, entur), [base, entur]);
+  const online = useOnline();
+  const data = useMemo(() => withEntur(base, entur, { offline: !online }), [base, entur, online]);
   const memoryRef = useRef(givenMemory);
   memoryRef.current ??= memoryOnly();
   const memory = memoryRef.current;
