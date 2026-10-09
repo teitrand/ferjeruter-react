@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../../assets/styles.css";
+import "./styles/crossing.css";
 import { App } from "./App.jsx";
+import { AnnouncerProvider } from "./components/Announcer.jsx";
 import { detectLang } from "./components/i18n.js";
 import { routeOverride } from "../../packages/core/index.js";
 import { dataBase, liveDataBase } from "./model/data.js";
@@ -30,6 +32,7 @@ const initialState = initialUi({
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
+    <AnnouncerProvider>
     <App
       dataBase={dataBase(import.meta.env)}
       liveDataBase={liveDataBase(import.meta.env, location)}
@@ -41,5 +44,6 @@ createRoot(document.getElementById("root")).render(
       initialState={initialState}
       memory={browserMemory()}
     />
+    </AnnouncerProvider>
   </StrictMode>
 );

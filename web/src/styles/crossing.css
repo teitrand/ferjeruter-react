@@ -1,0 +1,269 @@
+/*
+ * Sanntid i React-skalet: live-merke, ferjelinja (framdrift og ferje på éi linje), nedteljing.
+ * Token og mål frå Designer (ferje-animasjon/SPEC.md). Berre lyst tema; mørkt tema
+ * er ikkje godkjent og manglar i resten av appen, så det kjem eventuelt seinare.
+ * Berre transform og opacity blir animert.
+ */
+:root {
+  /* Merke. ok/stop er mørkna for AA (5,3:1 og 5,1:1 på bakgrunnen, var 4,3:1 og 4,5:1). */
+  --ok-fg: #186a5d;
+  --ok-bg: #d7efe8;
+  --stop-fg: #a32f27;
+  --stop-bg: #f8d4d0;
+  --info-fg: var(--info);
+  --info-bg: #dceaf5;
+  --unknown-fg: #545e62;
+  --unknown-bg: #ebe8e1;
+  --unknown-line: #8a9497;
+
+  --track: #e4ddcf;
+  --track-dash: #cbbfa8; /* stipla linje: litt mørkare, så stiplane syner på papiret */
+  --fill-measured: var(--water);
+  --fill-calc: #66757a;
+  --quay: var(--fjord);
+  --ferry-hull: #000000;
+  --ferry-super: #ffffff;
+  --ferry-outline: #000000;
+  --ferry-window: #1a6b8a;
+
+  --progress-h: 6px;
+  --rail-h: 4px;
+  --quay-dot: 10px;
+  --ferry-w: 36px;
+  --ferry-h: 18px;
+  --badge-h: 22px;
+  --badge-fs: 0.72rem;
+  --live-dot: 8px;
+
+  --dur-position: 1600ms;
+  --ease-position: cubic-bezier(0.33, 0, 0.25, 1);
+  --dur-status: 240ms;
+  --ease-status: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fade: 200ms;
+  --dur-pulse: 2000ms;
+  --ease-pulse: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* AA-kontrast på dei eksisterande merka (SPEC). */
+.badge-normal { color: var(--ok-fg); }
+.badge-cancelled { color: var(--stop-fg); }
+
+/* ---------- Overfarten ---------- */
+.crossing {
+  padding: 0.6rem 0.75rem 0.55rem;
+  border-radius: 14px;
+  color: var(--ink);
+}
+
+.crossing-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- Live-merke ---------- */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: var(--badge-h);
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: var(--badge-fs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  animation: status-in var(--dur-status) var(--ease-status);
+}
+.live[data-state="live"] { color: var(--ok-fg); background: var(--ok-bg); }
+.live[data-state="calc"] { color: var(--unknown-fg); background: transparent; border: 1px dashed var(--unknown-line); }
+.live[data-state="stale"],
+.live[data-state="unknown"] { color: var(--unknown-fg); background: var(--unknown-bg); }
+
+.live-dot {
+  position: relative;
+  width: var(--live-dot);
+  height: var(--live-dot);
+  border-radius: 50%;
+  flex: none;
+  background: currentColor;
+}
+.live[data-state="calc"] .live-dot { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.live[data-state="stale"] .live-dot { opacity: 0.6; }
+.live[data-state="unknown"] .live-dot { display: none; }
+.live[data-state="live"][data-fresh="1"] .live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse var(--dur-pulse) var(--ease-pulse) infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.55; }
+  70%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes status-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.stop-state.status-in { animation: status-in var(--dur-status) var(--ease-status); }
+
+/* ---------- Ferjelinja: framdrift og ferje på éi linje mellom kaiane ----------
+ * Geometri (botn av .ferry-line): linja 4 px med midte 6 px oppe, fyllet 6 px på same
+ * midte, kaiprikkane 10 px på same midte, ferja (36×18) står på linja.
+ * Heil linje = målt og fersk (live). Stipla = ikkje eksakt (berekna, siste kjende, ukjend).
+ * Stiplane er statisk bakgrunn: fyllet blir avdekt med to motsette translateX, så
+ * mønsteret står i ro under glidinga (ingen scaleX som strekkjer stiplane, ingen layout).
+ */
+.ferry-line-wrap {
+  margin-top: 0.15rem;
+  padding: 0 calc(var(--ferry-w) / 2);
+  overflow: hidden;
+  overflow: clip;
+}
+.ferry-line { position: relative; height: calc(var(--ferry-h) + 12px); }
+.line-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(6px - var(--rail-h) / 2);
+  height: var(--rail-h);
+  border-radius: var(--rail-h);
+  background: var(--track);
+}
+.line-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(6px - var(--progress-h) / 2);
+  height: var(--progress-h);
+  border-radius: var(--progress-h);
+  overflow: hidden;
+  transform: translateX(calc((var(--p, 0) - 1) * 100%));
+}
+.line-fill-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--progress-h);
+  background: var(--fill-measured);
+  transform: translateX(calc((1 - var(--p, 0)) * 100%));
+}
+.crossing[data-line="dashed"] .line-track {
+  background: repeating-linear-gradient(90deg, var(--track-dash) 0 8px, transparent 8px 13px);
+}
+.crossing[data-line="dashed"] .line-fill-inner {
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, var(--fill-measured) 0 8px, transparent 8px 13px);
+}
+.crossing[data-source="calc"] .line-fill-inner,
+.crossing[data-source="unknown"] .line-fill-inner {
+  background: repeating-linear-gradient(90deg, var(--fill-calc) 0 8px, transparent 8px 13px);
+}
+.crossing[data-source="unknown"] .line-fill { opacity: 0.55; }
+
+.quay {
+  position: absolute;
+  bottom: calc(6px - var(--quay-dot) / 2);
+  width: var(--quay-dot);
+  height: var(--quay-dot);
+  border-radius: 50%;
+  background: var(--quay);
+  transform: translateX(-50%);
+}
+.quay.a { left: 0; }
+.quay.b { left: 100%; }
+.ferry-runner {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  width: 100%;
+  transform: translateX(calc(var(--p, 0) * 100%));
+  will-change: transform;
+  pointer-events: none;
+}
+.ferry {
+  position: absolute;
+  left: calc(var(--ferry-w) / -2);
+  bottom: 0;
+  width: var(--ferry-w);
+  height: var(--ferry-h);
+  display: block;
+}
+.crossing[data-source="stale"] .ferry { opacity: 0.8; }
+.crossing[data-source="calc"] .ferry { opacity: 0.6; }
+.crossing[data-source="unknown"] .ferry { opacity: 0.35; filter: grayscale(1); }
+.ferry-approx {
+  position: absolute;
+  left: calc(var(--ferry-w) / 2 + 1px);
+  bottom: calc(var(--ferry-h) - 6px);
+  line-height: 1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--unknown-fg);
+  opacity: 0;
+}
+.crossing[data-source="calc"] .ferry-approx,
+.crossing[data-source="unknown"] .ferry-approx { opacity: 1; }
+/* Kainamna ved endane (under prikkane). Lange namn eller stor skrift: brytast, aldri overlapp. */
+.line-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.line-labels > span { min-width: 0; overflow-wrap: anywhere; }
+.line-labels > span:last-child { text-align: right; }
+
+.progress-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.source-note { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--muted); }
+
+/* Overgangar berre etter fyrste frame (LiveStatus set is-ready). Fyllet, motflyttinga og
+   ferja har same tid og kurve, så dei held følgje og stiplane står i ro. */
+.crossing.is-ready .line-fill,
+.crossing.is-ready .line-fill-inner,
+.crossing.is-ready .ferry-runner {
+  transition: transform var(--dur-position) var(--ease-position);
+}
+.crossing.is-ready .ferry {
+  transition: opacity var(--dur-status) var(--ease-status), filter var(--dur-status) var(--ease-status);
+}
+.crossing.is-ready .ferry-approx { transition: opacity var(--dur-fade); }
+
+/* ---------- Nedteljing (inne i statuslinja) ---------- */
+.countdown { white-space: nowrap; }
+.countdown-text.is-tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Statusområdet øvst: statuslinja med sanntida under ---------- */
+.status-area { grid-area: lede; min-width: 0; }
+.status-area .lede { margin-bottom: 0; }
+.status-live { margin-top: 0.5rem; }
+.status-live .crossing {
+  margin: 0;
+  background: var(--paper);
+  border: 0;
+  box-shadow: var(--shadow);
+}
+.status-live .crossing-head { margin-bottom: 0.45rem; }
+/* Berre merket (ved kai / utan overfart) står rett på den mørke toppen. */
+.status-live > .live[data-state="calc"] { background: var(--paper); }
+
+/* ---------- Mindre rørsle: ingen overgangar, ingen puls, ingen status-in ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-position: 0ms; --dur-status: 0ms; --dur-fade: 0ms; }
+  .live-dot::after { animation: none !important; display: none; }
+  .live, .stop-state.status-in { animation: none !important; }
+}
+.crossing[data-motion="reduce"] { --dur-position: 0ms; --dur-status: 0ms; --dur-fade: 0ms; }
+.crossing[data-motion="reduce"] .live { animation: none; }
+.crossing[data-motion="reduce"] .live-dot::after { animation: none; display: none; }

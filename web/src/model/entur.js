@@ -106,12 +106,17 @@ export function enturReducer(state, action) {
   }
 }
 
-/** Data for modellen: det som er lasta, pluss Entur-bevisa. */
-export function withEntur(data, entur) {
+/**
+ * Data for modellen: det som er lasta, pluss Entur-bevisa.
+ * Utan nett (`offline`) har vi ikkje kontakt med Entur, same om det siste kallet gjekk bra,
+ * eller om vi ikkje har spurt (utanfor driftstida, før fyrste kall). Då seier fotnoten
+ * «Fekk ikkje kontakt med Entur», ikkje «Entur har ingen posisjon».
+ */
+export function withEntur(data, entur, { offline = false } = {}) {
   return {
     ...data,
     live: entur.live,
-    liveFailed: entur.liveFailed,
+    liveFailed: entur.liveFailed || offline,
     cancelledJourneys: entur.cancelledJourneys,
     actualDepartures: entur.actualDepartures,
   };

@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import { telHref } from "../../../packages/core/index.js";
+import { useAnnounce } from "./Announcer.jsx";
 import { CallLink } from "./CallLink.jsx";
 import { t } from "./i18n.js";
 
@@ -57,6 +59,9 @@ export function DepartureRow({ row, onDetail }) {
     .filter(Boolean)
     .join(" ");
   const signal = row.skipped ? "skipped" : row.state === "unknown" ? "unknown" : undefined;
+  // Status-in (240 ms) berre når statusen endrar seg medan sida er open, ikkje ved fyrste teikning.
+  const firstState = useRef(row.state);
+  const changed = row.state !== firstState.current;
   return (
     <div
       className={className}
@@ -90,7 +95,7 @@ export function DepartureRow({ row, onDetail }) {
           </span>
         ))}
       </span>
-      <span className="stop-state" data-signal={signal}>
+      <span key={row.state || "none"} className={changed ? "stop-state status-in" : "stop-state"} data-signal={signal}>
         {row.stateText}
       </span>
     </div>
@@ -156,6 +161,11 @@ function TransferRow({ row }) {
   );
 }
 
+/**
+ * «No»-merket i tidslinja: viser kvar i dagen vi er, med framdrifta som fyll. Statusteksten
+ * står berre éin stad, i statuslinja øvst (Lede), så merket har ingen eigen tekst og er
+ * skjult for skjermlesar.
+ */
 function NowRow({ row }) {
   const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
   const hasProgress = row.progress != null;
@@ -163,22 +173,58 @@ function NowRow({ row }) {
     <div
       className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
       style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
+      aria-hidden="true"
     >
       {hasProgress ? (
-        <span className="now-track" aria-hidden="true">
+        <span className="now-track">
           <span className="now-fill" />
         </span>
       ) : null}
       <span className="now-label">{t("now")}</span>
-      <span className="now-text">{row.text}</span>
     </div>
   );
 }
 
 const ROWS = { dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow, now: NowRow };
 
-/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
-export function Timeline({ timeline, showPast, onTogglePast, onDetail }) {
+/** Berre dårlege nyhende blir lesne opp. «Gått» o.l. kjem ikkje i live-regionen. */
+const BAD_NEWS = new Set(["cancelled", "notRunning", "unknown"]);
+
+/**
+ * Seier frå i den felles live-regionen når ei avgang blir avlyst, ikkje utført eller
+ * ukjend medan sida er open. Fleire samtidige skifte blir éi melding. Ikkje ved fyrste
+ * teikning, dagbyte eller rutebyte.
+ */
+function useDepartureAnnouncements(rows, scope) {
+  const announce = useAnnounce();
+  const seen = useRef(null);
+  const seenScope = useRef(scope);
+  useEffect(() => {
+    if (!scope || seenScope.current !== scope) {
+      seenScope.current = scope;
+      seen.current = null;
+      if (!scope) return;
+    }
+    const now = new Map();
+    for (const row of rows || []) {
+      if (row.kind === "dep" && !row.past) now.set(row.key, row);
+    }
+    const before = seen.current;
+    seen.current = now;
+    if (!before) return;
+    const changes = [];
+    for (const [key, row] of now) {
+      const old = before.get(key);
+      if (old && old.state !== row.state && BAD_NEWS.has(row.state) && row.stateText) {
+        changes.push(t("crossing.annDeparture", { route: t("sailing.route", { from: row.from, to: row.to }), time: row.time, status: row.stateText }));
+      }
+    }
+    if (changes.length) announce(changes.join(" "));
+  }, [rows, scope, announce]);
+}
+
+function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
+  useDepartureAnnouncements(timeline.rows, timeline.scope);
   if (timeline.empty) {
     return (
       <div className="timeline">
@@ -204,4 +250,9 @@ export function Timeline({ timeline, showPast, onTogglePast, onDetail }) {
       </div>
     </>
   );
+}
+
+/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. Live-regionen kjem frå AnnouncerProvider rundt appen. */
+export function Timeline(props) {
+  return <TimelineRows {...props} />;
 }
