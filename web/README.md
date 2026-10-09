@@ -48,5 +48,10 @@ Core importerer med `?v=<versjon>` for vanilla-appen. `build/strip-version-query
   «Berekna frå rutetabellen»). Nede eller treg worker (4 s) gjer ingenting vondt: siste posisjon
   eldast (Live → Siste kjende → Ukjent), så tek Entur over, så rutetabellen. Adressa kan
   overstyrast med `VITE_SANNTID_URL`; `off` slår AIS av.
+  Fort ved opning: `build/early-sanntid.js` set inn `preconnect` og ei tidleg henting i `<head>` (appen brukar
+  svaret, `model/sanntidEarly.js`), fyrste kall ventar ikkje på rutetabellen, og siste kjende posisjon ligg i
+  localStorage (`model/sanntidCache.js`, nøkkel `fergeruter-sanntid-v1`, med den verkelege alderen frå `msgtime`).
+  Før fyrste svar viser merket «Hentar posisjon …» i staden for «Berekna frå rutetabellen». Nytt kall òg ved
+  `focus`, `online` og `visibilitychange` (framleis 15/60 s mellom kall).
 - localStorage: val (samband, språk, ankomsttider) og meldingscachen brukar same nøklar som
   vanilla. Rutetabell-cachen og siste samband har eigne `fergeruter-web-`-nøklar.

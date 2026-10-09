@@ -3,6 +3,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { earlyScript } from "../build/early-sanntid.js";
+import { SANNTID_CACHE_KEY, readSanntidCache, writeSanntidCache } from "../src/model/sanntidCache.js";
+import { takeEarlySanntid } from "../src/model/sanntidEarly.js";
 import { bestFix, fixFreshness } from "../../packages/core/index.js";
 import {
   SANNTID_IDLE_INTERVAL_MS,
@@ -112,7 +115,11 @@ test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, ber
   assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: night + 1 }, data, ui, night), false, "natt: ikkje i backoff");
   assert.equal(sanntidDue({ fetchedAt: night - 20000 }, data, ui, Date.UTC(2026, 9, 8, 1, 0)), false, "midt på natta: ikkje oftare enn kvart minutt");
   assert.equal(SANNTID_IDLE_INTERVAL_MS, 60000);
-  assert.equal(sanntidDue({ fetchedAt: 0 }, { routes: null, kombirute: null }, ui, T0), false, "utan rutetabell");
+  // Utan rutetabell (ikkje komen enno): berre det fyrste kallet, med ein gong; ikkje i gøymd fane og ikkje i backoff.
+  assert.equal(sanntidDue({ fetchedAt: 0 }, { routes: null, kombirute: null }, ui, T0), true, "fyrste kall før rutetabellen");
+  assert.equal(sanntidDue({ fetchedAt: T0 - 60000 }, { routes: null, kombirute: null }, ui, T0), false, "berre det fyrste");
+  assert.equal(sanntidDue({ fetchedAt: 0 }, { routes: null, kombirute: null }, ui, T0, true), false);
+  assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: T0 + 1 }, { routes: null, kombirute: null }, ui, T0), false);
 });
 
 function readTimetable() {
@@ -147,4 +154,74 @@ test("fallback-kjeda: AIS eldast av seg sjølv (live → siste kjende → ukjend
   assert.equal(bestFix([aisFix], at(30)).source, "ais");
   assert.equal(bestFix([aisFix, entur], at(105)).source, "entur", "AIS er siste kjende (105 s), Entur er live");
   assert.equal(fixFreshness(bestFix([aisFix], at(400)), at(400)), "unknown", "ingen live posisjon att: appen viser Ukjent og rutetabellen");
+});
+
+test("tidleg henting: svaret frå index.html blir brukt ein gong, for same adresse; feil gjev vanleg feil", async () => {
+  const scope = { __sanntidEarly: { url: SANNTID_URL, promise: Promise.resolve(latest({ 1136: { ais: ais() } })) } };
+  assert.equal(takeEarlySanntid("https://anna.example/v1/latest", scope), null, "anna adresse");
+  const early = takeEarlySanntid(SANNTID_URL, scope);
+  assert.ok(early);
+  assert.equal(takeEarlySanntid(SANNTID_URL, scope), null, "berre ein gong");
+  assert.equal(takeEarlySanntid(SANNTID_URL, {}), null, "ingen tidleg henting");
+  let called = 0;
+  const ok = await loadSanntid(async () => { called++; }, SANNTID_URL, { early });
+  assert.equal(called, 0, "ingen nytt kall");
+  assert.equal(ok.entries.length, 1);
+  assert.equal(ok.entries[0].line, "1136");
+  assert.ok((await loadSanntid(async () => {}, SANNTID_URL, { early: Promise.reject(new Error("503")) })).error);
+  assert.ok((await loadSanntid(async () => {}, SANNTID_URL, { early: Promise.resolve({ schema: 2 }) })).error, "ugyldig svar");
+});
+
+test("tidleg henting: skriptet i <head> er gyldig JS med adressa, med avbrot og utan å kaste", () => {
+  const code = earlyScript(SANNTID_URL);
+  new Function(code); // syntaksen held
+  assert.ok(code.includes(JSON.stringify(SANNTID_URL)));
+  assert.match(code, /credentials:"omit"/);
+  assert.match(code, /c\.abort\(\)/);
+  const win = {};
+  new Function("window", "fetch", "AbortController", "setTimeout", code)(win, () => Promise.reject(new Error("nett")), AbortController, () => 0);
+  assert.equal(win.__sanntidEarly.url, SANNTID_URL);
+  return win.__sanntidEarly.promise.then(() => assert.fail("skulle feile"), () => {});
+});
+
+test("sist kjende posisjon i lagring: alderen er msgtime, ikkje lagringstida; søppel og gamalt blir kasta", () => {
+  const mem = new Map();
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v) };
+  assert.deepEqual(readSanntidCache(storage, T0), []);
+  const parsed = parseSanntid(latest({ 1136: { ais: ais() } })).entries;
+  writeSanntidCache(parsed, storage);
+  const back = readSanntidCache(storage, T0);
+  assert.equal(back.length, 1);
+  assert.equal(back[0].fix.at, parsed[0].fix.at, "same tid som AIS-meldinga");
+  // Tre timar seinare er posisjonen framleis med, men han er ikkje lenger «live»: alderen følgjer msgtime.
+  const later = readSanntidCache(storage, T0 + 3 * 3600000);
+  assert.equal(later.length, 1);
+  assert.equal(fixFreshness(later[0].fix, T0 + 3 * 3600000), "unknown");
+  assert.equal(fixFreshness(back[0].fix, T0), "live");
+  assert.equal(readSanntidCache(storage, T0 + 25 * 3600000).length, 0, "over eit døgn");
+  mem.set(SANNTID_CACHE_KEY, "{ikkje json");
+  assert.deepEqual(readSanntidCache(storage, T0), []);
+  mem.set(SANNTID_CACHE_KEY, JSON.stringify({ v: 1, entries: [{ line: "1136", fix: { source: "ais", latitude: "x", longitude: 6, at: T0 } }, { line: "1136", fix: { ...parsed[0].fix, at: T0 + 3600000 } }, null] }));
+  assert.deepEqual(readSanntidCache(storage, T0), [], "ugyldig og frå framtida");
+  mem.set(SANNTID_CACHE_KEY, JSON.stringify({ v: 2, entries: parsed }));
+  assert.deepEqual(readSanntidCache(storage, T0), [], "ukjend versjon");
+  assert.doesNotThrow(() => writeSanntidCache(parsed, { setItem() { throw new Error("full"); } }));
+  assert.deepEqual(readSanntidCache(null, T0), []);
+});
+
+test("tilstand: loaded etter fyrste svar eller feil, og sanntidPending til då", () => {
+  let state = emptySanntid();
+  assert.equal(state.loaded, false);
+  assert.equal(withSanntid({ routes: {} }, state, "1136").sanntidPending, true);
+  const failed = sanntidReducer(state, { type: "loaded", result: { error: "nett" }, at: T0 });
+  assert.equal(failed.loaded, true);
+  assert.equal(withSanntid({ routes: {} }, failed, "1136").sanntidPending, false);
+  const none = sanntidReducer(state, { type: "loaded", result: { entries: [] }, at: T0 });
+  assert.equal(none.loaded, true, "tomt svar er òg eit svar");
+  assert.equal(sanntidReducer(none, { type: "loaded", result: { entries: [] }, at: T0 }), none, "same tilstand ut");
+  // Posisjonar frå lagringa blir ståande til det ferske svaret tek over.
+  state = { ...emptySanntid(), entries: parseSanntid(latest({ 1136: { ais: ais() } })).entries };
+  const fresh = sanntidReducer(state, { type: "loaded", result: { entries: parseSanntid(latest({ 1136: { ais: ais({ msgtime: new Date(T0).toISOString() }) } })).entries }, at: T0 });
+  assert.equal(fresh.entries[0].fix.at, T0);
+  assert.equal(fresh.loaded, true);
 });

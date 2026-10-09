@@ -13,18 +13,11 @@ import { fixFromAis, legsForDate, liveBackoff, shouldFetchLive, todayIso } from 
 import { planContext } from "./context.js";
 import { enturMode } from "./entur.js";
 
-export const SANNTID_URL = "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/latest";
+export { SANNTID_URL, sanntidUrl } from "./sanntidUrl.js";
 export const SANNTID_TIMEOUT_MS = 4000;
 export const SANNTID_MIN_INTERVAL_MS = 15000;
 /** Utanfor driftsvindauget (natt): AIS sender heile døgnet, så vi spør, men sjeldnare. */
 export const SANNTID_IDLE_INTERVAL_MS = 60000;
-
-/** Adressa til workeren. VITE_SANNTID_URL overstyrer; «off» (eller tom) slår henting av AIS av. */
-export function sanntidUrl(env = {}) {
-  const value = env.VITE_SANNTID_URL;
-  if (value === undefined) return SANNTID_URL;
-  return value === "" || value === "off" ? null : value;
-}
 
 /** Linjene sambandet gjeld: éi ferje per linje, kombirute gjev begge. */
 export function modeLines(mode) {
@@ -57,7 +50,17 @@ export function parseSanntid(json) {
 }
 
 /** Eitt kall: `{ entries }` eller `{ error }`. Aldri kast. */
-export async function loadSanntid(fetchImpl, url, { timeoutMs = SANNTID_TIMEOUT_MS } = {}) {
+export async function loadSanntid(fetchImpl, url, { timeoutMs = SANNTID_TIMEOUT_MS, early = null } = {}) {
+  if (early) {
+    // Svaret på den tidlege hentinga i index.html. Feila ho, er det same feil som om vi hadde spurt sjølve.
+    try {
+      const parsed = parseSanntid(await early);
+      if (!parsed) throw new Error("ugyldig svar");
+      return { entries: parsed.entries };
+    } catch (error) {
+      return { error: String(error?.message || error) };
+    }
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -77,11 +80,13 @@ export async function loadSanntid(fetchImpl, url, { timeoutMs = SANNTID_TIMEOUT_
  * @typedef {object} SanntidState
  * @property {{ line: string, fix: object }[]} entries   siste posisjon per fartøy
  * @property {boolean} failed                            siste kall feila
+ * @property {boolean} loaded                            fyrste svar eller feil er komme
  * @property {number} backoffMs
  * @property {number} blockedUntil
  */
 export function emptySanntid() {
-  return { entries: [], failed: false, backoffMs: 0, blockedUntil: 0 };
+  // loaded: har fyrste svar (eller feil) komme? Før det er posisjonen «på veg», ikkje «berekna».
+  return { entries: [], failed: false, loaded: false, backoffMs: 0, blockedUntil: 0 };
 }
 
 const sameEntries = (a, b) =>
@@ -105,11 +110,11 @@ export function sanntidReducer(state, action) {
       const { result, at } = action;
       if (result.error) {
         const backoff = liveBackoff(state.backoffMs, at);
-        return { ...state, failed: true, backoffMs: backoff.backoffMs, blockedUntil: backoff.blockedUntil };
+        return { ...state, failed: true, loaded: true, backoffMs: backoff.backoffMs, blockedUntil: backoff.blockedUntil };
       }
       const entries = mergeEntries(state.entries, result.entries);
-      if (sameEntries(entries, state.entries) && !state.failed && !state.backoffMs) return state;
-      return { entries: sameEntries(entries, state.entries) ? state.entries : entries, failed: false, backoffMs: 0, blockedUntil: 0 };
+      if (sameEntries(entries, state.entries) && !state.failed && !state.backoffMs && state.loaded) return state;
+      return { entries: sameEntries(entries, state.entries) ? state.entries : entries, failed: false, loaded: true, backoffMs: 0, blockedUntil: 0 };
     }
     case "reset":
       return emptySanntid();
@@ -123,7 +128,9 @@ export function sanntidReducer(state, action) {
  * det; utanfor (natt, ferdig for dagen) spør vi minst kvart minutt, for AIS sender òg frå ei ferje ved kai.
  */
 export function sanntidDue({ fetchedAt = 0, blockedUntil = 0 }, data, ui, nowMs = Date.now(), hidden = false) {
-  if (hidden || (!data.routes && !data.kombirute)) return false;
+  if (hidden) return false;
+  // Utan rutetabell (ikkje komen enno) veit vi ikkje om vi er i driftsvindauget; det fyrste kallet går likevel med ein gong.
+  if (!data.routes && !data.kombirute) return !fetchedAt && !(nowMs < (blockedUntil || 0));
   if (nowMs < (blockedUntil || 0)) return false;
   const since = nowMs - fetchedAt;
   if (since < SANNTID_MIN_INTERVAL_MS) return false;
@@ -150,5 +157,7 @@ export function withSanntid(data, state, mode, { on = true } = {}) {
     positions: state.entries.filter((item) => lines.has(item.line)).map((item) => item.fix),
     sanntidOn: true,
     sanntidFailed: state.failed,
+    // Fyrste svar er ikkje komme: «No»-raden viser eit nøytralt «Hentar posisjon», ikkje «Berekna frå rutetabellen».
+    sanntidPending: !state.loaded,
   };
 }

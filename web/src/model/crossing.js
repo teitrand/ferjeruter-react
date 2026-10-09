@@ -32,9 +32,11 @@ export function positionFixes(data) {
  */
 export function liveStatus(status, legs, now, ev, data) {
   const fixes = positionFixes(data);
-  if (!status?.underway) return { crossing: null, fixes };
+  // pending: AIS-svaret er ikkje komme enno; «No»-raden viser då «Hentar posisjon», ikkje «Berekna frå rutetabellen».
+  const pending = Boolean(data.sanntidPending);
+  if (!status?.underway) return { crossing: null, fixes, pending };
   const running = runningLegs(legs, now, ev);
   const nowMs = Date.now();
   const leg = liveLeg(running, fixes, nowMs) || running.find((item) => within(item, nowMs, 0)) || null;
-  return { crossing: leg ? { leg, fixes } : null, fixes };
+  return { crossing: leg ? { leg, fixes } : null, fixes, pending };
 }
