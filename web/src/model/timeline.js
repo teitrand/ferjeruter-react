@@ -153,6 +153,8 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
   const anyDep = events.some((event) => event.kind === "dep");
   return {
     empty: null,
+    // Same dag og same rute: berre då kan ei endra status lesast opp (Timeline).
+    scope: today ? `${ctx.date}|${dayLegs.length}|${dayLegs[0]?.id || ""}` : null,
     rows,
     pastCount: pastDepartureCount(events, now, opts),
     remember,
