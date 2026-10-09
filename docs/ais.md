@@ -133,7 +133,7 @@ AIS går føre Entur sin posisjon når AIS-posisjonen er nyare. Entur blir veran
 
 - Innsamlaren eller workeren publiserer ein liten posisjonsfeed per linje: `latitude`, `longitude`,
   `speedOverGround`, `courseOverGround`, `msgtime` og `source: 'ais'`.
-- Appen fyller `data.positions` frå denne feeden. `fixFromAis`, `newestFix` og merket «Live · AIS» finst
+- Appen fyller `data.positions` frå denne feeden. `fixFromAis`, `bestFix` og merket «Live · AIS» finst
   alt i core.
 - Det som manglar:
   - henting av feeden i web-modellen og i vanilla-appen

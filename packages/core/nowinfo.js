@@ -76,13 +76,13 @@ function nextLine(leg, headKey, params, ms, nowMs) {
  * @param {number} p.nowMs
  * @param {string} p.today        ISO-dato i dag (Oslo)
  * @param {(iso: string) => object[]} p.legsOn  turane ein annan dag (legsForDate)
- * @param {string|null} [p.atQuay]  kaia fersk AIS viser ferja ved (aisQuay); då seier raden «ligg til kai på X»
  * @returns {{ lines: {kind: string, text: string}[] }}
  */
-export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, atQuay = null }) {
+export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn }) {
   const lines = [];
   let place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
-  if (atQuay && !status?.underway) place = t("status.mooredAt", { quay: atQuay });
+  // status.atQuay: fersk AIS ved kai (statusFromPosition). Då seier raden «ligg til kai på X» òg når tabellen seier «ferdig for dagen».
+  if (status?.atQuay && !status.underway) place = t("status.mooredAt", { quay: status.atQuay });
   if (place) lines.push({ kind: "place", text: place });
   // Utanfor ruta (AIS): ingen neste avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
   if (status?.outside) return { lines };

@@ -46,7 +46,7 @@ export function parseSanntid(json) {
     });
     if (fix) entries.push({ line: String(line), fix });
   }
-  return { entries, collectorStale: Boolean(json.collector?.stale) };
+  return { entries };
 }
 
 /** Eitt kall: `{ entries }` eller `{ error }`. Aldri kast. */

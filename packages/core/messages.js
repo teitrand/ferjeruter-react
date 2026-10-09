@@ -50,14 +50,6 @@ export const MESSAGES_STALE_MS = 8 * 60 * 1000;
 /** Kor ofte appane spør etter nye meldingar når fana er synleg. */
 export const MESSAGES_POLL_MS = 3 * 60 * 1000;
 
-export function excerptText(text, max = 140) {
-  const raw = String(text || "").replace(/\s+/g, " ").trim();
-  if (raw.length <= max) return raw;
-  const cut = raw.slice(0, max);
-  const at = cut.lastIndexOf(" ");
-  return `${(at > 80 ? cut.slice(0, at) : cut).trim()}…`;
-}
-
 /** Publisert-tid og «gyldig til» frå Fjord1, med klokkeslett. */
 export function messageTimeLines(msg) {
   const lines = [];
@@ -312,14 +304,6 @@ export function resolveRoutePlan(messages, now = Date.now(), date = osloIsoFromM
     }
   }
   return { mode, switch: parsed, message: latest };
-}
-
-export function routeModeFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
-  return resolveRoutePlan(messages, now, date).mode;
-}
-
-export function routeSwitchFromMessages(messages, now = Date.now(), date = osloIsoFromMs(now)) {
-  return resolveRoutePlan(messages, now, date).switch;
 }
 
 export function driftNeedsOperationalTable(resolved, parsed) {

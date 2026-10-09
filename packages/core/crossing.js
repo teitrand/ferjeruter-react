@@ -33,8 +33,6 @@ export const FIX_AFTER_ARRIVAL_MS = 15 * 60 * 1000;
 /** Turmatching: avgangar så langt før/etter posisjonen er ikkje kandidatar. */
 export const MATCH_SLACK_MS = 10 * 60 * 1000;
 
-export const FIX_SOURCES = ["ais", "entur", "computed"];
-
 /**
  * @typedef {object} PositionFix
  * @property {"ais"|"entur"|"computed"} source
@@ -144,16 +142,6 @@ export function outsideFix(fixes, nowMs, leg = null) {
   if (nearest == null || nearest <= QUAY_RADIUS_M * 2) return null;
   if (leg ? nearRoute(newest, leg) : nearest <= OUTSIDE_AREA_M) return null;
   return newest;
-}
-
-/** Nyaste målte posisjon. AIS vinn når to er like gamle. */
-export function newestFix(fixes) {
-  let best = null;
-  for (const fix of fixes || []) {
-    if (!fix || fix.source === "computed") continue;
-    if (!best || fix.at > best.at || (fix.at === best.at && fix.source === "ais")) best = fix;
-  }
-  return best;
 }
 
 const FRESHNESS_RANK = { live: 2, stale: 1, unknown: 0 };
@@ -606,27 +594,17 @@ export function countdownParts(time, nowMs) {
 }
 
 /**
- * Statuslinja etter posisjonen vi stolar på. AIS er sanninga: seier ein fersk AIS-posisjon noko anna enn
- * statusen frå rutetabellen (og Entur-beviset), vinn AIS. Rører berre mot-seiingar:
- *  - rutetabellen seier «på veg», AIS seier ved kai (innanfor 250 m, < 0,5 kn): «Ferja ligg til kai på X»
- *  - rutetabellen seier ved kai, AIS viser ferja i fart på ein tur: «Ferja er på veg mot Y»
- * Elles (same syn, ingen AIS, eldre AIS, Entur som kjelde, signalturar) blir statusen uendra: Entur gjev alt
- * forseinking og bevis gjennom currentStatus. Pur: `running` er runningLegs, `quays` knownQuays.
- *
- * @param {object|null} status   currentStatus
- * @returns {object|null}        same objekt når ingenting skal endrast
- */
-/**
  * Kaia ferja ligg ved ifølgje fersk AIS (live), elles null. Same grense som «Live frå AIS»: ved kai 4 minutt.
- * Brukt av «No»-raden, så ho kan seie «ligg til kai på X» frå AIS òg når rutetabellen seier «ferdig for dagen».
+ * Går ut som `status.atQuay`, så «No»-raden seier «ligg til kai på X» frå AIS òg når rutetabellen seier «ferdig for dagen».
  */
-export function aisQuay(fixes, quays, nowMs) {
+function aisQuay(fixes, quays, nowMs) {
   const best = bestFix(fixes, nowMs);
   if (!best || best.source !== "ais" || fixFreshness(best, nowMs) !== "live") return null;
   return (quays || []).find((name) => fixAtQuay(best, name)) || null;
 }
 
-export function statusFromPosition(status, { running, fixes, quays, now, nowMs }) {
+/** Mot-seiingane over: ny status når AIS og rutetabellen er usamde, elles same objekt. */
+function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (!status || status.signal || status.cancelled) return status;
   // AIS seier at ferja er utanfor ruta: det vinn over rutetabellen, òg når AIS-meldinga er nokre minutt gammal.
   const away = outsideFix(fixes, nowMs);
@@ -678,4 +656,22 @@ export function statusFromPosition(status, { running, fixes, quays, now, nowMs }
     text: t("status.underwayTo", { dest: leg.to }),
     position: "ais",
   };
+}
+
+/**
+ * Statuslinja etter posisjonen vi stolar på. AIS er sanninga: seier ein fersk AIS-posisjon noko anna enn
+ * statusen frå rutetabellen (og Entur-beviset), vinn AIS. Rører berre mot-seiingar:
+ *  - rutetabellen seier «på veg», AIS seier ved kai (innanfor 250 m, < 0,5 kn): «Ferja ligg til kai på X»
+ *  - rutetabellen seier ved kai, AIS viser ferja i fart på ein tur: «Ferja er på veg mot Y»
+ * Elles (same syn, ingen AIS, eldre AIS, Entur som kjelde, signalturar) blir statusen uendra: Entur gjev alt
+ * forseinking og bevis gjennom currentStatus. Pur: `running` er runningLegs, `quays` knownQuays.
+ *
+ * @param {object|null} status   currentStatus
+ * @returns {object|null}        statusen, med `atQuay` (kaia fersk AIS viser ferja ved) når AIS er ved kai
+ */
+export function statusFromPosition(status, ctx) {
+  const out = overrideFromPosition(status, ctx);
+  // Éi kjelde for «ligg til kai på X»: «No»-raden les status.atQuay i staden for å rekne AIS-kaia ut på nytt.
+  const atQuay = out && !out.outside ? aisQuay(ctx.fixes, ctx.quays, ctx.nowMs) : null;
+  return atQuay ? { ...out, atQuay } : out;
 }

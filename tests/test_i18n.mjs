@@ -44,7 +44,6 @@ test("seglingstekst har destinasjon i alle språk", () => {
   assert.equal(t("messages.expand"), "Vis meir");
   assert.equal(t("messages.collapse"), "Vis mindre");
   assert.equal(t("messages.andNMore", { n: 2 }), "og 2 til");
-  assert.equal(t("messages.excerptMore"), "…");
   assert.equal(t("messages.fetchedLive", { when: "i dag 18:01" }), "Sist henta i dag 18:01 frå Fjord1");
   assert.equal(t("route.label"), "Vel samband");
   assert.equal(t("place.from"), "Frå");
@@ -62,7 +61,6 @@ test("seglingstekst har destinasjon i alle språk", () => {
     t("status.layoverAt", { quay: "Sæbø", duration: "32 min", time: "13:45" }),
     "Ferja ligg til kai på Sæbø. Liggetid 32 min, til 13:45."
   );
-  assert.equal(t("day.todayFull", { date: "søndag 13. september" }), "I dag · søndag 13. september");
   assert.equal(
     t("conn.signalCallPhone", { route: "1136", phone: "91 66 93 40" }),
     "Signaltur, ring 1136 (91 66 93 40)"

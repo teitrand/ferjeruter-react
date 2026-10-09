@@ -1,9 +1,7 @@
 /** Toppen: kva rute som gjeld, og statuslinja (alltid om i dag). */
 import {
-  aisQuay,
   activeMode,
   countdown,
-  currentStatus,
   formatDateOnly,
   formatDateTime,
   hasPassed,
@@ -17,13 +15,12 @@ import {
   routeFootnotes,
   runningLegs,
   signalLogStale,
-  statusFromPosition,
   todayIso,
   vesselInfo,
   vesselNameForTable,
 } from "../../../packages/core/index.js";
-import { planContext, statusEvidence, statusView } from "./context.js";
-import { liveStatus, positionFixes } from "./crossing.js";
+import { planContext, statusEvidence } from "./context.js";
+import { liveStatus, nowStatus, positionFixes } from "./crossing.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
@@ -72,13 +69,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
   const ev = statusEvidence(data, ui, memory, ctx);
   const running = runningLegs(legs, now, ev);
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
-  const status = statusFromPosition(currentStatus(legs, now, ev, statusView(ctx)), {
-    running,
-    fixes: positionFixes(data),
-    quays: knownQuays(ctx),
-    now,
-    nowMs: Date.now(),
-  });
+  const status = nowStatus(data, ctx, legs, now, ev, running);
   const next = running.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
@@ -88,9 +79,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
     // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
     live: liveStatus(status, legs, now, ev, data),
     // Teksten i «No»-raden: kvar ferja er, neste/fyrste tur med nedteljing, overfartstid og turen etter.
-    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx),
-      atQuay: aisQuay(positionFixes(data), knownQuays(ctx), Date.now()),
-    }),
+    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx) }),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

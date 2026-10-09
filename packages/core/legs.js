@@ -31,12 +31,6 @@ export function quayPlace(name) {
   return place === "Lekneset" ? "Leknes" : place;
 }
 
-export function catalogKeys(leg) {
-  if (leg.activeDates?.length) return leg.activeDates;
-  if (leg.days?.length) return leg.days;
-  return ["*"];
-}
-
 export function isUncertainDeparture(departure, notice, switchTime) {
   if (!notice || !switchTime) return false;
   const dep = clockMinutes(departure);
