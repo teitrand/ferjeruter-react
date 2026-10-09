@@ -382,12 +382,16 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   const lastMeasured = source !== "computed" ? progress : state === "unknown" ? null : same?.lastMeasured ?? null;
   const lastEstimate = source === "computed" ? progress : same?.lastEstimate ?? null;
   const ageMs = own ? Math.max(0, nowMs - own.at) : null;
+  // Minutt att til framkomst (rundt ned, så vi aldri lovar meir tid enn det er). null når tida er ute.
+  const arrivalMs = clockMs(arrival, nowMs);
+  const left = arrivalMs > nowMs ? Math.floor((arrivalMs - nowMs) / 60000) : null;
   return {
     trip,
     from: leg.from,
     to: leg.to,
     departure: hhmm(leg.departure),
     arrival,
+    left,
     source,
     state,
     measured: source !== "computed",
@@ -470,9 +474,11 @@ export function crossingNote(view) {
 export function crossingProgressText(view) {
   if (!view) return "";
   if (view.atQuay && view.progress >= 1) return t("crossing.atQuay", { quay: view.to });
+  // «om 9 min» etter framkomsttida, berre når det er minst eitt minutt att.
+  const left = view.left >= 1 ? ` · ${t("countdown.in", { duration: durationText(view.left) })}` : "";
   // Berekna: «ca.» og «planlagt framme», så det ikkje ser ut som ein måling.
-  if (!view.measured) return t("crossing.progressCalc", { percent: view.percent, time: view.arrival });
-  return t("crossing.progress", { percent: view.percent, time: view.arrival });
+  if (!view.measured) return t("crossing.progressCalc", { percent: view.percent, time: view.arrival }) + left;
+  return t("crossing.progress", { percent: view.percent, time: view.arrival }) + left;
 }
 
 function sourceKey(view) {

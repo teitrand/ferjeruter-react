@@ -297,7 +297,7 @@ test("crossing.js les ikkje tripStatus: posisjonen er aldri bevis for at ein tur
   const view = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.deepEqual(
     Object.keys(view).sort(),
-    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "measured", "percent", "progress", "pulse", "seenLive", "source", "state", "to", "trip"]
+    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "left", "measured", "percent", "progress", "pulse", "seenLive", "source", "state", "to", "trip"]
   );
 });
 
@@ -314,8 +314,9 @@ test("tekstar: merke, kjeldeline og aria-valuetext seier alltid kjelda (nn)", ()
   const unknown = crossingView({ leg: OUT, fix, nowMs: fix.at + 7 * 60000 });
   assert.equal(crossingBadge(unknown), "Ukjent · ingen sanntid sidan 20:05");
   assert.match(crossingValueText(unknown), /posisjon ukjend, berekna frå rutetabellen$/);
-  assert.equal(crossingProgressText(unknown), `ca. ${unknown.percent} % av overfarten · planlagt framme 20:15`);
-  assert.equal(crossingProgressText(live), `${live.percent} % av overfarten · Framme 20:15`);
+  assert.equal(crossingProgressText(unknown), `ca. ${unknown.percent} % av overfarten · planlagt framme 20:15 · om 3 min`);
+  assert.equal(crossingProgressText(live), `${live.percent} % av overfarten · Framme 20:15 · om 9 min`);
+  assert.equal(live.left, 9, "minutt att, rundt ned");
   const calc = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.equal(crossingBadge(calc), "Berekna frå rutetabellen");
   assert.match(crossingValueText(calc), /^40 % av overfarten frå Standal til Trandal, berekna frå rutetabellen$/);
@@ -323,7 +324,7 @@ test("tekstar: merke, kjeldeline og aria-valuetext seier alltid kjelda (nn)", ()
   assert.equal(crossingBadge(entur), "Live frå Entur · 5 s");
   setLang("en");
   assert.equal(crossingBadge(calc), "Estimated from the timetable");
-  assert.match(crossingProgressText(calc), /^about 40 % of the crossing · scheduled arrival 20:15$/);
+  assert.match(crossingProgressText(calc), /^about 40 % of the crossing · scheduled arrival 20:15 · in 9 min$/);
   setLang("de");
   assert.equal(crossingBadge(stale), "Zuletzt bekannt von AIS · vor 3 Min.");
   setLang("nn");

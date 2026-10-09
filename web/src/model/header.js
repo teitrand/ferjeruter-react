@@ -10,6 +10,7 @@ import {
   isVisibleDeparture,
   knownQuays,
   legsForDate,
+  nowInfo,
   nowMinutes,
   positionNoteKey,
   routeFootnotes,
@@ -85,6 +86,8 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
     next: next ? { time: hhmm(next.departure), from: next.from, countdown: countdown(next.departure), departure: next.departure } : null,
     // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
     live: liveStatus(status, legs, now, ev, data),
+    // Teksten i «No»-raden: kvar ferja er, neste/fyrste tur med nedteljing, overfartstid og turen etter.
+    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx) }),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

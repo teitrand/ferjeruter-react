@@ -168,13 +168,27 @@ function TransferRow({ row }) {
  * kai, er det den vanlege stolpen (liggetida som fyll) utan ferje, med merket attmed «No».
  * Utan `live` (andre dagar, ingen sanntid) er raden berre «No», skjult for skjermlesar som før.
  */
-function NowRow({ row, live }) {
+function NowInfo({ info }) {
+  if (!info?.lines?.length) return null;
+  return (
+    <ul className="now-info">
+      {info.lines.map((line) => (
+        <li key={line.kind} className={`now-info-${line.kind}`}>
+          {line.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function NowRow({ row, live, info }) {
   const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
   const crossing = Boolean(live?.crossing);
   const hasProgress = row.progress != null && !crossing;
   const className = `now ${kind}${hasProgress ? " has-progress" : ""}${live ? " now-live" : ""}${crossing ? " has-crossing" : ""}`;
   const style = hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined;
-  if (!live) {
+  const hasInfo = Boolean(info?.lines?.length);
+  if (!live && !hasInfo) {
     return (
       <div className={className} style={style} aria-hidden="true">
         {hasProgress ? (
@@ -186,14 +200,26 @@ function NowRow({ row, live }) {
       </div>
     );
   }
+  const infoClass = hasInfo && !live ? `${className} now-live` : className;
   return (
-    <div className={className} style={style} role="group" aria-label={t("now")}>
+    <div className={infoClass} style={style} role="group" aria-label={t("now")}>
       {hasProgress ? (
         <span className="now-track" aria-hidden="true">
           <span className="now-fill" />
         </span>
       ) : null}
-      <NowLive live={live} label={t("now")} />
+      {live ? (
+        <NowLive live={live} label={t("now")}>
+          <NowInfo info={info} />
+        </NowLive>
+      ) : (
+        <>
+          <div className="now-head">
+            <span className="now-label">{t("now")}</span>
+          </div>
+          <NowInfo info={info} />
+        </>
+      )}
     </div>
   );
 }
@@ -236,7 +262,7 @@ function useDepartureAnnouncements(rows, scope) {
   }, [rows, scope, announce]);
 }
 
-function TimelineRows({ timeline, showPast, onTogglePast, onDetail, live = null }) {
+function TimelineRows({ timeline, showPast, onTogglePast, onDetail, live = null, info = null }) {
   useDepartureAnnouncements(timeline.rows, timeline.scope);
   if (timeline.empty) {
     return (
@@ -257,7 +283,7 @@ function TimelineRows({ timeline, showPast, onTogglePast, onDetail, live = null 
       <div className="timeline">
         {timeline.rows.map((row) => {
           const Row = ROWS[row.kind];
-          return <Row key={row.key} row={row} onDetail={onDetail} live={live} />;
+          return <Row key={row.key} row={row} onDetail={onDetail} live={live} info={info} />;
         })}
         {timeline.emptyPlace ? <p className="empty">{timeline.emptyPlace}</p> : null}
       </div>

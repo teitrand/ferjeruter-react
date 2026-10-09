@@ -28,6 +28,7 @@ const PRECACHE = [
   "./packages/core/chrome.js?v=84",
   "./packages/core/track.js?v=84",
   "./packages/core/crossing.js?v=84",
+  "./packages/core/nowinfo.js?v=84",
   "./assets/favicon.svg",
   "./assets/icons/icon-192.png?v=2",
   "./assets/icons/icon-512.png?v=2",
