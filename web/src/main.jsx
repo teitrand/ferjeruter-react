@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../../assets/styles.css";
+import "./styles/crossing.css";
 import { App } from "./App.jsx";
 import { detectLang } from "./components/i18n.js";
 import { routeOverride } from "../../packages/core/index.js";

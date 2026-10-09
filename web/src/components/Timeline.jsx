@@ -1,5 +1,9 @@
+import { useEffect, useRef } from "react";
 import { telHref } from "../../../packages/core/index.js";
+import { AnnouncerProvider, useAnnounce } from "./Announcer.jsx";
 import { CallLink } from "./CallLink.jsx";
+import { Countdown } from "./Countdown.jsx";
+import { LiveCrossing } from "./LiveCrossing.jsx";
 import { t } from "./i18n.js";
 
 function PhoneIcon() {
@@ -57,6 +61,9 @@ export function DepartureRow({ row, onDetail }) {
     .filter(Boolean)
     .join(" ");
   const signal = row.skipped ? "skipped" : row.state === "unknown" ? "unknown" : undefined;
+  // Status-in (240 ms) berre når statusen endrar seg medan sida er open, ikkje ved fyrste teikning.
+  const firstState = useRef(row.state);
+  const changed = row.state !== firstState.current;
   return (
     <div
       className={className}
@@ -90,7 +97,7 @@ export function DepartureRow({ row, onDetail }) {
           </span>
         ))}
       </span>
-      <span className="stop-state" data-signal={signal}>
+      <span key={row.state || "none"} className={changed ? "stop-state status-in" : "stop-state"} data-signal={signal}>
         {row.stateText}
       </span>
     </div>
@@ -158,27 +165,64 @@ function TransferRow({ row }) {
 
 function NowRow({ row }) {
   const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
-  const hasProgress = row.progress != null;
+  // Med overfartslinja (LiveCrossing) viser ikkje «No»-rada si eiga framdrift i tillegg.
+  const hasProgress = row.progress != null && !row.crossing;
   return (
-    <div
-      className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
-      style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
-    >
-      {hasProgress ? (
-        <span className="now-track" aria-hidden="true">
-          <span className="now-fill" />
-        </span>
-      ) : null}
-      <span className="now-label">{t("now")}</span>
-      <span className="now-text">{row.text}</span>
-    </div>
+    <>
+      <div
+        className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
+        style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
+      >
+        {hasProgress ? (
+          <span className="now-track" aria-hidden="true">
+            <span className="now-fill" />
+          </span>
+        ) : null}
+        <span className="now-label">{t("now")}</span>
+        <span className="now-text">{row.text}</span>
+        {row.next ? <Countdown time={row.next.time} /> : null}
+      </div>
+      {row.crossing ? <LiveCrossing crossing={row.crossing} /> : null}
+    </>
   );
 }
 
 const ROWS = { dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow, now: NowRow };
 
-/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
-export function Timeline({ timeline, showPast, onTogglePast, onDetail }) {
+/**
+ * Seier frå i den felles live-regionen når statusen til ei avgang skifter medan sida
+ * er open (t.d. «Planlagt» → «Avlyst»). Ikkje ved fyrste teikning, dagbyte eller filter.
+ */
+function useDepartureAnnouncements(rows, scope) {
+  const announce = useAnnounce();
+  const seen = useRef(null);
+  const seenScope = useRef(scope);
+  useEffect(() => {
+    if (!scope || seenScope.current !== scope) {
+      seenScope.current = scope;
+      seen.current = null;
+      if (!scope) return;
+    }
+    const now = new Map();
+    for (const row of rows || []) {
+      if (row.kind === "dep" && !row.past) now.set(row.key, row);
+    }
+    const before = seen.current;
+    seen.current = now;
+    if (!before) return;
+    const changes = [];
+    for (const [key, row] of now) {
+      const old = before.get(key);
+      if (old && old.state !== row.state && row.stateText) {
+        changes.push(t("crossing.annDeparture", { route: t("sailing.route", { from: row.from, to: row.to }), time: row.time, status: row.stateText }));
+      }
+    }
+    if (changes.length) announce(changes.join(" "));
+  }, [rows, scope, announce]);
+}
+
+function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
+  useDepartureAnnouncements(timeline.rows, timeline.scope);
   if (timeline.empty) {
     return (
       <div className="timeline">
@@ -203,5 +247,14 @@ export function Timeline({ timeline, showPast, onTogglePast, onDetail }) {
         {timeline.emptyPlace ? <p className="empty">{timeline.emptyPlace}</p> : null}
       </div>
     </>
+  );
+}
+
+/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
+export function Timeline(props) {
+  return (
+    <AnnouncerProvider>
+      <TimelineRows {...props} />
+    </AnnouncerProvider>
   );
 }

@@ -17,6 +17,10 @@ import {
   durationText,
   emptyPlaceMessage,
   eventIsPast,
+  fixAtQuay,
+  fixBelongsTo,
+  fixFromLive,
+  clockMs,
   hasPassed,
   hhmm,
   journeyNote,
@@ -27,7 +31,9 @@ import {
   minutesLeft,
   minutesToClock,
   nowMinutes,
+  matchCrossingLeg,
   pastDepartureCount,
+  runningLegs,
   signalObservedAtQuay,
   signalPhone,
   statusProgress,
@@ -139,7 +145,7 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     statuses.set(event.leg, status);
   }
   const status = today ? currentStatus(dayLegs, now, ev, statusView(ctx)) : null;
-  if (status) events.push({ at: status.at, kind: "status", now: status });
+  if (status) events.push({ at: status.at, kind: "status", now: status, live: liveCrossing(status, dayLegs, now, ev, data) });
   events.sort(compareTimelineEvents);
 
   const opts = { today, filters, skipped: (leg) => statuses.get(leg)?.verdict === "skipped" };
@@ -153,11 +159,47 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
   const anyDep = events.some((event) => event.kind === "dep");
   return {
     empty: null,
+    // Same dag og same rute: berre då kan ei endra status lesast opp (Timeline).
+    scope: today ? `${ctx.date}|${dayLegs.length}|${dayLegs[0]?.id || ""}` : null,
     rows,
     pastCount: pastDepartureCount(events, now, opts),
     remember,
     emptyPlace: !anyDep && (filters.from || filters.to) ? emptyPlaceMessage(filters) : null,
   };
+}
+
+function within(leg, nowMs, slackMs) {
+  return clockMs(leg.departure, nowMs) - slackMs <= nowMs && nowMs < clockMs(leg.arrival, nowMs) + slackMs;
+}
+
+/** Turen sanntidsposisjonen viser (t.d. ei forseinka ferje), om han er i gang no og ikkje alt framme. */
+function liveLeg(running, fixes, nowMs) {
+  for (const fix of fixes) {
+    const leg = matchCrossingLeg(running, fix);
+    if (leg && within(leg, nowMs, 15 * 60000) && fixBelongsTo(fix, leg, nowMs) && !fixAtQuay(fix, leg.to)) return leg;
+  }
+  return null;
+}
+
+/**
+ * Grunnlaget for framdriftslinja og nedteljinga i «No»-rada. Komponenten reknar sjølv ut
+ * framdrifta kvart sekund (core crossingView), så her kjem berre turen og posisjonane.
+ * `fixes`: Entur-posisjonen i dag. AIS (data.positions, PositionFix frå core fixFromAis)
+ * er ikkje kopla til enno, men blir teken med når nokon fyller det inn.
+ * @returns {{ crossing: { leg: object, fixes: object[] }|null, next: { time: string, from: string }|null }}
+ */
+export function liveCrossing(status, dayLegs, now, ev, data) {
+  const running = runningLegs(dayLegs, now, ev);
+  const fixes = [fixFromLive(data.live), ...(Array.isArray(data.positions) ? data.positions : [])].filter(Boolean);
+  const nowMs = Date.now();
+  let crossing = null;
+  if (status.underway) {
+    const leg = liveLeg(running, fixes, nowMs) || running.find((item) => within(item, nowMs, 0)) || null;
+    if (leg) crossing = { leg, fixes };
+  }
+  const upcoming = running.find((leg) => clockMs(leg.departure, nowMs) > nowMs);
+  const next = !status.underway && upcoming ? { time: upcoming.departure, from: upcoming.from } : null;
+  return { crossing, next };
 }
 
 function toRow(event, past, status, { ctx, ev, now, today, showArrivals, index, filters }) {
@@ -212,6 +254,8 @@ function toRow(event, past, status, { ctx, ev, now, today, showArrivals, index, 
         layover: Boolean(event.now.layover),
         underway: Boolean(event.now.underway),
         progress: statusProgress(event.now.from, event.now.until, now),
+        crossing: event.live?.crossing || null,
+        next: event.live?.next || null,
       };
     default:
       throw new Error(`ukjend hending ${event.kind}`);
