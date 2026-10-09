@@ -554,6 +554,16 @@ export function countdownParts(time, nowMs) {
  * @param {object|null} status   currentStatus
  * @returns {object|null}        same objekt når ingenting skal endrast
  */
+/**
+ * Kaia ferja ligg ved ifølgje fersk AIS (live), elles null. Same grense som «Live frå AIS»: ved kai 4 minutt.
+ * Brukt av «No»-raden, så ho kan seie «ligg til kai på X» frå AIS òg når rutetabellen seier «ferdig for dagen».
+ */
+export function aisQuay(fixes, quays, nowMs) {
+  const best = bestFix(fixes, nowMs);
+  if (!best || best.source !== "ais" || fixFreshness(best, nowMs) !== "live") return null;
+  return (quays || []).find((name) => fixAtQuay(best, name)) || null;
+}
+
 export function statusFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (!status || status.signal || status.cancelled) return status;
   const best = bestFix(fixes, nowMs);

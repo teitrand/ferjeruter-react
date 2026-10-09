@@ -42,7 +42,7 @@ Core importerer med `?v=<versjon>` for vanilla-appen. `build/strip-version-query
   cachenamn `fergeruter-web-<hash>` og datafilene frå `VITE_DATA_BASE` (òg på eit anna
   opphav). Scope er mappa sw.js ligg i, så han rører aldri den gamle appen på `/fergeruter/`.
 - AIS-posisjon: `hooks/useSanntid.js` + `model/sanntid.js` hentar `GET /v1/latest` frå workeren
-  `fergeruter-sanntid` (`lines[<linje>].ais`) kvart 15. s i driftsvindauget. Rekkefølgja er
+  `fergeruter-sanntid` (`lines[<linje>].ais`) kvart 15. s i driftsvindauget og kvart minutt utanfor (AIS sender heile døgnet, òg frå ei ferje ved kai). Rekkefølgja er
   AIS > Entur > rutetabell (core `bestFix`), og live-merket, kjeldelina, aria-teksten og fotnoten
   seier kva posisjonen faktisk kjem frå («Live frå AIS» / «Live frå Entur» / «Siste kjende frå AIS» /
   «Berekna frå rutetabellen»). Nede eller treg worker (4 s) gjer ingenting vondt: siste posisjon

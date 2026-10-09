@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { bestFix, fixFreshness } from "../../packages/core/index.js";
 import {
+  SANNTID_IDLE_INTERVAL_MS,
   SANNTID_MIN_INTERVAL_MS,
   SANNTID_URL,
   emptySanntid,
@@ -102,7 +103,15 @@ test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, ber
   assert.equal(sanntidDue({ fetchedAt: T0 - SANNTID_MIN_INTERVAL_MS + 1000 }, data, ui, T0), false);
   assert.equal(sanntidDue({ fetchedAt: T0 - SANNTID_MIN_INTERVAL_MS }, data, ui, T0), true);
   assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: T0 + 1 }, data, ui, T0), false, "backoff");
-  assert.equal(sanntidDue({ fetchedAt: 0 }, data, ui, Date.UTC(2026, 9, 8, 1, 0)), false, "midt på natta, utanfor drift");
+  // Natt (utanfor driftsvindauget): AIS sender heile døgnet, så vi spør, men berre kvart minutt, og framleis ikkje i gøymd fane eller backoff.
+  const night = Date.UTC(2026, 9, 8, 19, 10); // 21:10 Oslo, etter siste tur
+  assert.equal(sanntidDue({ fetchedAt: 0 }, data, ui, night), true, "natt: fyrste kall med ein gong");
+  assert.equal(sanntidDue({ fetchedAt: night - SANNTID_IDLE_INTERVAL_MS + 1000 }, data, ui, night), false, "natt: ikkje oftare enn kvart minutt");
+  assert.equal(sanntidDue({ fetchedAt: night - SANNTID_IDLE_INTERVAL_MS }, data, ui, night), true);
+  assert.equal(sanntidDue({ fetchedAt: 0 }, data, ui, night, true), false, "natt: ikkje i gøymd fane");
+  assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: night + 1 }, data, ui, night), false, "natt: ikkje i backoff");
+  assert.equal(sanntidDue({ fetchedAt: night - 20000 }, data, ui, Date.UTC(2026, 9, 8, 1, 0)), false, "midt på natta: ikkje oftare enn kvart minutt");
+  assert.equal(SANNTID_IDLE_INTERVAL_MS, 60000);
   assert.equal(sanntidDue({ fetchedAt: 0 }, { routes: null, kombirute: null }, ui, T0), false, "utan rutetabell");
 });
 

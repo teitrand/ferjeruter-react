@@ -76,11 +76,13 @@ function nextLine(leg, headKey, params, ms, nowMs) {
  * @param {number} p.nowMs
  * @param {string} p.today        ISO-dato i dag (Oslo)
  * @param {(iso: string) => object[]} p.legsOn  turane ein annan dag (legsForDate)
+ * @param {string|null} [p.atQuay]  kaia fersk AIS viser ferja ved (aisQuay); då seier raden «ligg til kai på X»
  * @returns {{ lines: {kind: string, text: string}[] }}
  */
-export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn }) {
+export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, atQuay = null }) {
   const lines = [];
-  const place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
+  let place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
+  if (atQuay && !status?.underway) place = t("status.mooredAt", { quay: atQuay });
   if (place) lines.push({ kind: "place", text: place });
   const ran = visible(running);
   const current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;

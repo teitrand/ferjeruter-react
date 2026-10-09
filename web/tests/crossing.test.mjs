@@ -10,6 +10,7 @@ import {
   bestFix,
   positionNoteKey,
   statusFromPosition,
+  aisQuay,
   FIX_FRESH_MS,
   FIX_PULSE_MS,
   FIX_STALE_MS,
@@ -549,4 +550,15 @@ test("statuslinja: «ferdig for dagen på Standal» eller «ligg til kai på Sta
   assert.equal(statusFromPosition(same, { ...ctx, fixes }), same);
   const wrongQuay = { at: 1240, short: "Ferja ligg til kai på Standal", text: "Ferja ligg til kai på Standal." };
   assert.equal(statusFromPosition(wrongQuay, { ...ctx, fixes }).text, "Ferja ligg til kai på Trandal.");
+});
+
+test("aisQuay: kaia berre ved fersk AIS (ved kai 4 min), ikkje Entur, ikkje i fart", () => {
+  const nowMs = oslo(23, 0);
+  const quays = ["Standal", "Trandal"];
+  assert.equal(aisQuay([ais(0, nowMs - 90000, { sog: 0 })], quays, nowMs), "Standal");
+  assert.equal(aisQuay([ais(0, nowMs - 3 * 60000, { sog: 0 })], quays, nowMs), "Standal", "3 min sidan: framleis live ved kai");
+  assert.equal(aisQuay([ais(0, nowMs - 5 * 60000, { sog: 0 })], quays, nowMs), null, "5 min: siste kjende, ikkje «live»");
+  assert.equal(aisQuay([ais(0.5, nowMs - 10000)], quays, nowMs), null, "midt på fjorden");
+  assert.equal(aisQuay([{ ...ais(0, nowMs - 5000, { sog: 0 }), source: "entur" }], quays, nowMs), null, "berre AIS");
+  assert.equal(aisQuay([], quays, nowMs), null);
 });
