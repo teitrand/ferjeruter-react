@@ -76,6 +76,7 @@
   animation: status-in var(--dur-status) var(--ease-status);
 }
 .live[data-state="live"] { color: var(--ok-fg); background: var(--ok-bg); }
+.live[data-state="loading"],
 .live[data-state="calc"] { color: var(--unknown-fg); background: transparent; border: 1px dashed var(--unknown-line); }
 .live[data-state="stale"],
 .live[data-state="unknown"] { color: var(--unknown-fg); background: var(--unknown-bg); }
@@ -88,6 +89,7 @@
   flex: none;
   background: currentColor;
 }
+.live[data-state="loading"] .live-dot,
 .live[data-state="calc"] .live-dot { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
 .live[data-state="stale"] .live-dot { opacity: 0.6; }
 .live[data-state="unknown"] .live-dot { display: none; }

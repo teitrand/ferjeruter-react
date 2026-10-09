@@ -515,3 +515,27 @@ test("utanfor ruta: «Nå»-raden og overskrifta seier det, utan ferjelinje, fra
   assert.match(statusArea(html), /Ferja er utanfor ruta\./);
   assert.doesNotMatch(statusArea(html), /på veg mot/);
 });
+
+test("fyrste AIS-svar på veg: nøytralt «Hentar posisjon», ikkje «Berekna frå rutetabellen»; lagra posisjon med verkeleg alder", () => {
+  // Ingen lagra posisjon og ingen svar enno.
+  const pending = renderApp({ initialSanntid: { entries: [], loaded: false } });
+  assert.match(text(nowArea(pending)), /Hentar posisjon …/);
+  assert.doesNotMatch(nowArea(pending), /Berekna frå rutetabellen/);
+  assert.match(nowArea(pending), /data-state="loading"/);
+  // Lagra posisjon (3 min gamal, på overfart): «Siste kjende frå AIS · 3 min sidan» med ein gong, med den verkelege alderen.
+  const cached = renderApp({ initialSanntid: { entries: [aisEntry(0.4, 3 * 60000)], loaded: false } });
+  assert.match(text(nowArea(cached)), /Siste kjende frå AIS · 3 min sidan/);
+  assert.doesNotMatch(nowArea(cached), /Hentar posisjon|Berekna frå rutetabellen/);
+  // Svaret er komme, men utan posisjon: då er det ærleg «Berekna frå rutetabellen».
+  const loaded = renderApp({ initialSanntid: { entries: [], loaded: true } });
+  assert.match(text(nowArea(loaded)), /Berekna frå rutetabellen/);
+  assert.doesNotMatch(nowArea(loaded), /Hentar posisjon/);
+  // Lagra posisjon som er for gamal til å stolast på: nøytralt medan svaret er på veg, så ærleg «Berekna frå rutetabellen» når svaret er komme.
+  const old = renderApp({ initialSanntid: { entries: [aisEntry(0.4, 40 * 60000)], loaded: false } });
+  assert.match(text(nowArea(old)), /Hentar posisjon …/);
+  const oldLoaded = renderApp({ initialSanntid: { entries: [aisEntry(0.4, 40 * 60000)], loaded: true } });
+  assert.match(text(nowArea(oldLoaded)), /Berekna frå rutetabellen/);
+  // Andre språk.
+  assert.match(text(nowArea(renderApp({ lang: "en", initialSanntid: { entries: [], loaded: false } }))), /Getting position …/);
+  assert.match(text(nowArea(renderApp({ lang: "de", initialSanntid: { entries: [], loaded: false } }))), /Position wird geladen …/);
+});

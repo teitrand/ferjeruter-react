@@ -41,15 +41,17 @@ export function lineAttr(view) {
 }
 
 /** Merket «Live · AIS · 12 s» / «Siste kjende …» / «Ukjent …» / «Berekna · rutetabell». */
-export function LiveBadge({ view, reducedMotion }) {
+export function LiveBadge({ view, reducedMotion, pending = false }) {
+  // Fyrste AIS-svar er på veg og vi har ingen målt posisjon å vise: nøytralt merke, ikkje «Berekna frå rutetabellen».
+  const loading = pending && (view.state === "calc" || view.state === "unknown");
   return (
     <span
       className="live"
-      data-state={view.state}
+      data-state={loading ? "loading" : view.state}
       data-fresh={view.pulse && !reducedMotion ? "1" : undefined}
     >
       <span className="live-dot" aria-hidden="true" />
-      <span className="live-label">{crossingBadge(view)}</span>
+      <span className="live-label">{loading ? t("crossing.loading") : crossingBadge(view)}</span>
     </span>
   );
 }
@@ -122,7 +124,7 @@ export function NowLive({ live, label, nowMs = null, children = null }) {
     <>
       <div className="now-head" data-motion={reducedMotion ? "reduce" : undefined}>
         <span className="now-label">{label}</span>
-        {view ? <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} /> : null}
+        {view ? <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} pending={Boolean(live?.pending)} /> : null}
       </div>
       {view && live?.crossing && view.state !== "outside" ? <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} showBadge={false} /> : null}
       {children}

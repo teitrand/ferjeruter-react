@@ -246,7 +246,17 @@ export function aisView(row, nowMs) {
 }
 
 export async function buildLatest(db, nowMs) {
-  const hb = await db.prepare("SELECT received_at, body FROM heartbeats ORDER BY id DESC LIMIT 1").first();
+  const date = osloDate(nowMs);
+  // Dei tre spørjingane er uavhengige, så dei går samtidig (eitt D1-rundtrip i staden for tre etter kvarandre).
+  // AIS er eit tillegg: manglar tabellen eller feilar spørjinga, er svaret som før.
+  const [hb, aisResult, eventsResult] = await Promise.all([
+    db.prepare("SELECT received_at, body FROM heartbeats ORDER BY id DESC LIMIT 1").first(),
+    (async () => db.prepare("SELECT * FROM ais_latest ORDER BY msgtime_ms").all())().catch((error) => {
+      console.error("ais-feil", String(error?.message || error));
+      return null;
+    }),
+    db.prepare("SELECT line, kind, at, journey_ref, stop FROM events WHERE service_date = ? ORDER BY at").bind(date).all(),
+  ]);
   let beat = null;
   try {
     beat = hb ? JSON.parse(hb.body) : null;
@@ -258,23 +268,13 @@ export async function buildLatest(db, nowMs) {
   const lines = {};
   for (const [line, entry] of Object.entries(beat?.lines || {})) lines[line] = lineView(entry, { collectorStale, nowMs });
 
-  // AIS: nyaste fartøy per linje. Tillegg; manglar tabellen eller er ho tom, er svaret som før.
-  try {
-    const { results: ais = [] } = await db.prepare("SELECT * FROM ais_latest ORDER BY msgtime_ms").all();
-    for (const row of ais) {
-      const view = aisView(row, nowMs);
-      lines[row.line] ??= lineView(null, { collectorStale, nowMs });
-      lines[row.line].ais = view; // sortert stigande: nyaste fartøy sist
-    }
-  } catch (error) {
-    console.error("ais-feil", String(error?.message || error));
+  for (const row of aisResult?.results || []) {
+    const view = aisView(row, nowMs);
+    lines[row.line] ??= lineView(null, { collectorStale, nowMs });
+    lines[row.line].ais = view; // sortert stigande: nyaste fartøy sist
   }
 
-  const date = osloDate(nowMs);
-  const { results = [] } = await db
-    .prepare("SELECT line, kind, at, journey_ref, stop FROM events WHERE service_date = ? ORDER BY at")
-    .bind(date)
-    .all();
+  const results = eventsResult?.results || [];
   const today = { date, lines: {} };
   for (const row of results) {
     const day = (today.lines[row.line] ??= { sailed: [], cancelled: [], departures: [] });
