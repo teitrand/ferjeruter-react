@@ -9,6 +9,7 @@ import {
   AIS_MOORED_STALE_MS,
   bestFix,
   positionNoteKey,
+  statusFromPosition,
   FIX_FRESH_MS,
   FIX_PULSE_MS,
   FIX_STALE_MS,
@@ -478,4 +479,73 @@ test("avspeling: VM-meldingar langs Trandal → Standal (laga av den ekte meldin
   });
   for (let i = 1; i < seen.length; i += 1) assert.ok(seen[i] >= seen[i - 1], `bakover ved steg ${i}: ${seen}`);
   assert.equal(seen.at(-1), 1);
+});
+
+test("statuslinja etter posisjon: AIS ved kai gjer «på veg» til «ligg til kai»; uendra når dei er samde", () => {
+  setLang("nn");
+  const underway = { at: 20 * 60 + 0.5, underway: true, text: "Ferja er på veg mot Trandal" };
+  const ctx = { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 14 };
+  const nowMs = oslo(20, 14, 30);
+  // AIS: ved Trandal-kaia, 0 kn, 20 s gammal → ferja er framme (rutetabellen sa «på veg»).
+  const atQuay = statusFromPosition(underway, { ...ctx, fixes: [ais(1, nowMs - 20000, { sog: 0 })], nowMs });
+  assert.equal(atQuay.short, "Ferja ligg til kai på Trandal");
+  assert.equal(atQuay.text, "Ferja ligg til kai på Trandal.");
+  assert.equal(atQuay.underway, undefined);
+  assert.equal(atQuay.position, "ais");
+  // AIS i fart midt på fjorden: same syn som rutetabellen, objektet blir ikkje rørt.
+  assert.equal(statusFromPosition(underway, { ...ctx, fixes: [ais(0.5, nowMs - 20000)], nowMs }), underway);
+  // Ikkje AIS (Entur-posisjon ved kai): Entur gjev alt bevis gjennom currentStatus, ikkje rørt her.
+  const enturAtQuay = { ...ais(1, nowMs - 5000, { sog: 0 }), source: "entur" };
+  assert.equal(statusFromPosition(underway, { ...ctx, fixes: [enturAtQuay], nowMs }), underway);
+  // Utan posisjonar: uendra.
+  assert.equal(statusFromPosition(underway, { ...ctx, fixes: [], nowMs }), underway);
+});
+
+test("statuslinja ved kai-AIS: grensene følgjer fixFreshness (ved kai live 4 min, så siste kjende)", () => {
+  setLang("nn");
+  const underway = { at: 1200.5, underway: true, text: "Ferja er på veg mot Trandal" };
+  const ctx = { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 14 };
+  const nowMs = oslo(20, 14, 30);
+  const fresh = ais(1, nowMs - 3 * 60000, { sog: 0 });
+  assert.equal(fixFreshness(fresh, nowMs), "live");
+  assert.equal(statusFromPosition(underway, { ...ctx, fixes: [fresh], nowMs }).short, "Ferja ligg til kai på Trandal");
+  const stale = ais(1, nowMs - 6 * 60000, { sog: 0 });
+  assert.equal(fixFreshness(stale, nowMs), "stale");
+  assert.equal(statusFromPosition(underway, { ...ctx, fixes: [stale], nowMs }), underway, "berre fersk AIS rettar statusen");
+});
+
+test("statuslinja: ferja ikkje avgått (AIS ved startkaia) – raden «No» ligg føre avgangen; i fart når rutetabellen sa kai", () => {
+  setLang("nn");
+  const underway = { at: 1200.5, underway: true, text: "Ferja er på veg mot Trandal" };
+  const nowMs = oslo(20, 2);
+  const stuck = statusFromPosition(underway, { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 2, fixes: [ais(0, nowMs - 10000, { sog: 0 })], nowMs });
+  assert.equal(stuck.short, "Ferja ligg til kai på Standal");
+  assert.equal(stuck.at, 20 * 60 - 0.5, "føre avgangen 20:00");
+  // Rutetabellen seier ved kai (liggetid), AIS viser ferja i fart på turen 20:20 Trandal → Standal.
+  const moored = { at: 1215.5, text: "Ferja ligg til kai på Trandal" };
+  const t2 = oslo(20, 22);
+  const moving = statusFromPosition(moored, { running: [BACK], quays: ["Standal", "Trandal"], now: 20 * 60 + 22, fixes: [ais(0.4, t2 - 10000, { sog: 11, cog: 270 })], nowMs: t2 });
+  assert.equal(moving.text, "Ferja er på veg mot Standal");
+  assert.equal(moving.underway, true);
+  // Langsamt i fjorden utan å vere ved ei kai: ikkje påstå noko nytt.
+  assert.equal(statusFromPosition(moored, { running: [BACK], quays: ["Standal", "Trandal"], now: 20 * 60 + 22, fixes: [ais(0.4, t2 - 10000, { sog: 0.2 })], nowMs: t2 }), moored);
+  // Signalturar, avlyste og tomme statusar blir ikkje rørte.
+  const signal = { ...underway, signal: "running" };
+  assert.equal(statusFromPosition(signal, { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 14, fixes: [ais(1, oslo(20, 14, 20), { sog: 0 })], nowMs: oslo(20, 14, 30) }), signal);
+  assert.equal(statusFromPosition(null, { running: [], quays: [], fixes: [], nowMs: 0 }), null);
+});
+
+test("statuslinja: «ferdig for dagen på Standal» eller «ligg til kai på Standal» men AIS ved Trandal-kaia – AIS vinn; same kai står", () => {
+  setLang("nn");
+  const nowMs = oslo(20, 40);
+  const ctx = { running: [], quays: ["Standal", "Trandal"], now: 20 * 60 + 40, nowMs };
+  const fixes = [ais(1, nowMs - 10000, { sog: 0 })]; // Trandal-kaia
+  const done = { at: 1240, text: "Ferja er ferdig for dagen på Standal" };
+  const fixed = statusFromPosition(done, { ...ctx, fixes });
+  assert.equal(fixed.short, "Ferja ligg til kai på Trandal");
+  assert.equal(fixed.at, 1240, "same plass i tidslinja");
+  const same = { at: 1240, text: "Ferja er ferdig for dagen på Trandal" };
+  assert.equal(statusFromPosition(same, { ...ctx, fixes }), same);
+  const wrongQuay = { at: 1240, short: "Ferja ligg til kai på Standal", text: "Ferja ligg til kai på Standal." };
+  assert.equal(statusFromPosition(wrongQuay, { ...ctx, fixes }).text, "Ferja ligg til kai på Trandal.");
 });

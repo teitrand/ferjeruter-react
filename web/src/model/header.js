@@ -15,6 +15,7 @@ import {
   routeFootnotes,
   runningLegs,
   signalLogStale,
+  statusFromPosition,
   todayIso,
   vesselInfo,
   vesselNameForTable,
@@ -67,8 +68,16 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
   const legs = legsForDate(todayIso(), ctx);
   if (!legs.length) return { noTrips: true };
   const ev = statusEvidence(data, ui, memory, ctx);
-  const status = currentStatus(legs, now, ev, statusView(ctx));
-  const next = runningLegs(legs, now, ev).find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
+  const running = runningLegs(legs, now, ev);
+  // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
+  const status = statusFromPosition(currentStatus(legs, now, ev, statusView(ctx)), {
+    running,
+    fixes: positionFixes(data),
+    quays: knownQuays(ctx),
+    now,
+    nowMs: Date.now(),
+  });
+  const next = running.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
     noTrips: false,

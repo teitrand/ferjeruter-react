@@ -95,9 +95,10 @@ test("live-overfart: éi linje der framdrift og ferje ligg saman, progressbar me
   // Éi linje: spor, fyll, kaiane og ferja er alle inne i same progressbar.
   const line = html.slice(html.indexOf('class="ferry-line"'), html.indexOf('class="line-labels"'));
   assert.match(line, /role="progressbar"/);
-  for (const part of ["line-track", "line-fill", "line-fill-inner", "quay a", "quay b", "ferry-runner"]) {
+  for (const part of ["line-track", "quay a", "quay b", "ferry-runner"]) {
     assert.match(line, new RegExp(`class="${part}"`), part);
   }
+  assert.doesNotMatch(html, /line-fill/, "ingen eigen framdriftsstolpe: ferja er framdrifta");
   assert.match(line, /<svg class="ferry" viewBox="0 0 36 18" focusable="false" aria-hidden="true"/);
   assert.equal((html.match(/role="progressbar"/g) || []).length, 1, "berre éi linje");
   assert.doesNotMatch(html, /rail-wrap|progress-track/, "ingen eiga ferjelinje under ein progressbar");
@@ -118,11 +119,10 @@ test("mindre rørsle: ingen puls, data-motion=reduce, ingen overgang før fyrste
   for (const [, props] of css.matchAll(/transition:\s*([^;]+);/g)) {
     for (const part of props.split(",")) assert.match(part.trim(), /^(transform|opacity|filter) /, part);
   }
-  // Fyllet blir avdekt med translateX, aldri skalert (scaleX ville strekkje stiplane).
-  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /scaleX/);
-  assert.match(css, /\.line-fill \{[^}]*transform: translateX\(calc\(\(var\(--p, 0\) - 1\) \* 100%\)\)/);
-  assert.match(css, /\.line-fill-inner \{[^}]*transform: translateX\(calc\(\(1 - var\(--p, 0\)\) \* 100%\)\)/);
-  assert.match(css, /\.crossing\.is-ready \.line-fill,\s*\.crossing\.is-ready \.line-fill-inner,\s*\.crossing\.is-ready \.ferry-runner \{\s*transition: transform var\(--dur-position\) var\(--ease-position\);/);
+  // Ferja glir med transform (translateX), aldri scaleX, og det finst ingen framdriftsstolpe å fylle.
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /scaleX|line-fill/);
+  assert.match(css, /\.ferry-runner \{[^}]*transform: translateX\(calc\(var\(--p, 0\) \* 100%\)\)/);
+  assert.match(css, /\.crossing\.is-ready \.ferry-runner \{\s*transition: transform var\(--dur-position\) var\(--ease-position\);/);
 });
 
 test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
@@ -152,7 +152,7 @@ test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
   assert.match(calc, /class="ferry-approx" aria-hidden="true">≈</);
   const css = readFileSync(new URL("src/styles/crossing.css", new URL("..", import.meta.url)), "utf8");
   assert.match(css, /\.crossing\[data-line="dashed"\] \.line-track \{\s*background: repeating-linear-gradient/);
-  assert.match(css, /\.crossing\[data-line="dashed"\] \.line-fill-inner \{[^}]*repeating-linear-gradient/);
+  assert.match(css, /\.crossing\[data-line="solid"\] \.line-track \{\s*background: var\(--fill-measured\)/);
 });
 
 test("engelsk og tysk", async () => {
@@ -178,28 +178,40 @@ test("live-regionen: éin, polite og atomic", () => {
   assert.match(html, /<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-announcer="">/);
 });
 
-function renderApp({ initialEntur = null, initialSanntid = null } = {}) {
+function renderApp({ initialEntur = null, initialSanntid = null, lang = "nn" } = {}) {
   const signalLog = { days: { "2026-10-08": LOG.days["2026-10-08"] } };
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog, connections: null };
-  const initialState = { routeChoice: "1136", lang: "nn", override: null, date: null, showPast: true };
+  const initialState = { routeChoice: "1136", lang, override: null, date: null, showPast: true };
   const app = createElement(App, { initialData, initialEntur, initialSanntid, initialState, memory: memoryOnly() });
   return clean(renderToString(createElement(AnnouncerProvider, null, app)));
 }
 
-/** Statusområdet øvst: statuslinja og sanntida under. */
+/** Statusområdet øvst: berre statuslinja. */
 const statusArea = (html) => html.match(/<div class="status-area">.*?<\/header>/s)?.[0] || "";
+/** «No»-raden i tidslinja: heimen til kjeldemerket og ferjelinja. Går fram til neste rad. */
+function nowArea(html) {
+  const i = html.indexOf('<div class="now ');
+  if (i < 0) return "";
+  const rest = html.slice(i);
+  const next = rest.slice(10).search(/<div class="stop|<p class="footnote"|<\/section>/);
+  return next < 0 ? rest : rest.slice(0, next + 10);
+}
 
-test("appen: éitt statusområde – statuslinja med framdrift og ferje under, berekna utan sanntid", () => {
+test("appen: statuslinja øvst, sanntida i «No»-raden – ferja er framdrifta, ingen eigen stolpe", () => {
   const html = renderApp();
   assert.equal((html.match(/data-announcer=""/g) || []).length, 1, "éin live-region for sanntid");
-  const area = statusArea(html);
-  assert.match(area, /<p class="lede" id="lede-status">Ferja er på veg mot Standal\. /, "teksten kjem frå currentStatus, som før");
-  assert.match(area, /class="crossing" data-source="calc" data-line="dashed"/);
-  assert.match(area, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
-  assert.match(text(area), /Berekna frå rutetabellen/);
-  // Éin statustekst: «No»-merket i tidslinja har ingen eigen tekst og ingen overfartslinje.
+  const head = statusArea(html);
+  assert.match(head, /<p class="lede" id="lede-status">Ferja er på veg mot Standal\. /, "teksten kjem frå currentStatus, som før");
+  assert.doesNotMatch(head, /class="live"|class="crossing|role="progressbar"/, "ingen sanntidsboks øvst");
+  const now = nowArea(html);
+  assert.match(now, /^<div class="now is-underway now-live has-crossing" role="group" aria-label="No">/);
+  assert.match(now, /<div class="now-head"><span class="now-label">No<\/span><span class="live" data-state="calc">/);
+  assert.match(now, /class="crossing" data-source="calc" data-line="dashed"/);
+  assert.match(now, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
+  assert.match(text(now), /Berekna frå rutetabellen/);
+  assert.match(now, /<svg class="ferry"/, "ferja ligg på linja");
+  assert.doesNotMatch(now, /now-track|now-fill|has-progress/, "ingen separat framdriftsstolpe");
   assert.equal((html.match(/class="crossing[ "]/g) || []).length, 1);
-  assert.match(html, /<div class="now is-underway has-progress" style="--now-progress:\d+%" aria-hidden="true"><span class="now-track"><span class="now-fill"><\/span><\/span><span class="now-label">No<\/span><\/div>/);
   assert.doesNotMatch(html, /class="now-text"/);
 });
 
@@ -228,17 +240,20 @@ test("appen: Entur-posisjon midt på fjorden gjev målt framdrift; ekte VM ved k
   assert.match(html, /aria-valuetext="70 % av overfarten frå Trandal til Standal, målt, frå sanntid hos Entur"/);
 });
 
-test("appen: ved kai er det statuslinja med tikkande nedteljing og berre kjeldemerket", () => {
+test("appen: ved kai er det statuslinja med tikkande nedteljing, og «No»-raden har stolpen utan ferje", () => {
   current = oslo(20, 16);
   try {
-    const area = statusArea(renderApp());
+    const html = renderApp();
+    const head = statusArea(html);
     assert.match(
-      area,
+      head,
       /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal, <span class="countdown"><span class="countdown-text is-tabular" aria-hidden="true">om 4:00<\/span><span class="visually-hidden">om 4 min<\/span><\/span>\./
     );
-    assert.doesNotMatch(area, /class="crossing/);
-    assert.match(area, /<div class="status-live"><span class="live" data-state="calc">/);
-    assert.match(text(area), /Berekna frå rutetabellen/);
+    const now = nowArea(html);
+    assert.doesNotMatch(now, /class="crossing|class="ferry|role="progressbar"/, "ingen ferje og ingen ferjelinje ved kai");
+    assert.match(now, /^<div class="now is-moored has-progress now-live" style="--now-progress:\d+%" role="group" aria-label="No"><span class="now-track" aria-hidden="true"><span class="now-fill"><\/span><\/span>/);
+    assert.match(now, /<span class="now-label">No<\/span><span class="live" data-state="calc">/);
+    assert.match(text(now), /Berekna frå rutetabellen/);
   } finally {
     current = FIXED;
   }
@@ -277,9 +292,9 @@ function enturLive(f, ageMs) {
 }
 const footnote = (html) => text(html).match(/Posisjonen kjem frå [A-Za-z]+ i sanntid no\.|Ingen sanntidsposisjon frå AIS eller Entur no\.|Entur har ingen posisjon[^.]*\.|Fekk ikkje kontakt med Entur[^.]*\./)?.[0] || "";
 
-test("appen: AIS er sanninga – live frå AIS vinn over ein Entur-posisjon, og ingenting i statusområdet seier Entur", () => {
+test("appen: AIS er sanninga – live frå AIS vinn over ein Entur-posisjon, og ingenting i «No»-feltet eller toppen seier Entur", () => {
   const html = renderApp({ initialEntur: { live: enturLive(0.7, 10000) }, initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
-  const area = statusArea(html);
+  const area = nowArea(html);
   assert.match(area, /class="crossing" data-source="measured" data-line="solid"/);
   assert.match(text(area), /Live frå AIS · 8 s/);
   assert.match(area, /aria-valuetext="50 % av overfarten frå Trandal til Standal, målt med AIS"/);
@@ -291,7 +306,7 @@ test("appen: AIS er sanninga – live frå AIS vinn over ein Entur-posisjon, og 
 
 test("appen: berre AIS (Entur utan posisjon) gjev ei heil linje og live frå AIS", () => {
   const html = renderApp({ initialSanntid: { entries: [aisEntry(0.4, 20000)] } });
-  const area = statusArea(html);
+  const area = nowArea(html);
   assert.match(area, /data-source="measured" data-line="solid"/);
   assert.match(text(area), /Live frå AIS · 20 s/);
   assert.doesNotMatch(text(area), /Entur/);
@@ -300,7 +315,7 @@ test("appen: berre AIS (Entur utan posisjon) gjev ei heil linje og live frå AIS
 
 test("appen: AIS er gammal og Entur live – då er Entur kjelda, og det står Entur, ikkje AIS", () => {
   const html = renderApp({ initialEntur: { live: enturLive(0.7, 10000) }, initialSanntid: { entries: [aisEntry(0.3, 2 * 60000)] } });
-  const area = statusArea(html);
+  const area = nowArea(html);
   assert.match(text(area), /Live frå Entur · 10 s/);
   assert.match(area, /aria-valuetext="70 % av overfarten frå Trandal til Standal, målt, frå sanntid hos Entur"/);
   assert.doesNotMatch(text(area), /AIS/);
@@ -309,13 +324,13 @@ test("appen: AIS er gammal og Entur live – då er Entur kjelda, og det står E
 
 test("appen: siste kjende AIS utan Entur er stipla og seier AIS; for gammal er ukjend; verken Entur eller AIS", () => {
   const stale = renderApp({ initialSanntid: { entries: [aisEntry(0.4, 3 * 60000)] } });
-  const area = statusArea(stale);
+  const area = nowArea(stale);
   assert.match(area, /data-source="stale" data-line="dashed"/);
   assert.match(text(area), /Siste kjende frå AIS · 3 min sidan/);
   assert.match(area, /aria-valuetext="[^"]*, siste kjende posisjon, frå AIS"/);
   assert.match(text(area), /Siste AIS-posisjon kl\. 20:27\./);
   assert.doesNotMatch(text(area), /Entur/);
-  const unknown = statusArea(renderApp({ initialSanntid: { entries: [aisEntry(0.4, 8 * 60000)] } }));
+  const unknown = nowArea(renderApp({ initialSanntid: { entries: [aisEntry(0.4, 8 * 60000)] } }));
   assert.match(unknown, /data-source="unknown" data-line="dashed"/);
   assert.match(text(unknown), /Ukjent · ingen sanntid sidan 20:22/);
   assert.doesNotMatch(text(unknown), /AIS|Entur/);
@@ -323,25 +338,72 @@ test("appen: siste kjende AIS utan Entur er stipla og seier AIS; for gammal er u
 
 test("appen: workeren nede og ingen Entur – rutetabellen, stipla, ærleg merka (ingen feilmelding)", () => {
   const html = renderApp({ initialSanntid: { entries: [], failed: true } });
-  const area = statusArea(html);
+  const area = nowArea(html);
   assert.match(area, /data-source="calc" data-line="dashed"/);
   assert.match(text(area), /Berekna frå rutetabellen/);
   assert.doesNotMatch(text(area), /AIS|Entur/);
   assert.equal(footnote(html), "Ingen sanntidsposisjon frå AIS eller Entur no.");
   // Same utan svar frå workeren, men Entur har ein posisjon: Entur er kjelda.
   const withEntur = renderApp({ initialEntur: { live: enturLive(0.7, 10000) }, initialSanntid: { entries: [], failed: true } });
-  assert.match(text(statusArea(withEntur)), /Live frå Entur · 10 s/);
+  assert.match(text(nowArea(withEntur)), /Live frå Entur · 10 s/);
 });
 
 test("appen: AIS frå ei anna linje (1135) blir ikkje brukt for 1136", () => {
   const html = renderApp({ initialSanntid: { entries: [aisEntry(0.5, 5000, { line: "1135", mmsi: 257262400 })] } });
-  const area = statusArea(html);
+  const area = nowArea(html);
   assert.match(area, /data-source="calc"/);
   assert.doesNotMatch(text(area), /AIS/);
 });
 
 test("appen: utan AIS-kjelda (sanntid av) er teksten som før og Entur-notat uendra", () => {
   const html = renderApp({ initialEntur: { live: enturLive(0.7, 10000) } });
-  assert.match(text(statusArea(html)), /Live frå Entur · 10 s/);
+  assert.match(text(nowArea(html)), /Live frå Entur · 10 s/);
   assert.equal(footnote(html), "Posisjonen kjem frå Entur i sanntid no.");
+});
+
+test("appen: AIS ved kai mot rutetabellen sin «på veg» – statuslinja og «No»-raden er samde, utan ferje", () => {
+  const entry = aisEntry(1, 20000, { sog: 0 });
+  const html = renderApp({ initialSanntid: { entries: [entry] } });
+  const head = statusArea(html);
+  assert.match(head, /<p class="lede" id="lede-status">Ferja ligg til kai på Standal\./);
+  assert.doesNotMatch(head, /på veg/);
+  const now = nowArea(html);
+  assert.match(text(now), /Live frå AIS · 20 s/);
+  assert.doesNotMatch(now, /class="ferry|class="crossing|role="progressbar"/, "ved kai: stolpen utan ferje");
+  assert.match(now, /^<div class="now is-moored now-live" role="group" aria-label="No">/);
+  // Same ferje i fart midt på fjorden: statuslinja held fram med «på veg», med ferja på linja.
+  const moving = renderApp({ initialSanntid: { entries: [aisEntry(0.5, 20000)] } });
+  assert.match(statusArea(moving), /Ferja er på veg mot Standal\./);
+  assert.match(nowArea(moving), /<svg class="ferry"/);
+  // Utan AIS: som før.
+  assert.match(statusArea(renderApp()), /Ferja er på veg mot Standal\./);
+});
+
+test("bunnteksten: kreditering av AIS frå Kystverket (NLOD) og «Om dataa» (samanleggbar) – og fotnoten under ruta har berre rutetinga", async () => {
+  const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
+  const html = renderApp({ initialEntur: { live: enturLive(0.7, 10000) }, initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
+  const footer = html.slice(html.indexOf('<footer class="site-footer">'));
+  assert.match(footer, /<p id="footer-credit">AIS-data frå Kystverket \(NLOD\)\. Sanntidsdata frå Entur\. <a href="https:\/\/[^"]*"[^>]*>NAIS<\/a> · <a href="https:\/\/data\.norge\.no\/nlod\/no\/2\.0"[^>]*>NLOD-lisens<\/a><\/p>/);
+  assert.match(footer, /<details class="about-data" id="about-data"><summary>Om dataa<\/summary>/);
+  assert.doesNotMatch(footer, /<details[^>]* open/, "lukka frå start");
+  assert.match(footer, /<span id="position-note">Posisjonen kjem frå AIS i sanntid no\.<\/span> Rekkjefølgje: AIS når vi har ein fersk posisjon/);
+  assert.match(text(footer), /«Live» er ein posisjon yngre enn 1 minutt/);
+  assert.match(text(footer), /AIS-data frå Kystverket \(NLOD\), henta via BarentsWatch\./);
+  assert.match(footer, /<span id="timetable-updated">/);
+  // Fotnoten i rutekortet: ingenting generelt om datakjelder att.
+  const note = html.match(/<p class="footnote">.*?<\/p>/s)[0];
+  assert.doesNotMatch(note, /AIS frå Kystverket|position-note|timetable-updated|Rutetabellen blir berre lasta/);
+  assert.match(note, /Signalturar må tingast på telefon/);
+  assert.match(note, /id="timetable-pdf"/);
+  // Samtidig står Entur ikkje i «No»-feltet når posisjonen er AIS.
+  assert.doesNotMatch(text(nowArea(html)), /Entur/);
+  // nn/en/de: same struktur og kreditering i alle tre.
+  for (const [lang, credit, summary] of [["en", "AIS data from Kystverket (NLOD)", "About the data"], ["de", "AIS-Daten von Kystverket (NLOD)", "Über die Daten"]]) {
+    await setLang(lang);
+    const other = renderApp({ lang, initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
+    const f = other.slice(other.indexOf('<footer class="site-footer">'));
+    assert.ok(f.includes(`<p id="footer-credit">${credit}`), lang);
+    assert.ok(f.includes(`<summary>${summary}</summary>`), lang);
+  }
+  await setLang("nn");
 });

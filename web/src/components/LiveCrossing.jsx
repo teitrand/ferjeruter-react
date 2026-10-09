@@ -54,13 +54,11 @@ export function LiveBadge({ view, reducedMotion }) {
 }
 
 /**
- * Teikninga av éin overfart: éi linje mellom kaiane der framdrifta og ferja ligg på same
- * linja (Designer, prototype.html). `view` kjem frå core crossingView.
- *
- * Fyllet blir avdekt med to motsette translateX (ytre klipp + indre motflytting), så
- * stiplane står i ro medan ferja glir og ingenting skalerer eller endrar layout.
+ * Teikninga av éin overfart: éi linje mellom kaiane, med ferja på linja som einaste framdriftsvising
+ * (ingen eigen framdriftsstolpe). Linja er heil når posisjonen er målt og fersk, stipla elles.
+ * `view` kjem frå core crossingView. Ferja glir med éin transform (translateX), ingenting endrar layout.
  */
-export function CrossingView({ view, reducedMotion = false, animate = true }) {
+export function CrossingView({ view, reducedMotion = false, animate = true, showBadge = true }) {
   return (
     <div
       className={animate ? "crossing is-ready" : "crossing"}
@@ -69,10 +67,12 @@ export function CrossingView({ view, reducedMotion = false, animate = true }) {
       data-motion={reducedMotion ? "reduce" : undefined}
       style={{ "--p": view.progress }}
     >
-      <div className="crossing-head">
-        {/* key: nytt element ved kvart skifte, så status-in (240 ms) køyrer. */}
-        <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} />
-      </div>
+      {showBadge ? (
+        <div className="crossing-head">
+          {/* key: nytt element ved kvart skifte, så status-in (240 ms) køyrer. */}
+          <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} />
+        </div>
+      ) : null}
       <div className="ferry-line-wrap">
         <div
           className="ferry-line"
@@ -84,9 +84,6 @@ export function CrossingView({ view, reducedMotion = false, animate = true }) {
           aria-valuetext={crossingValueText(view)}
         >
           <div className="line-track" />
-          <div className="line-fill">
-            <div className="line-fill-inner" />
-          </div>
           <span className="quay a" />
           <span className="quay b" />
           <div className="ferry-runner">
@@ -106,12 +103,13 @@ export function CrossingView({ view, reducedMotion = false, animate = true }) {
 }
 
 /**
- * Sanntida under statuslinja. På overfart: merke og ferjelinja (framdrift og ferje på éi linje). Ved kai
- * eller utan overfart: berre merket (Live / Siste kjende / Ukjent / Berekna).
+ * Innhaldet i «No»-raden i tidslinja: «No» og kjeldemerket på same linje, og på overfart ferjelinja
+ * (kaiane på kvar si side, ferja på linja som framdrift) med framdrift, kjelde og alder under.
+ * Ved kai: berre merket; raden har då den vanlege stolpen utan ferje.
  * Fyrste teikning utan overgang (ferja hoppar ikkje inn frå venstre); overgangane blir
- * slått på etter fyrste frame.
+ * slått på etter fyrste frame. Utan sanntid å vise er det berre «No».
  */
-export function LiveStatus({ live, nowMs = null }) {
+export function NowLive({ live, label, nowMs = null }) {
   const view = usePositionState(live, { nowMs });
   const reducedMotion = useReducedMotion();
   const [ready, setReady] = useState(false);
@@ -119,17 +117,13 @@ export function LiveStatus({ live, nowMs = null }) {
     const frame = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(frame);
   }, []);
-  if (!view) return null;
-  if (!live?.crossing) {
-    return (
-      <div className="status-live" data-motion={reducedMotion ? "reduce" : undefined}>
-        <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} />
-      </div>
-    );
-  }
   return (
-    <div className="status-live">
-      <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} />
-    </div>
+    <>
+      <div className="now-head" data-motion={reducedMotion ? "reduce" : undefined}>
+        <span className="now-label">{label}</span>
+        {view ? <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} /> : null}
+      </div>
+      {view && live?.crossing ? <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} showBadge={false} /> : null}
+    </>
   );
 }

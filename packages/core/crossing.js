@@ -536,3 +536,49 @@ export function countdownParts(time, nowMs) {
     srPhrase: srMinutes > 0 ? t("countdown.in", { duration: durationText(srMinutes) }) : t("duration.now"),
   };
 }
+
+/**
+ * Statuslinja etter posisjonen vi stolar på. AIS er sanninga: seier ein fersk AIS-posisjon noko anna enn
+ * statusen frå rutetabellen (og Entur-beviset), vinn AIS. Rører berre mot-seiingar:
+ *  - rutetabellen seier «på veg», AIS seier ved kai (innanfor 250 m, < 0,5 kn): «Ferja ligg til kai på X»
+ *  - rutetabellen seier ved kai, AIS viser ferja i fart på ein tur: «Ferja er på veg mot Y»
+ * Elles (same syn, ingen AIS, eldre AIS, Entur som kjelde, signalturar) blir statusen uendra: Entur gjev alt
+ * forseinking og bevis gjennom currentStatus. Pur: `running` er runningLegs, `quays` knownQuays.
+ *
+ * @param {object|null} status   currentStatus
+ * @returns {object|null}        same objekt når ingenting skal endrast
+ */
+export function statusFromPosition(status, { running, fixes, quays, now, nowMs }) {
+  if (!status || status.signal || status.cancelled) return status;
+  const best = bestFix(fixes, nowMs);
+  if (!best || best.source !== "ais" || fixFreshness(best, nowMs) !== "live") return status;
+  const quay = (quays || []).find((name) => fixAtQuay(best, name)) || null;
+  if (quay) {
+    const text = t("status.mooredAt", { quay });
+    if (!status.underway) {
+      // Alt anna enn «på veg» (ligg til kai, ferdig for dagen, startar dagen) står, så sant det nemner same kai som AIS.
+      // Elles (t.d. Entur eller rutetabellen seier «ferdig for dagen på Standal», AIS seier Trandal) vinn AIS.
+      if (String(status.short || status.text).includes(quay)) return status;
+      return { ...status, short: text, text: `${text}.`, position: "ais" };
+    }
+    // Ikkje avgått enno: raden «No» skal ligge føre avgangen, elles etter turen vi var på.
+    const leg = (running || []).find((item) => now >= clockMinutes(item.departure) && now < clockMinutes(item.arrival));
+    const atOrigin = leg && quayPlace(leg.from) === quayPlace(quay);
+    return {
+      at: atOrigin ? clockMinutes(leg.departure) - 0.5 : now,
+      short: text,
+      text: `${text}.`,
+      position: "ais",
+    };
+  }
+  if (status.underway) return status;
+  if (best.speedKn != null && best.speedKn < AT_QUAY_MAX_KN) return status;
+  const leg = matchCrossingLeg(running, best, { nowMs });
+  if (!leg) return status;
+  return {
+    at: now,
+    underway: true,
+    text: t("status.underwayTo", { dest: leg.to }),
+    position: "ais",
+  };
+}
