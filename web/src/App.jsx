@@ -18,10 +18,12 @@ import { useEntur } from "./hooks/useEntur.js";
 import { useInstall } from "./hooks/useInstall.js";
 import { useMessages } from "./hooks/useMessages.js";
 import { useOnline } from "./hooks/useOnline.js";
+import { useSanntid } from "./hooks/useSanntid.js";
 import { useWake } from "./hooks/useWake.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
+import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
 import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
 import { markPwaFirstOpen, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
@@ -63,6 +65,8 @@ export function App({
   installPrompt = null,
   initialData = null,
   initialEntur = null,
+  initialSanntid = null,
+  sanntid: sanntidEndpoint = sanntidUrl(import.meta.env),
   initialState = null,
   memory: givenMemory = null,
 }) {
@@ -84,7 +88,15 @@ export function App({
   const clockMs = useClock(woke.wake);
   const entur = useEntur(base, ui, clockMs, initialEntur);
   const online = useOnline();
-  const data = useMemo(() => withEntur(base, entur, { offline: !online }), [base, entur, online]);
+  // AIS (workeren) er sanninga for posisjon, så Entur, så rutetabellen (core bestFix). Feilar workeren,
+  // held vi siste posisjon som eldast av seg sjølv; då tek Entur over. `initialSanntid` er for testar og SSR.
+  const sanntid = useSanntid(base, ui, { url: sanntidEndpoint, enabled: live, initial: initialSanntid });
+  const sanntidOn = Boolean(initialSanntid) || (live && Boolean(sanntidEndpoint));
+  const mode = hasTimetable(base) ? sanntidMode(base, ui) : null;
+  const data = useMemo(
+    () => withSanntid(withEntur(base, entur, { offline: !online }), sanntid, mode, { on: sanntidOn }),
+    [base, entur, online, sanntid, mode, sanntidOn]
+  );
   const memoryRef = useRef(givenMemory);
   memoryRef.current ??= memoryOnly();
   const memory = memoryRef.current;

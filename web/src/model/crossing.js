@@ -18,15 +18,20 @@ function liveLeg(running, fixes, nowMs) {
   return null;
 }
 
+/** Alle målte posisjonar vi kjenner: Entur (data.live) og AIS (data.positions). Rekkefølgja avgjer core bestFix. */
+export function positionFixes(data) {
+  return [fixFromLive(data.live), ...(Array.isArray(data.positions) ? data.positions : [])].filter(Boolean);
+}
+
 /**
  * @param {object} status   currentStatus (core), same som teksten i statuslinja kjem frå
  * @param {object[]} legs   dagens turar
- * `fixes`: Entur-posisjonen i dag. AIS (data.positions, PositionFix frå core fixFromAis)
- * er ikkje kopla til enno, men blir teken med når nokon fyller det inn.
+ * `fixes`: alle målte posisjonar i dag: Entur (data.live) og AIS (data.positions, PositionFix frå
+ * core fixFromAis, fylt av model/sanntid.js). Kva som gjeld, avgjer core bestFix: AIS > Entur > rutetabell.
  * @returns {{ crossing: { leg: object, fixes: object[] }|null, fixes: object[] }}
  */
 export function liveStatus(status, legs, now, ev, data) {
-  const fixes = [fixFromLive(data.live), ...(Array.isArray(data.positions) ? data.positions : [])].filter(Boolean);
+  const fixes = positionFixes(data);
   if (!status?.underway) return { crossing: null, fixes };
   const running = runningLegs(legs, now, ev);
   const nowMs = Date.now();
