@@ -76,12 +76,17 @@ Status blir skriven atomisk til `/var/lib/fergeruter/status.json` kvart 30. seku
 
 Appen (steg 8) skal bruke dette slik: fersk → som sanntid; stale med `lastKnown` → «Sist sett HH:MM ved …» eller «Ukjent»; ingen svar, feil eller tidsavbrot → nøyaktig som i dag (eigne Entur-kall, rutetabell, det appen sjølv har sett).
 
-## Avsendar til workeren (av)
+## Avsendar til workeren
 
-`src/sender.js` er ferdig, men av: han sender berre når `FERGERUTER_SENDER_ENABLED=1`
-og både `FERGERUTER_SENDER_URL` og `FERGERUTER_SENDER_KEY` er sette. URL og nøkkel kjem aldri
-i status eller logg. Endepunktet er beskrive i [innsamlar-worker-endepunkt.md](innsamlar-worker-endepunkt.md)
-og er ikkje laga.
+`src/sender.js` sender berre når `FERGERUTER_SENDER_ENABLED=1` og både `FERGERUTER_SENDER_URL` og
+`FERGERUTER_SENDER_KEY` er sette (av som standard). URL og nøkkel kjem aldri i status eller logg.
+Workeren (`cloudflare/sanntid`) er beskriven i [innsamlar-worker-endepunkt.md](innsamlar-worker-endepunkt.md).
+
+- `POST /v1/events`: hendingar, med kø (høgst 500) og backoff.
+- `POST /v1/heartbeat`: puls kvart 2. min.
+- `POST /v1/positions`: siste AIS-melding per fartøy (berre med `FERGERUTER_AIS_ENABLED=1`). Under fart minst 15 s mellom kall,
+  ved kai minst 60 s; ingen kø, den nyaste meldinga blir sendt etter ein feil. `Retry-After` blir respektert.
+  `/status` får `sender.positions` (`sent`, `failed`, `lastSentAt`, `lastError`, `pending`).
 
 ## Nattleg samanlikning
 

@@ -1,0 +1,15 @@
+name = "fergeruter-sanntid"
+main = "src/index.js"
+compatibility_date = "2026-10-05"
+workers_dev = true
+
+# Lagring for hendingar og puls frå innsamlaren. id er ikkje hemmeleg.
+[[d1_databases]]
+binding = "DB"
+database_name = "fergeruter-sanntid"
+database_id = "44c10237-2b40-4f72-8b1f-2b4645fb131e"
+
+# Ingen cron. Løyndomen COLLECTOR_KEY blir sett med `wrangler secret put COLLECTOR_KEY`
+# og står aldri i repoet.
+[triggers]
+crons = []

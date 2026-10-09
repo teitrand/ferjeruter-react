@@ -105,8 +105,10 @@ export async function run(cfg) {
         tokens: aisTokens,
         log,
         onPosition: (live) => {
-          if (db.insertPosition(live)) counters.aisPositions += 1;
-          else counters.aisDuplicates += 1;
+          if (db.insertPosition(live)) {
+            counters.aisPositions += 1;
+            sender.enqueuePosition(live);
+          } else counters.aisDuplicates += 1;
         },
       })
     : null;
@@ -167,6 +169,7 @@ export async function run(cfg) {
     }, 5000),
     setInterval(writeStatus, cfg.statusEveryMs),
     setInterval(() => sender.flush(), 30000),
+    setInterval(() => sender.flushPositions(), 5000),
     setInterval(() => {
       if (!sender.enabled) return;
       const s = statusNow();
