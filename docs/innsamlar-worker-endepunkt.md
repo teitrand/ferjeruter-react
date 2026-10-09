@@ -1,7 +1,6 @@
-# Endepunkt i workeren for innsamlaren (forslag, ikkje laga)
+# Endepunkt i workeren for innsamlaren
 
-Til godkjenning. Ingenting i `cloudflare/` er endra, og ingenting er deploya. Avsendaren i
-innsamlaren er av til dette er godkjent og laga.
+Laga i `cloudflare/sanntid/` og deploya som `fergeruter-sanntid` (sjå README der). Nøkkelen er Worker-løyndomen `COLLECTOR_KEY`. Avsendaren i innsamlaren sender hit.
 
 ## Prinsipp
 
@@ -33,6 +32,42 @@ Header `X-Fergeruter-Key: <nøkkel>`. Nøkkelen er ein Worker-løyndom (`COLLECT
 Same header. Kropp: utdrag av status-JSON-en: `generatedAt`, `health`, `source`, og per linje
 `lastKnown` (posisjon, kai, ved kai, tur, `recordedAt`, `validUntil`) og `observedAt`.
 Workeren lagrar siste puls og når han kom (`receivedAt`, workeren si klokke).
+
+## POST /v1/positions (innsamlaren → workeren, AIS)
+
+Same header. AIS er sanninga for posisjon; Entur er neste nivå og rutetabellen reserve (sjå «Posisjonsrekkefølgje»).
+Innsamlaren sender siste AIS-melding per fartøy, aldri ei kø:
+
+```json
+{ "schema": 1, "positions": [
+  { "mmsi": "257297400", "line": "1136", "name": "KVERNES", "latitude": 62.2607, "longitude": 6.5005,
+    "speedKn": 9.2, "courseDeg": 44.4, "heading": 22, "navStatus": 0,
+    "msgtime": "2026-10-09T17:00:00.000Z", "source": "ais" } ] }
+```
+
+- Høgst 10 per kall. `204`, `400` (ugyldig, melding frå framtida, `source` ikkje `ais`), `401`, `413`, `429` med `Retry-After`.
+- Éi rad per MMSI (`ais_latest`). Ei eldre melding skriv ikkje over ei nyare.
+- Takt frå innsamlaren: under fart (eller flytta ≥ 30 m) minst 15 s mellom kall, ved kai minst 60 s; felles klokke på 15 s. Workeren tek imot eitt kall per 10 s.
+- `Retry-After` frå workeren set eit golv for neste forsøk, så blir den nyaste meldinga sendt (ikkje ei kø).
+
+`GET /v1/latest` får `lines[<linje>].ais` (tillegg, resten er uendra):
+
+```json
+"ais": { "source": "ais", "mmsi": "257297400", "name": "KVERNES", "latitude": 62.2607, "longitude": 6.5005,
+         "speedKn": 9.2, "courseDeg": 44.4, "heading": 22, "navStatus": 0, "msgtime": "…", "receivedAt": "…",
+         "moored": false, "ageMs": 5000, "state": "live", "stale": false, "staleReason": null }
+```
+
+`state` blir rekna ut ved spørsmål, frå `msgtime`: under fart `live` ≤ 60 s, `stale` (siste kjende) ≤ 5 min, så `unknown`;
+ved kai (fortøydd eller under 0,5 kn) 4 min og 15 min. Tersklane er dei same som `packages/core/crossing.js` (testen held dei like).
+Ei linje med berre AIS (ingen puls) får `lastKnown: null` og `stale` som før.
+
+## Posisjonsrekkefølgje i appen
+
+AIS > Entur > rutetabell. Appen vel posisjonen per ferskleik (live > siste kjende > ukjend), så kjelde (AIS framfor Entur),
+så nyaste. Ein gamal AIS-posisjon slår altså ikkje ein fersk Entur-posisjon. Utan målt posisjon er framdrifta rekna ut frå
+rutetabellen og vist som stipla «Berekna». AIS har ingen tur-ID og beviser difor ikkje at ein tur gjekk: statuslinja og
+`sailed`/`cancelled` kjem framleis frå Entur og rutetabellen.
 
 ## GET /v1/latest (appen → workeren, offentleg)
 
@@ -77,4 +112,4 @@ Appen (steg 8):
 
 - Ingen persondata: berre ferje, posisjon, tur og kai.
 - Workeren spør aldri Entur. Han får data berre frå innsamlaren.
-- Hendingar blir sletta etter 30 dagar, pulsar etter 2 dagar.
+- Hendingar blir sletta etter 30 dagar, pulsar etter 2 dagar. `ais_latest` har éi rad per fartøy.
