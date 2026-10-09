@@ -54,11 +54,16 @@ export function openDb(path, { retentionDays = 30 } = {}) {
   if (path !== ":memory:") db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;");
   db.exec(SCHEMA);
+  // AIS-felt (fart, kurs, heading, navigasjonsstatus) i eldre databasar.
+  const cols = new Set(db.prepare("PRAGMA table_info(positions)").all().map((c) => c.name));
+  for (const [name, type] of [["speed_kn", "REAL"], ["course_deg", "REAL"], ["heading", "INTEGER"], ["nav_status", "INTEGER"]]) {
+    if (!cols.has(name)) db.exec(`ALTER TABLE positions ADD COLUMN ${name} ${type}`);
+  }
 
   const insPos = db.prepare(`INSERT OR IGNORE INTO positions
     (key, line, observed_at, recorded_at, source, vehicle_id, journey_ref, latitude, longitude, at_stop,
-     stop_name, destination, delay_min, vehicle_status, valid_until)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+     stop_name, destination, delay_min, vehicle_status, valid_until, speed_kn, course_deg, heading, nav_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const insEvent = db.prepare(`INSERT OR IGNORE INTO events
     (key, line, kind, service_date, at, journey_ref, stop, detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   const setMeta = db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
@@ -68,7 +73,7 @@ export function openDb(path, { retentionDays = 30 } = {}) {
 
   return {
     raw: db,
-    /** Lagrar éin posisjon. Same fartøy og same recordedAt blir lagra éin gong. Returnerer true om ny. */
+    /** Lagrar éin posisjon (Entur eller AIS). Same fartøy og same recordedAt blir lagra éin gong. Returnerer true om ny. */
     insertPosition(live) {
       const observed = Date.parse(live.observedAt) || Date.now();
       const key = `${live.line}|${live.vehicleId || ""}|${live.recordedAt || observed}`;
@@ -76,7 +81,7 @@ export function openDb(path, { retentionDays = 30 } = {}) {
         key, String(live.line), observed, live.recordedAt || null, live.source, live.vehicleId || null,
         live.journeyRef || null, num(live.latitude), num(live.longitude), bool(live.atStop),
         live.stopName || null, live.destination || null, num(live.delayMinutes), live.vehicleStatus || null,
-        live.validUntil || null
+        live.validUntil || null, num(live.speedKn), num(live.courseDeg), num(live.heading), num(live.navStatus)
       );
       return res.changes > 0;
     },

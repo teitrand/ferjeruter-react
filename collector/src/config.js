@@ -1,7 +1,8 @@
 /**
  * Oppsett frå miljøet (systemd: EnvironmentFile=/etc/fergeruter/collector.env).
  * Alle verdiar har trygge standardar, så tenesta startar utan fil. Avsendaren til
- * Cloudflare er AV til både FERGERUTER_SENDER_ENABLED=1, URL og nøkkel er sette.
+ * Cloudflare er AV til både FERGERUTER_SENDER_ENABLED=1, URL og nøkkel er sette. AIS er AV
+ * til FERGERUTER_AIS_ENABLED=1 og klient-ID og passord er sette.
  */
 import { join } from "node:path";
 
@@ -16,6 +17,8 @@ export function loadConfig(env = process.env) {
   const stateDir = env.FERGERUTER_STATE_DIR || "/var/lib/fergeruter";
   const senderUrl = env.FERGERUTER_SENDER_URL || "";
   const senderKey = env.FERGERUTER_SENDER_KEY || "";
+  const aisId = env.FERGERUTER_AIS_CLIENT_ID || "";
+  const aisSecret = env.FERGERUTER_AIS_CLIENT_SECRET || "";
   return {
     stateDir,
     dbPath: env.FERGERUTER_DB || join(stateDir, "collector.sqlite"),
@@ -31,6 +34,15 @@ export function loadConfig(env = process.env) {
     statusEveryMs: int(env.FERGERUTER_STATUS_EVERY_MS, 30000, 5000),
     // Lokal status på 127.0.0.1 (GET /status, /healthz). 0 = av.
     httpPort: int(env.FERGERUTER_HTTP_PORT, 8787, 0),
+    // AIS frå BarentsWatch (docs/ais.md): AV til FERGERUTER_AIS_ENABLED=1 og klient-ID og passord er sette.
+    ais: {
+      enabled: on(env.FERGERUTER_AIS_ENABLED) && Boolean(aisId) && Boolean(aisSecret),
+      requested: on(env.FERGERUTER_AIS_ENABLED),
+      configured: Boolean(aisId) && Boolean(aisSecret),
+      clientId: aisId,
+      clientSecret: aisSecret,
+      mmsi: env.FERGERUTER_AIS_MMSI || "",
+    },
     sender: {
       enabled: on(env.FERGERUTER_SENDER_ENABLED) && Boolean(senderUrl) && Boolean(senderKey),
       requested: on(env.FERGERUTER_SENDER_ENABLED),
