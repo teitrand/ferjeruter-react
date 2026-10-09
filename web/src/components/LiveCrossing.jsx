@@ -24,7 +24,7 @@ function FerryIcon() {
   );
 }
 
-/** Kva linja og ferja skal sjå ut som: målt (heil), berekna (striper, ≈) eller ukjend (bleik). */
+/** Kva linja og ferja skal sjå ut som: målt (heil), berekna (striper, ≈) eller ukjend (bleik, berekna). */
 export function sourceAttr(view) {
   if (view.state === "calc") return "calc";
   if (view.state === "unknown") return "unknown";
@@ -91,11 +91,13 @@ export function CrossingView({ view, reducedMotion = false, animate = true }) {
 }
 
 /**
- * Overfarten som er i gang, med ferja på linja mellom kaiane. Fyrste teikning utan
- * overgang (ferja hoppar ikkje inn frå venstre); overgangane blir slått på etter fyrste frame.
+ * Sanntida under statuslinja. På overfart: merke, progressbar og ferja på skinna. Ved kai
+ * eller utan overfart: berre merket (Live / Siste kjende / Ukjent / Berekna).
+ * Fyrste teikning utan overgang (ferja hoppar ikkje inn frå venstre); overgangane blir
+ * slått på etter fyrste frame.
  */
-export function LiveCrossing({ crossing, nowMs = null }) {
-  const view = usePositionState(crossing, { nowMs });
+export function LiveStatus({ live, nowMs = null }) {
+  const view = usePositionState(live, { nowMs });
   const reducedMotion = useReducedMotion();
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -103,5 +105,16 @@ export function LiveCrossing({ crossing, nowMs = null }) {
     return () => cancelAnimationFrame(frame);
   }, []);
   if (!view) return null;
-  return <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} />;
+  if (!live?.crossing) {
+    return (
+      <div className="status-live" data-motion={reducedMotion ? "reduce" : undefined}>
+        <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} />
+      </div>
+    );
+  }
+  return (
+    <div className="status-live">
+      <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} />
+    </div>
+  );
 }

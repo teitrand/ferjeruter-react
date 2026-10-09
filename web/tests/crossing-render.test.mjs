@@ -18,6 +18,7 @@ const VM = json("tests/fixtures/vm_2026-10-08_2030.json");
 const oslo = (h, m, s = 0) => Date.UTC(2026, 9, 8, h - 2, m, s);
 // 8. oktober 2026 kl. 20:30 i Oslo: 20:20-turen Trandal → Standal er i gang etter rutetabellen.
 const FIXED = oslo(20, 30);
+let current = FIXED;
 const RealDate = Date;
 
 let server;
@@ -44,10 +45,10 @@ before(async () => {
   core = await server.ssrLoadModule("/../packages/core/index.js");
   globalThis.Date = class extends RealDate {
     constructor(...args) {
-      super(...(args.length ? args : [FIXED]));
+      super(...(args.length ? args : [current]));
     }
     static now() {
-      return FIXED;
+      return current;
     }
   };
 });
@@ -124,13 +125,17 @@ test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
   const unknown = clean(renderToString(createElement(CrossingView, { view: view(aisAt(0.2, oslo(20, 22))) })));
   assert.match(unknown, /data-source="unknown"/);
   assert.match(text(unknown), /Ukjent · ingen sanntid sidan 20:22/);
-  assert.match(text(unknown), /Vi veit ikkje kvar ferja er no\. Viser siste kjende posisjon\./);
+  assert.match(text(unknown), /Vi veit ikkje kvar ferja er no\. Posisjonen er berre rekna ut frå rutetabellen\./);
+  // Gammal posisjon: framdrifta er rutetabellen (65 %), merkt som anslag.
+  assert.match(text(unknown), /ca\. 67 % av overfarten · planlagt framme 20:35/);
+  assert.match(unknown, /aria-valuetext="65 % av overfarten frå Trandal til Standal, posisjon ukjend, berekna frå rutetabellen"/);
 
   const calc = clean(renderToString(createElement(CrossingView, { view: view(null) })));
   assert.match(calc, /data-source="calc"/);
   assert.match(text(calc), /Berekna · rutetabell/);
   assert.match(calc, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
   assert.match(text(calc), /Posisjonen er berre rekna ut frå rutetabellen\./);
+  assert.match(text(calc), /ca\. 67 % av overfarten · planlagt framme 20:35/);
   assert.match(calc, /class="ferry-approx">≈</);
 });
 
@@ -147,8 +152,8 @@ test("nedteljing: synleg tekst aria-hidden, skjermlesartekst per minutt utan liv
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
   setLang("nn");
   const html = clean(renderToString(createElement(Countdown, { time: "20:34:05", nowMs: FIXED })));
-  assert.match(html, /<span class="countdown-text is-tabular" aria-hidden="true">Neste avgang om 4:05<\/span>/);
-  assert.match(html, /<span class="visually-hidden">Neste avgang om 5 minutt<\/span>/);
+  assert.match(html, /<span class="countdown-text is-tabular" aria-hidden="true">om 4:05<\/span>/);
+  assert.match(html, /<span class="visually-hidden">om 5 min<\/span>/);
   assert.doesNotMatch(html, /aria-live/);
 });
 
@@ -161,15 +166,25 @@ function renderApp({ initialEntur = null } = {}) {
   const signalLog = { days: { "2026-10-08": LOG.days["2026-10-08"] } };
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog, connections: null };
   const initialState = { routeChoice: "1136", lang: "nn", override: null, date: null, showPast: true };
-  return clean(renderToString(createElement(App, { initialData, initialEntur, initialState, memory: memoryOnly() })));
+  const app = createElement(App, { initialData, initialEntur, initialState, memory: memoryOnly() });
+  return clean(renderToString(createElement(AnnouncerProvider, null, app)));
 }
 
-test("appen: «No»-rada får overfartslinja medan ferja går, berekna utan sanntid", () => {
+/** Statusområdet øvst: statuslinja og sanntida under. */
+const statusArea = (html) => html.match(/<div class="status-area">.*?<\/header>/s)?.[0] || "";
+
+test("appen: éitt statusområde – statuslinja med framdrift og ferje under, berekna utan sanntid", () => {
   const html = renderApp();
   assert.equal((html.match(/data-announcer=""/g) || []).length, 1, "éin live-region for sanntid");
-  assert.match(html, /<div class="now is-underway">/, "«No»-rada utan eiga framdrift når overfartslinja er der");
-  assert.match(html, /class="crossing" data-source="calc"/);
-  assert.match(html, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
+  const area = statusArea(html);
+  assert.match(area, /<p class="lede" id="lede-status">Ferja er på veg mot Standal\. /, "teksten kjem frå currentStatus, som før");
+  assert.match(area, /class="crossing" data-source="calc"/);
+  assert.match(area, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
+  assert.match(text(area), /Berekna · rutetabell/);
+  // Éin statustekst: «No»-merket i tidslinja har ingen eigen tekst og ingen overfartslinje.
+  assert.equal((html.match(/class="crossing[ "]/g) || []).length, 1);
+  assert.match(html, /<div class="now is-underway has-progress" style="--now-progress:\d+%" aria-hidden="true"><span class="now-track"><span class="now-fill"><\/span><\/span><span class="now-label">No<\/span><\/div>/);
+  assert.doesNotMatch(html, /class="now-text"/);
 });
 
 test("appen: Entur-posisjon midt på fjorden gjev målt framdrift; ekte VM ved kai gjev ingen overfart", () => {
@@ -197,13 +212,18 @@ test("appen: Entur-posisjon midt på fjorden gjev målt framdrift; ekte VM ved k
   assert.match(html, /aria-valuetext="70 % av overfarten frå Trandal til Standal, målt, frå sanntid hos Entur"/);
 });
 
-test("appen: nedteljing til neste avgang når ferja ligg ved kai", () => {
-  globalThis.Date.now = () => oslo(20, 16);
+test("appen: ved kai er det statuslinja med tikkande nedteljing og berre kjeldemerket", () => {
+  current = oslo(20, 16);
   try {
-    const html = renderApp();
-    assert.match(html, /class="countdown-text is-tabular" aria-hidden="true">Neste avgang om 4:00</);
-    assert.doesNotMatch(html, /class="crossing/);
+    const area = statusArea(renderApp());
+    assert.match(
+      area,
+      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal, <span class="countdown"><span class="countdown-text is-tabular" aria-hidden="true">om 4:00<\/span><span class="visually-hidden">om 4 min<\/span><\/span>\./
+    );
+    assert.doesNotMatch(area, /class="crossing/);
+    assert.match(area, /<div class="status-live"><span class="live" data-state="calc">/);
+    assert.match(text(area), /Berekna · rutetabell/);
   } finally {
-    globalThis.Date.now = () => FIXED;
+    current = FIXED;
   }
 });

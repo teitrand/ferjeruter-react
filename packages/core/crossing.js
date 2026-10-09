@@ -28,6 +28,10 @@ export const AIS_MOORED_STALE_MS = 15 * 60 * 1000;
 export const AT_QUAY_MAX_KN = 0.5;
 /** Ein posisjon frå før avgangen (minus dette) høyrer ikkje til overfarten. */
 export const FIX_BEFORE_DEPARTURE_MS = 2 * 60 * 1000;
+/** … og ein posisjon så lenge etter ankomsttida høyrer heller ikkje til. */
+export const FIX_AFTER_ARRIVAL_MS = 15 * 60 * 1000;
+/** Turmatching: avgangar så langt før/etter posisjonen er ikkje kandidatar. */
+export const MATCH_SLACK_MS = 10 * 60 * 1000;
 
 export const FIX_SOURCES = ["ais", "entur", "computed"];
 
@@ -224,23 +228,28 @@ function nearRoute(fix, leg) {
 }
 
 /**
- * Turen posisjonen høyrer til. Fyrst journeyRef (Entur), så nærmaste planlagde avgang
+ * Turen posisjonen høyrer til, innanfor tidsvindauget rundt rutetida (`nowMs` = i dag).
+ * Fyrst journeyRef (Entur), så nærmaste planlagde avgang
  * der posisjonen ligg på strekninga og retninga ikkje talar imot.
  */
-export function matchCrossingLeg(legs, fix, { previous = null } = {}) {
+export function matchCrossingLeg(legs, fix, { previous = null, nowMs = null } = {}) {
   if (!fix) return null;
+  // ServiceJourney-id-ane går att kvar dag, så også ref-treffet må liggje i tidsvindauget.
+  // Rutetidene gjeld dagen `nowMs` er i (i dag); utan nowMs dagen posisjonen er frå.
+  const day = nowMs ?? fix.at;
+  const inWindow = (leg) =>
+    fix.at >= clockMs(leg.departure, day) - MATCH_SLACK_MS && fix.at <= clockMs(leg.arrival, day) + MATCH_SLACK_MS;
   const ref = fix.journeyRef;
   if (ref) {
-    const hit = (legs || []).find((leg) => serviceJourneyId(leg.id) === ref);
+    const hit = (legs || []).find((leg) => serviceJourneyId(leg.id) === ref && inWindow(leg));
     if (hit) return hit;
   }
   let best = null;
   let bestGap = Infinity;
   for (const leg of legs || []) {
     if (!leg?.departure || !leg?.arrival) continue;
-    const dep = clockMs(leg.departure, fix.at);
-    const arr = clockMs(leg.arrival, fix.at);
-    if (fix.at < dep - 10 * 60000 || fix.at > arr + 10 * 60000) continue;
+    const dep = clockMs(leg.departure, day);
+    if (!inWindow(leg)) continue;
     if (!nearRoute(fix, leg)) continue;
     if (headingTowards(fix, leg.from, leg.to, previous) === false) continue;
     const gap = Math.abs(fix.at - dep);
@@ -267,8 +276,12 @@ export function tripKey(leg) {
 /** Høyrer posisjonen til denne overfarten? */
 export function fixBelongsTo(fix, leg, nowMs) {
   if (!fix || !leg || fix.source === "computed") return false;
-  if (fix.journeyRef) return fix.journeyRef === serviceJourneyId(leg.id);
+  // Same tidsvindauge med og utan journeyRef: id-ane går att kvar dag, og ein posisjon
+  // frå før avgangen eller lenge etter ankomsten seier ingenting om denne overfarten.
   if (fix.at < clockMs(leg.departure, nowMs) - FIX_BEFORE_DEPARTURE_MS) return false;
+  if (fix.at > clockMs(leg.arrival, nowMs) + FIX_AFTER_ARRIVAL_MS) return false;
+  if (fix.at > nowMs + FIX_BEFORE_DEPARTURE_MS) return false;
+  if (fix.journeyRef) return fix.journeyRef === serviceJourneyId(leg.id);
   return nearRoute(fix, leg);
 }
 
@@ -292,34 +305,46 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   let progress = timetableFraction(leg, nowMs);
   let atQuay = false;
   let arrival = hhmm(leg.arrival);
-  if (own) {
-    const fraction = crossingFraction(own, leg.from, leg.to);
-    if (fraction != null) {
-      state = fixFreshness(own, nowMs);
-      source = own.source;
-      progress = fraction;
-      if (fixAtQuay(own, leg.to)) {
-        atQuay = true;
-        progress = 1;
-      } else if (fixAtQuay(own, leg.from)) {
-        atQuay = true;
-        progress = 0;
-      }
-      if (state === "live" && own.expectedArrival) arrival = osloHm(own.expectedArrival) || arrival;
+  const freshness = own ? fixFreshness(own, nowMs) : null;
+  const fraction = own ? crossingFraction(own, leg.from, leg.to) : null;
+  if (own && freshness === "unknown") {
+    // Eldre enn FIX_STALE_MS: ikkje lenger ein måling vi stolar på. Framdrifta kjem frå
+    // rutetabellen; merket kan framleis seie «Ukjent · ingen sanntid sidan hh:mm».
+    state = "unknown";
+  } else if (own && fraction != null) {
+    state = freshness;
+    source = own.source;
+    progress = fraction;
+    // «Ved kai» berre på fersk posisjon (eller AIS ved kai, som sender sjeldnare).
+    const trusted = state === "live" || (state === "stale" && own.source === "ais");
+    if (trusted && fixAtQuay(own, leg.to)) {
+      atQuay = true;
+      progress = 1;
+    } else if (trusted && fixAtQuay(own, leg.from)) {
+      atQuay = true;
+      progress = 0;
     }
+    if (state === "live" && own.expectedArrival) arrival = osloHm(own.expectedArrival) || arrival;
   }
   progress = clamp01(progress);
-  // Monoton per tur: ein ny (eller dårlegare) posisjon flyttar aldri ferja bakover.
-  // Unntak: når ein måling avløyser eit anslag frå rutetabellen, vinn målinga (men aldri
-  // under ein tidlegare måling på same tur). Eit anslag skal ikkje halde ein målt
-  // posisjon framom der ferja faktisk er.
+  // Monoton per tur: ferja går ikkje bakover.
+  //  - målt → målt og berekna → berekna: aldri under førre verdi.
+  //  - berekna → målt: målinga vinn over anslaget, men aldri under ein tidlegare måling.
+  //  - målt → berekna fordi posisjonen forsvann (calc): står der målinga var.
+  //  - målt → ukjent (målinga er for gammal): ingen golv frå målinga, berre frå anslag.
+  // `previous` er førre resultat for same LiveCrossing (ein ref i usePositionState), så
+  // golvet forsvinn når komponenten blir avmontert (ny lasting, anna rute).
   const same = previous && previous.trip === trip ? previous : null;
   if (same) {
-    const replacesEstimate = same.source === "computed" && source !== "computed";
-    const floor = replacesEstimate ? same.lastMeasured ?? 0 : same.progress;
+    const measured = source !== "computed";
+    let floor;
+    if (measured) floor = same.source === "computed" ? same.lastMeasured ?? 0 : same.progress;
+    else if (same.source !== "computed") floor = state === "unknown" ? same.lastEstimate ?? 0 : same.progress;
+    else floor = same.progress;
     if (floor > progress) progress = floor;
   }
-  const lastMeasured = source !== "computed" ? progress : same?.lastMeasured ?? null;
+  const lastMeasured = source !== "computed" ? progress : state === "unknown" ? null : same?.lastMeasured ?? null;
+  const lastEstimate = source === "computed" ? progress : same?.lastEstimate ?? null;
   const ageMs = own ? Math.max(0, nowMs - own.at) : null;
   return {
     trip,
@@ -336,7 +361,30 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
     fixAt: own ? own.at : null,
     ageMs,
     pulse: state === "live" && ageMs != null && ageMs <= FIX_PULSE_MS,
+    seenLive: state === "live" || Boolean(same?.seenLive),
     lastMeasured,
+    lastEstimate,
+  };
+}
+
+/**
+ * Kjelda når ferja ikkje er på overfart (ved kai, før fyrste tur): same merke, utan linje.
+ * Nyaste målte posisjon avgjer; utan posisjon er statusen berekna frå rutetabellen.
+ */
+export function positionSourceView(fixes, nowMs, previous = null) {
+  const own = newestFix(fixes);
+  const state = own ? fixFreshness(own, nowMs) : "calc";
+  const trusted = own && state !== "unknown";
+  const ageMs = own ? Math.max(0, nowMs - own.at) : null;
+  return {
+    trip: "",
+    source: trusted ? own.source : "computed",
+    state,
+    measured: Boolean(trusted),
+    fixAt: own ? own.at : null,
+    ageMs,
+    pulse: state === "live" && ageMs != null && ageMs <= FIX_PULSE_MS,
+    seenLive: state === "live" || Boolean(previous && previous.trip === "" && previous.seenLive),
   };
 }
 
@@ -387,6 +435,8 @@ export function crossingNote(view) {
 export function crossingProgressText(view) {
   if (!view) return "";
   if (view.atQuay && view.progress >= 1) return t("crossing.atQuay", { quay: view.to });
+  // Berekna: «ca.» og «planlagt framme», så det ikkje ser ut som ein måling.
+  if (!view.measured) return t("crossing.progressCalc", { percent: view.percent, time: view.arrival });
   return t("crossing.progress", { percent: view.percent, time: view.arrival });
 }
 
@@ -408,14 +458,19 @@ export function crossingValueText(view) {
   });
 }
 
-/** Kva den felles live-regionen skal seie når kjelda/tilstanden skifter. "" = ingenting. */
+/**
+ * Kva den felles live-regionen skal seie. "" = ingenting.
+ * Berre: til «Ukjent» eller «Berekna» etter at vi har hatt live, og tilbake til live
+ * etter «Ukjent». Aldri for live ↔ siste kjende, og aldri for posisjonsoppdateringar.
+ */
 export function crossingAnnouncement(before, after) {
   if (!before || !after || before.trip !== after.trip) return "";
-  if (before.state === after.state && before.source === after.source) return "";
-  if (after.state === "calc") return t("crossing.annCalc");
-  if (after.state === "stale") return t("crossing.annStale");
-  if (after.state === "unknown") return t("crossing.annUnknown");
-  return t("crossing.annLive");
+  if (before.state === after.state) return "";
+  if ((after.state === "unknown" || after.state === "calc") && before.seenLive) {
+    return t(after.state === "calc" ? "crossing.annCalc" : "crossing.annUnknown");
+  }
+  if (after.state === "live" && before.state === "unknown") return t("crossing.annLive");
+  return "";
 }
 
 /**
@@ -441,5 +496,8 @@ export function countdownParts(time, nowMs) {
     tabular: minutes < 10 && seconds > 0,
     text: t("countdown.next", { countdown }),
     sr: srMinutes > 0 ? t("countdown.sr", { n: srMinutes }) : t("countdown.srNow"),
+    // Berre «om 4:05» / «om 5 min», til bruk inne i statuslinja.
+    phrase: countdown,
+    srPhrase: srMinutes > 0 ? t("countdown.in", { duration: durationText(srMinutes) }) : t("duration.now"),
   };
 }

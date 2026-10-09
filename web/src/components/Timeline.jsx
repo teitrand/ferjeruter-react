@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
 import { telHref } from "../../../packages/core/index.js";
-import { AnnouncerProvider, useAnnounce } from "./Announcer.jsx";
+import { useAnnounce } from "./Announcer.jsx";
 import { CallLink } from "./CallLink.jsx";
-import { Countdown } from "./Countdown.jsx";
-import { LiveCrossing } from "./LiveCrossing.jsx";
 import { t } from "./i18n.js";
 
 function PhoneIcon() {
@@ -163,35 +161,39 @@ function TransferRow({ row }) {
   );
 }
 
+/**
+ * «No»-merket i tidslinja: viser kvar i dagen vi er, med framdrifta som fyll. Statusteksten
+ * står berre éin stad, i statuslinja øvst (Lede), så merket har ingen eigen tekst og er
+ * skjult for skjermlesar.
+ */
 function NowRow({ row }) {
   const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
-  // Med overfartslinja (LiveCrossing) viser ikkje «No»-rada si eiga framdrift i tillegg.
-  const hasProgress = row.progress != null && !row.crossing;
+  const hasProgress = row.progress != null;
   return (
-    <>
-      <div
-        className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
-        style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
-      >
-        {hasProgress ? (
-          <span className="now-track" aria-hidden="true">
-            <span className="now-fill" />
-          </span>
-        ) : null}
-        <span className="now-label">{t("now")}</span>
-        <span className="now-text">{row.text}</span>
-        {row.next ? <Countdown time={row.next.time} /> : null}
-      </div>
-      {row.crossing ? <LiveCrossing crossing={row.crossing} /> : null}
-    </>
+    <div
+      className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
+      style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
+      aria-hidden="true"
+    >
+      {hasProgress ? (
+        <span className="now-track">
+          <span className="now-fill" />
+        </span>
+      ) : null}
+      <span className="now-label">{t("now")}</span>
+    </div>
   );
 }
 
 const ROWS = { dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow, now: NowRow };
 
+/** Berre dårlege nyhende blir lesne opp. «Gått» o.l. kjem ikkje i live-regionen. */
+const BAD_NEWS = new Set(["cancelled", "notRunning", "unknown"]);
+
 /**
- * Seier frå i den felles live-regionen når statusen til ei avgang skifter medan sida
- * er open (t.d. «Planlagt» → «Avlyst»). Ikkje ved fyrste teikning, dagbyte eller filter.
+ * Seier frå i den felles live-regionen når ei avgang blir avlyst, ikkje utført eller
+ * ukjend medan sida er open. Fleire samtidige skifte blir éi melding. Ikkje ved fyrste
+ * teikning, dagbyte eller rutebyte.
  */
 function useDepartureAnnouncements(rows, scope) {
   const announce = useAnnounce();
@@ -213,7 +215,7 @@ function useDepartureAnnouncements(rows, scope) {
     const changes = [];
     for (const [key, row] of now) {
       const old = before.get(key);
-      if (old && old.state !== row.state && row.stateText) {
+      if (old && old.state !== row.state && BAD_NEWS.has(row.state) && row.stateText) {
         changes.push(t("crossing.annDeparture", { route: t("sailing.route", { from: row.from, to: row.to }), time: row.time, status: row.stateText }));
       }
     }
@@ -250,11 +252,7 @@ function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
   );
 }
 
-/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. */
+/** Tidslinja for den valde dagen. `timeline` kjem frå model/timeline.js. Live-regionen kjem frå AnnouncerProvider rundt appen. */
 export function Timeline(props) {
-  return (
-    <AnnouncerProvider>
-      <TimelineRows {...props} />
-    </AnnouncerProvider>
-  );
+  return <TimelineRows {...props} />;
 }

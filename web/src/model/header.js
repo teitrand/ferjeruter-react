@@ -20,6 +20,7 @@ import {
   vesselNameForTable,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence, statusView } from "./context.js";
+import { liveStatus } from "./crossing.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
@@ -57,7 +58,8 @@ export function routeChrome(data, ui) {
 /**
  * Statuslinja øvst, som renderLedeStatus i assets/app.js.
  * @returns {{ noTrips: true } | { noTrips: false, status: string|null,
- *   next: { time: string, from: string, countdown: string }|null,
+ *   next: { time: string, from: string, countdown: string, departure: string }|null,
+ *   live: { crossing: object|null, fixes: object[] },
  *   logWarning: { when: string }|null }}
  */
 export function ledeModel(data, ui, memory, now = nowMinutes()) {
@@ -71,7 +73,9 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
   return {
     noTrips: false,
     status: status ? status.short || status.text.replace(/\.$/, "") : null,
-    next: next ? { time: hhmm(next.departure), from: next.from, countdown: countdown(next.departure) } : null,
+    next: next ? { time: hhmm(next.departure), from: next.from, countdown: countdown(next.departure), departure: next.departure } : null,
+    // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
+    live: liveStatus(status, legs, now, ev, data),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

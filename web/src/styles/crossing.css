@@ -49,11 +49,9 @@
 
 /* ---------- Overfarten ---------- */
 .crossing {
-  margin: -0.15rem 0 0.55rem -0.35rem;
   padding: 0.6rem 0.75rem 0.55rem;
-  border-radius: 12px;
-  background: #fff;
-  border: 1px solid #b8d3ee;
+  border-radius: 14px;
+  color: var(--ink);
 }
 
 .crossing-head {
@@ -212,7 +210,7 @@
 }
 .source-note { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
 
-/* Overgangar berre etter fyrste frame (LiveCrossing set is-ready). */
+/* Overgangar berre etter fyrste frame (LiveStatus set is-ready). */
 .crossing.is-ready .progress-fill {
   transition: transform var(--dur-position) var(--ease-position);
 }
@@ -224,16 +222,23 @@
 }
 .crossing.is-ready .ferry-approx { transition: opacity var(--dur-fade); }
 
-/* ---------- Nedteljing ---------- */
-.countdown {
-  position: relative;
-  z-index: 1;
-  margin-left: auto;
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
+/* ---------- Nedteljing (inne i statuslinja) ---------- */
+.countdown { white-space: nowrap; }
 .countdown-text.is-tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Statusområdet øvst: statuslinja med sanntida under ---------- */
+.status-area { grid-area: lede; min-width: 0; }
+.status-area .lede { margin-bottom: 0; }
+.status-live { margin-top: 0.5rem; }
+.status-live .crossing {
+  margin: 0;
+  background: var(--paper);
+  border: 0;
+  box-shadow: var(--shadow);
+}
+.status-live .crossing-head { margin-bottom: 0.45rem; }
+/* Berre merket (ved kai / utan overfart) står rett på den mørke toppen. */
+.status-live > .live[data-state="calc"] { background: var(--paper); }
 
 /* ---------- Mindre rørsle: ingen overgangar, ingen puls, ingen status-in ---------- */
 @media (prefers-reduced-motion: reduce) {

@@ -17,6 +17,8 @@ import {
   crossingBadge,
   crossingFraction,
   crossingNote,
+  crossingProgressText,
+  positionSourceView,
   crossingValueText,
   crossingView,
   fixAtQuay,
@@ -130,7 +132,9 @@ test("alder: Live ≤ 60 s (puls ≤ 30 s), Siste kjende ≤ 5 min, så Ukjent",
   assert.equal(view(FIX_PULSE_MS + 1000).state, "live");
   assert.equal(view(2 * 60 * 1000).state, "stale");
   assert.equal(view(6 * 60 * 1000).state, "unknown");
-  assert.equal(view(6 * 60 * 1000).measured, true, "siste kjende posisjon er framleis målt, berre gammal");
+  // Eldre enn 5 min er ikkje lenger ein måling: rutetabellen gjeld, aldri ved kai.
+  assert.equal(view(6 * 60 * 1000).measured, false);
+  assert.equal(view(6 * 60 * 1000).source, "computed");
 });
 
 test("AIS ved kai (fortøydd) har lengre grenser", () => {
@@ -192,7 +196,7 @@ test("crossing.js les ikkje tripStatus: posisjonen er aldri bevis for at ein tur
   const view = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.deepEqual(
     Object.keys(view).sort(),
-    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastMeasured", "measured", "percent", "progress", "pulse", "source", "state", "to", "trip"]
+    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "measured", "percent", "progress", "pulse", "seenLive", "source", "state", "to", "trip"]
   );
 });
 
@@ -208,7 +212,9 @@ test("tekstar: merke, kjeldeline og aria-valuetext seier alltid kjelda (nn)", ()
   assert.match(crossingValueText(stale), /siste kjende posisjon$/);
   const unknown = crossingView({ leg: OUT, fix, nowMs: fix.at + 7 * 60000 });
   assert.equal(crossingBadge(unknown), "Ukjent · ingen sanntid sidan 20:05");
-  assert.match(crossingValueText(unknown), /posisjon ukjend$/);
+  assert.match(crossingValueText(unknown), /posisjon ukjend, berekna frå rutetabellen$/);
+  assert.equal(crossingProgressText(unknown), `ca. ${unknown.percent} % av overfarten · planlagt framme 20:15`);
+  assert.equal(crossingProgressText(live), `${live.percent} % av overfarten · Framme 20:15`);
   const calc = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.equal(crossingBadge(calc), "Berekna · rutetabell");
   assert.match(crossingValueText(calc), /^40 % av overfarten frå Standal til Trandal, berekna frå rutetabellen$/);
@@ -216,6 +222,7 @@ test("tekstar: merke, kjeldeline og aria-valuetext seier alltid kjelda (nn)", ()
   assert.equal(crossingBadge(entur), "Live · Entur · 5 s");
   setLang("en");
   assert.equal(crossingBadge(calc), "Estimated · timetable");
+  assert.match(crossingProgressText(calc), /^about 40 % of the crossing · scheduled arrival 20:15$/);
   setLang("de");
   assert.equal(crossingBadge(stale), "Zuletzt bekannt · vor 3 Min.");
   setLang("nn");
@@ -227,20 +234,95 @@ test("aria-valuenow runda til 5 %", () => {
   assert.equal(ariaPercent(1.4), 100);
 });
 
-test("live-regionen: berre ved skifte av tilstand eller kjelde, ikkje ved ny posisjon", () => {
+test("live-regionen: til ukjent/berekna berre etter live, tilbake til live berre etter ukjent", () => {
   setLang("nn");
-  const a = crossingView({ leg: OUT, fix: ais(0.3, oslo(20, 5)), nowMs: oslo(20, 5, 5) });
-  const b = crossingView({ leg: OUT, fix: ais(0.4, oslo(20, 5, 30)), nowMs: oslo(20, 5, 35), previous: a });
-  assert.equal(crossingAnnouncement(a, b), "");
-  const calc = { ...b, state: "calc", source: "computed" };
-  assert.equal(crossingAnnouncement(b, calc), "Sanntidsposisjon manglar. Posisjonen er no berekna frå rutetabellen.");
-  assert.equal(crossingAnnouncement(calc, b), "Sanntidsposisjonen er tilbake.");
-  assert.equal(crossingAnnouncement(null, b), "", "ingenting ved fyrste teikning");
+  const fix = ais(0.3, oslo(20, 5));
+  const live = crossingView({ leg: OUT, fix, nowMs: oslo(20, 5, 5) });
+  const moved = crossingView({ leg: OUT, fix: ais(0.4, oslo(20, 5, 30)), nowMs: oslo(20, 5, 35), previous: live });
+  assert.equal(crossingAnnouncement(live, moved), "", "ny posisjon: ingenting");
+  const stale = crossingView({ leg: OUT, fix: ais(0.4, oslo(20, 5, 30)), nowMs: oslo(20, 7, 30), previous: moved });
+  assert.equal(stale.state, "stale");
+  assert.equal(crossingAnnouncement(moved, stale), "", "live → siste kjende: ingenting");
+  const unknown = crossingView({ leg: OUT, fix: ais(0.4, oslo(20, 5, 30)), nowMs: oslo(20, 11), previous: stale });
+  assert.equal(crossingAnnouncement(stale, unknown), "Vi veit ikkje kvar ferja er no.", "etter live (via siste kjende)");
+  const back = crossingView({ leg: OUT, fix: ais(0.8, oslo(20, 11, 10)), nowMs: oslo(20, 11, 15), previous: unknown });
+  assert.equal(crossingAnnouncement(unknown, back), "Sanntidsposisjonen er tilbake.");
+  assert.equal(crossingAnnouncement(stale, { ...moved, trip: stale.trip }), "", "siste kjende → live: ingenting");
+  const calc = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 11, 30), previous: back });
+  assert.equal(crossingAnnouncement(back, calc), "Sanntidsposisjon manglar. Posisjonen er no berekna frå rutetabellen.");
+  assert.equal(crossingAnnouncement(calc, crossingView({ leg: OUT, fix: ais(0.9, oslo(20, 12)), nowMs: oslo(20, 12, 5), previous: calc })), "", "berekna → live: ingenting");
+  // Aldri hatt live: ingenting.
+  const neverLive = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
+  assert.equal(crossingAnnouncement(neverLive, { ...neverLive, state: "unknown" }), "");
+  assert.equal(crossingAnnouncement(null, live), "", "ingenting ved fyrste teikning");
+});
+
+test("Reviewer: posisjon med same journeyRef frå i går eller før avgang høyrer ikkje til turen", () => {
+  const ref = "MOR:ServiceJourney:1136_128_x";
+  const legs = [OUT, BACK];
+  const at = (ms, f = 0.5) => ({ ...ais(f, ms), source: "entur", speedKn: null, course: null, journeyRef: ref });
+  const yesterday = at(oslo(20, 5) - 24 * 3600 * 1000);
+  const early = at(oslo(17, 55));
+  for (const fix of [yesterday, early]) {
+    assert.equal(matchCrossingLeg(legs, fix, { nowMs: oslo(20, 10) }), null);
+    const view = crossingView({ leg: OUT, fix, nowMs: oslo(20, 10) });
+    assert.equal(view.state, "calc");
+    assert.equal(view.measured, false);
+    assert.ok(Math.abs(view.progress - 10 / 15) < 1e-9, "rutetabellen, ikkje den gamle posisjonen");
+  }
+  assert.equal(matchCrossingLeg(legs, at(oslo(20, 5)), { nowMs: oslo(20, 10) }).departure, "20:00:00");
+});
+
+test("Reviewer: gammal posisjon ved endekaia gjev ikkje «ved kai» eller 100 %", () => {
+  // 40 min gammal posisjon ved Trandal for 20:00-turen, no 20:10 (ferja midt på fjorden etter rutetabellen).
+  const old = { ...fixFromAis({ mmsi: 1, ...along(1), sog: 0, timestamp: oslo(19, 59) }) };
+  const view = crossingView({ leg: OUT, fix: old, nowMs: oslo(20, 39) });
+  assert.equal(view.atQuay, false);
+  assert.equal(view.measured, false);
+  const fresh = fixFromAis({ mmsi: 1, ...along(1), sog: 0, timestamp: oslo(20, 5) });
+  const unknownAtQuay = crossingView({ leg: OUT, fix: fresh, nowMs: oslo(20, 25) });
+  assert.equal(unknownAtQuay.state, "unknown");
+  assert.equal(unknownAtQuay.atQuay, false);
+  assert.equal(unknownAtQuay.source, "computed");
+  // Entur (ikkje AIS) ved kai, 2 min gammal: siste kjende, men ikkje «ved kai».
+  const enturStale = { ...fresh, source: "entur", speedKn: null, at: oslo(20, 8) };
+  const stale = crossingView({ leg: OUT, fix: enturStale, nowMs: oslo(20, 10) });
+  assert.equal(stale.state, "stale");
+  assert.equal(stale.atQuay, false);
+  // AIS ved kai, 2 min gammal: AIS sender sjeldnare ved kai, så det gjeld.
+  assert.equal(crossingView({ leg: OUT, fix: { ...fresh, at: oslo(20, 8) }, nowMs: oslo(20, 10) }).atQuay, true);
+});
+
+test("Reviewer: ein posisjon som vart for gammal, held ikkje anslaget oppe", () => {
+  const fix = fixFromAis({ mmsi: 1, ...along(0.95), sog: 10, cog: 90, timestamp: oslo(20, 2) });
+  const live = crossingView({ leg: OUT, fix, nowMs: oslo(20, 2, 10) });
+  assert.ok(live.progress > 0.9);
+  const unknown = crossingView({ leg: OUT, fix, nowMs: oslo(20, 9), previous: live });
+  assert.equal(unknown.state, "unknown");
+  assert.ok(Math.abs(unknown.progress - 9 / 15) < 1e-9, "rutetabellen, ikkje 95 %");
+  const later = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 10), previous: unknown });
+  assert.ok(Math.abs(later.progress - 10 / 15) < 1e-9);
+  // Og ei ny, ekte måling kan dra ho ned att til der ferja faktisk er.
+  const real = crossingView({ leg: OUT, fix: ais(0.5, oslo(20, 10, 30)), nowMs: oslo(20, 10, 35), previous: later });
+  assert.ok(Math.abs(real.progress - 0.5) < 0.02, String(real.progress));
+});
+
+test("kjeldemerket utan overfart: live, siste kjende, ukjent eller berekna", () => {
+  setLang("nn");
+  const fix = { ...ais(0, oslo(20, 0)), source: "entur" };
+  assert.equal(crossingBadge(positionSourceView([fix], oslo(20, 0, 12))), "Live · Entur · 12 s");
+  assert.equal(crossingBadge(positionSourceView([fix], oslo(20, 2))), "Siste kjende · 2 min sidan");
+  const old = positionSourceView([fix], oslo(20, 7));
+  assert.equal(crossingBadge(old), "Ukjent · ingen sanntid sidan 20:00");
+  assert.equal(old.measured, false);
+  assert.equal(crossingBadge(positionSourceView([], oslo(20, 7))), "Berekna · rutetabell");
 });
 
 test("nedteljing: t + 0-fylte min over 60 min, min frå 10, m:ss under 10", () => {
   setLang("nn");
   const now = oslo(19, 0);
+  assert.equal(countdownParts("19:04:05", now).phrase, "om 4:05");
+  assert.equal(countdownParts("19:04:05", now).srPhrase, "om 5 min");
   assert.equal(countdownParts("20:05:00", now).text, "Neste avgang om 1 t 05 min");
   assert.equal(countdownParts("19:23:00", now).text, "Neste avgang om 23 min");
   const close = countdownParts("19:04:05", now);

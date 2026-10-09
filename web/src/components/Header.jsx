@@ -1,4 +1,6 @@
+import { Countdown } from "./Countdown.jsx";
 import { InstallButton } from "./InstallDialog.jsx";
+import { LiveStatus } from "./LiveCrossing.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
 import { t } from "./i18n.js";
 
@@ -39,27 +41,48 @@ function RouteSwitch({ routeChoice, onChange }) {
   );
 }
 
-/** Statuslinja: kvar ferja er no og neste avgang, alltid om i dag. */
+const MARK = "\u0000";
+
+/** «Neste avgang 09:45 frå Trandal, om 4:05» med nedteljinga tikkande inne i setninga. */
+function NextDeparture({ next }) {
+  if (!next.departure) return t("lede.nextDeparture", next);
+  const [before, after = ""] = t("lede.nextDeparture", { ...next, countdown: MARK }).split(MARK);
+  return (
+    <>
+      {before}
+      <Countdown time={next.departure} />
+      {after}
+    </>
+  );
+}
+
+/**
+ * Statusområdet: éi statuslinje (teksten kjem frå core currentStatus, som i vanilla-appen),
+ * med sanntida under: merket, og på overfart framdrift og ferje. Ingen andre statustekstar.
+ */
 export function Lede({ lede }) {
   if (!lede) return null;
   if (lede.noTrips) {
     return <p className="lede" id="lede-status">{t("lede.noTripsToday")}</p>;
   }
-  const parts = [];
-  if (lede.status) parts.push(lede.status);
-  if (lede.next) parts.push(t("lede.nextDeparture", lede.next));
   return (
-    <p className="lede" id="lede-status">
-      {`${parts.join(". ")}.`}
-      {lede.logWarning ? (
-        <>
-          {" "}
-          <span className="lede-warn">
-            {lede.logWarning.when ? t("signal.logLate", { when: lede.logWarning.when }) : t("signal.logMissing")}
-          </span>
-        </>
-      ) : null}
-    </p>
+    <div className="status-area">
+      <p className="lede" id="lede-status">
+        {lede.status ? lede.status : null}
+        {lede.status && lede.next ? ". " : null}
+        {lede.next ? <NextDeparture next={lede.next} /> : null}
+        {lede.status || lede.next ? "." : null}
+        {lede.logWarning ? (
+          <>
+            {" "}
+            <span className="lede-warn">
+              {lede.logWarning.when ? t("signal.logLate", { when: lede.logWarning.when }) : t("signal.logMissing")}
+            </span>
+          </>
+        ) : null}
+      </p>
+      {lede.live ? <LiveStatus live={lede.live} /> : null}
+    </div>
   );
 }
 
