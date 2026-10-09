@@ -9,7 +9,7 @@ og skriv ein status-JSON med «det vi veit» per linje. Appen treng han ikkje: u
 
 | Kjelde | Bruk | Grense |
 |---|---|---|
-| `wss://api.entur.io/realtime/v2/vehicles/subscriptions` (graphql-ws) | Hovudkjelde. Éi tilkopling, éin subscription per linje (`lineRef`), `bufferTime` 5 s, `bufferSize` 20. | Ny tilkopling tidlegast 15 s etter førre, så dobling til 15 min. Maks 4 tilkoplingar per minutt (eigen grensevakt). |
+| `wss://api.entur.io/realtime/v2/vehicles/subscriptions` (graphql-ws) | Hovudkjelde. Éi tilkopling, éin subscription per linje (`lineRef`), `bufferTime` 5 s, `bufferSize` 20. graphql-ws-`ping` kvart 25. s: Entur lukkar ei tilkopling utan trafikk etter om lag 60 s (kode 1006). | Ny tilkopling tidlegast 15 s etter førre, så dobling til 15 min. Maks 4 tilkoplingar per minutt (eigen grensevakt). |
 | `https://api.entur.io/realtime/v1/rest/vm` (SIRI VM) | Reserve når straumen har vore nede i 2 min, og berre i driftstida for linja. | Kvar linje høgst éin gong per 60 s. Alle REST-kall: høgst 2 per 60 s og minst 30 s mellom (Entur: 4/min, 15 s; VM svara 429 på to kall med 20 s mellom 9. oktober). Backoff 1 → 15 min, og aldri før `Retry-After`. |
 | `teitrand.github.io/fergeruter/data/*.json` | Rutetabell, kombirute, meldingar, signallogg (ikkje Entur). | Kvar time. Siste gode kopi i `cache/`. |
 

@@ -4,7 +4,10 @@
  *
  * - Ny tilkopling etter brot: backoff 15 s → 30 s → … → 15 min, og aldri meir enn
  *   ei tilkopling per 15 s (eigen ratelimiter, same grenser som REST).
- * - Vi sender ping kvart minutt. Utan pong på 20 s er sambandet dødt og blir lukka.
+ * - Vi sender graphql-ws-ping («{type:"ping"}») kvart 25. s og svarar på ping frå tenaren med pong.
+ *   Entur lukkar ei tilkopling utan trafikk etter om lag 60 s (kode 1006, sett på serveren
+ *   9. okt.: med ping kvart minutt døydde kvar tilkopling etter ~116 s). Utan pong på 20 s er
+ *   sambandet dødt og blir lukka.
  * - Stille straum er normalt (ferja sender ikkje om natta), så stille åleine gjev ikkje ny tilkopling.
  */
 import { COLLECTOR_CLIENT } from "./client.js";
@@ -14,7 +17,8 @@ import { VEHICLES_WS_URL, fromVehicleUpdate, subscriptionQuery } from "./vehicle
 export const RECONNECT_START_MS = 15000;
 export const RECONNECT_MAX_MS = 15 * 60 * 1000;
 export const HEALTHY_AFTER_MS = 2 * 60 * 1000;
-export const PING_EVERY_MS = 60000;
+/** Godt under tomgangsgrensa til Entur (~60 s), så ein tapt ping ikkje er nok til brot. */
+export const PING_EVERY_MS = 25000;
 export const PONG_TIMEOUT_MS = 20000;
 export const ACK_TIMEOUT_MS = 15000;
 

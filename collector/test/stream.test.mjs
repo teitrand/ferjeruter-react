@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createStream } from "../src/stream.js";
+import { HEALTHY_AFTER_MS, PING_EVERY_MS, PONG_TIMEOUT_MS, createStream } from "../src/stream.js";
 
 /** Falsk klokke og timarar. */
 function fakeTime() {
@@ -131,9 +131,9 @@ test("ingen ack på 15 s, eller ingen pong, lukkar og prøver att", () => {
   assert.equal(sockets.length, 2);
   sockets[1].onopen();
   sockets[1].serverSends({ type: "connection_ack" });
-  time.advance(60000);
+  time.advance(PING_EVERY_MS);
   assert.equal(sockets[1].sent.at(-1).type, "ping");
-  time.advance(20000);
+  time.advance(PONG_TIMEOUT_MS);
   assert.equal(sockets[1].closed, true);
   assert.equal(stream.state.connected, false);
   stream.stop();
@@ -154,11 +154,13 @@ test("Reviewer: backoff blir ikkje nullstilt av ei gammal, sunn tilkopling; berr
     const ws = sockets.at(-1);
     ws.onopen();
     ws.serverSends({ type: "connection_ack" });
-    // Svar på ping, så sambandet lever.
+    // Svar på kvar ping innan eitt sekund, så sambandet lever.
     const until = time.now + ms;
+    let seen = ws.sent.length;
     while (time.now < until) {
-      time.advance(Math.min(30000, until - time.now));
-      if (ws.sent.at(-1)?.type === "ping") ws.serverSends({ type: "pong" });
+      time.advance(Math.min(1000, until - time.now));
+      if (ws.sent.slice(seen).some((m) => m.type === "ping")) ws.serverSends({ type: "pong" });
+      seen = ws.sent.length;
     }
   };
   const nextGap = () => {
@@ -180,4 +182,52 @@ test("Reviewer: backoff blir ikkje nullstilt av ei gammal, sunn tilkopling; berr
   ackAndLive(2 * 60000);
   assert.equal(nextGap(), 15);
   stream.stop();
+});
+
+test("tomgangsgrensa hos Entur (~60 s utan trafikk gjev 1006): ping kvart 25. s held sambandet oppe i 15 min", () => {
+  const time = fakeTime();
+  const { FakeSocket, sockets } = fakeSocketClass();
+  const stream = createStream({
+    lines: ["1136", "1135"],
+    onVehicle: () => {},
+    WebSocketImpl: FakeSocket,
+    now: () => time.now,
+    setTimer: time.set,
+    clearTimer: time.clear,
+  });
+  assert.ok(PING_EVERY_MS + PONG_TIMEOUT_MS < 60000, "ping og pong-frist må vere under tomgangsgrensa");
+  stream.start();
+  const ws = sockets[0];
+  ws.onopen();
+  ws.serverSends({ type: "connection_ack" });
+  // Tenaren: svarar pong på ping, og lukkar med 1006 når klienten har vore stille i 60 s.
+  let lastClient = time.now;
+  const gaps = [];
+  for (let s = 0; s < 15 * 60; s++) {
+    const before = ws.sent.length;
+    time.advance(1000);
+    if (ws.sent.length > before) {
+      gaps.push(time.now - lastClient);
+      lastClient = time.now;
+      if (ws.sent.at(-1).type === "ping") ws.serverSends({ type: "pong" });
+    }
+    if (time.now - lastClient >= 60000 && !ws.closed) ws.onclose({ code: 1006, reason: "" });
+  }
+  assert.equal(sockets.length, 1, "inga ny tilkopling");
+  assert.equal(stream.state.connected, true);
+  assert.equal(stream.state.connects, 1);
+  assert.ok(Math.max(...gaps) <= PING_EVERY_MS, `lengste stille tid ${Math.max(...gaps)} ms`);
+  // Lever lenger enn HEALTHY_AFTER_MS, så eit brot no gjev 15 s, ikkje lengre backoff.
+  assert.ok(15 * 60000 >= HEALTHY_AFTER_MS);
+  ws.onclose({ code: 1006, reason: "" });
+  assert.equal(stream.state.reconnectDelayMs, 15000);
+  time.advance(15000);
+  assert.equal(sockets.length, 2);
+  stream.stop();
+});
+
+test("med ping kvart minutt (gammal oppførsel) ville tomgangsgrensa ha drepe sambandet før det var sunt", () => {
+  // Vern mot at nokon set intervallet tilbake: 60 s ping + nettverk > tomgangsgrensa.
+  assert.ok(PING_EVERY_MS <= 30000);
+  assert.ok(HEALTHY_AFTER_MS > 116000, "brot etter ~116 s skal framleis ikkje nullstille backoff");
 });
