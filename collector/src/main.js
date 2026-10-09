@@ -8,6 +8,7 @@ import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shouldFetchLive } from "../../packages/core/index.js";
+import { aisStatus, createAisStream, createTokenSource, parseMmsiMap } from "./ais.js";
 import { loadData, legsFor, writeJsonAtomic } from "./data.js";
 import { eventKey, openDb } from "./db.js";
 import { createRestPoller } from "./rest.js";
@@ -72,9 +73,10 @@ export async function run(cfg) {
     for (const { key, event } of unsent) sender.enqueue(event, key);
     if (unsent.length) log("sendar-usende", { n: unsent.length });
   }
-  log("start", { version, mode: cfg.mode, lines: cfg.lines, db: cfg.dbPath, sender: sender.enabled, node: process.version });
+  log("start", { version, mode: cfg.mode, lines: cfg.lines, db: cfg.dbPath, sender: sender.enabled, ais: Boolean(cfg.ais?.enabled), node: process.version });
+  if (cfg.ais?.requested && !cfg.ais.enabled) log("ais-av", { reason: "klient-ID eller passord manglar" });
 
-  const counters = { positions: 0, duplicates: 0, events: 0 };
+  const counters = { positions: 0, duplicates: 0, events: 0, aisPositions: 0, aisDuplicates: 0 };
   const onVehicle = (live) => {
     if (!cfg.lines.includes(String(live.line))) return;
     if (db.insertPosition(live)) counters.positions += 1;
@@ -92,6 +94,22 @@ export async function run(cfg) {
   };
 
   const stream = createStream({ lines: cfg.lines, onVehicle, log });
+
+  // AIS: posisjonar med source «ais» i same tabell. Dei går ikkje gjennom tracker (ingen
+  // tur-ID eller kai-status frå AIS), så hendingane kjem framleis berre frå Entur.
+  const aisTokens = cfg.ais?.enabled ? createTokenSource({ clientId: cfg.ais.clientId, clientSecret: cfg.ais.clientSecret }) : null;
+  const aisMmsi = parseMmsiMap(cfg.ais?.mmsi || undefined);
+  const ais = aisTokens
+    ? createAisStream({
+        mmsi: new Map([...aisMmsi].filter(([, line]) => cfg.lines.includes(line))),
+        tokens: aisTokens,
+        log,
+        onPosition: (live) => {
+          if (db.insertPosition(live)) counters.aisPositions += 1;
+          else counters.aisDuplicates += 1;
+        },
+      })
+    : null;
   let streamDownSince = Date.now();
   const rest = createRestPoller({
     lines: cfg.lines,
@@ -110,6 +128,7 @@ export async function run(cfg) {
   };
   await refreshData();
   if (cfg.mode === "stream") stream.start();
+  ais?.start();
 
   const statusNow = () => {
     const nowMs = Date.now();
@@ -127,6 +146,7 @@ export async function run(cfg) {
       sender: sender.status(),
       timetable: data.info,
       today: todayEvidence(cfg.lines, today, evidenceFromEvents(db.eventsFor(today))),
+      ais: aisStatus(cfg.ais, ais, aisTokens),
     });
   };
   const writeStatus = () => {
@@ -165,6 +185,7 @@ export async function run(cfg) {
         source: s.source,
         ws: { connected: s.stream.connected, connects: s.stream.connects, messages: s.stream.messages, vehicles: s.stream.vehicles },
         rest: { active: s.rest.active, requests: s.rest.requests, last60s: s.rest.requestsLast60s, errors: s.rest.errors },
+        ais: s.ais.enabled ? { connected: s.ais.connected, connects: s.ais.connects, positions: s.ais.positions, error: s.ais.lastError } : false,
         db: { positions: s.db.positions, events: s.db.events },
         lines: Object.fromEntries(Object.entries(s.lines).map(([l, v]) => [l, { stale: v.stale, reason: v.staleReason, ageS: v.ageSeconds }])),
       });
@@ -194,6 +215,7 @@ export async function run(cfg) {
     log("stopp", { signal });
     for (const t of timers) clearInterval(t);
     stream.stop();
+    ais?.stop();
     server?.close();
     writeStatus();
     db.close();

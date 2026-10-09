@@ -54,7 +54,7 @@ export function lineStatus(live, { nowMs, source }) {
  * Heile status-JSON-en (fil og GET /status). `health`: «ok» når ei kjelde er oppe,
  * «degraded» når vi berre har gamle data, «down» når vi ikkje har noko.
  */
-export function buildStatus({ nowMs, startedAt, version, mode, lines, lastKnown, stream, rest, db, sender, timetable, today }) {
+export function buildStatus({ nowMs, startedAt, version, mode, lines, lastKnown, stream, rest, db, sender, timetable, today, ais }) {
   const source = activeSource(stream, rest, nowMs);
   const perLine = {};
   for (const line of lines) perLine[line] = lineStatus(lastKnown[line] || null, { nowMs, source });
@@ -72,5 +72,7 @@ export function buildStatus({ nowMs, startedAt, version, mode, lines, lastKnown,
     db: db || null,
     timetable: timetable || null,
     sender: sender || { enabled: false },
+    // AIS (BarentsWatch) er ei eiga kjelde ved sida av Entur. Påverkar ikkje health/source enno.
+    ais: ais || { enabled: false },
   };
 }

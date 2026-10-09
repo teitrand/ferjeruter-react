@@ -11,9 +11,10 @@ og skriv ein status-JSON med «det vi veit» per linje. Appen treng han ikkje: u
 |---|---|---|
 | `wss://api.entur.io/realtime/v2/vehicles/subscriptions` (graphql-ws) | Hovudkjelde. Éi tilkopling, éin subscription per linje (`lineRef`), `bufferTime` 5 s, `bufferSize` 20. graphql-ws-`ping` kvart 25. s: Entur lukkar ei tilkopling utan trafikk etter om lag 60 s (kode 1006). | Ny tilkopling tidlegast 15 s etter førre, så dobling til 15 min. Maks 4 tilkoplingar per minutt (eigen grensevakt). |
 | `https://api.entur.io/realtime/v1/rest/vm` (SIRI VM) | Reserve når straumen har vore nede i 2 min, og berre i driftstida for linja. | Kvar linje høgst éin gong per 60 s. Alle REST-kall: høgst 2 per 60 s og minst 30 s mellom (Entur: 4/min, 15 s; VM svara 429 på to kall med 20 s mellom 9. oktober). Backoff 1 → 15 min, og aldri før `Retry-After`. |
+| `https://live.ais.barentswatch.no/v1/sse/combined` (BarentsWatch Live AIS, SSE) | **Av som standard** (`FERGERUTER_AIS_ENABLED`). AIS-posisjonar for MMSI 257297400 (Kvernes, 1136) og 257262400 (Geiranger, 1135), med token frå `id.barentswatch.no` (scope `ais`). Sjå `docs/ais.md`. | Éin straum. Ny tilkopling kvar 50. min med nytt token. Backoff 15 s → 15 min, maks 4 tilkoplingar per minutt, `Retry-After` blir respektert, token-feil gjev minst 60 s pause. Vakthund: 10 min utan data gjev ny tilkopling. |
 | `teitrand.github.io/fergeruter/data/*.json` | Rutetabell, kombirute, meldingar, signallogg (ikkje Entur). | Kvar time. Siste gode kopi i `cache/`. |
 
-Alle kall har `ET-Client-Name: teitrand-fergeruter-innsamlar` (`COLLECTOR_CLIENT` i `collector/src/client.js`), skilt frå `teitrand-fergeruter` som nettlesarane brukar.
+Alle kall til Entur har `ET-Client-Name: teitrand-fergeruter-innsamlar` (`COLLECTOR_CLIENT` i `collector/src/client.js`), skilt frå `teitrand-fergeruter` som nettlesarane brukar.
 
 ### Grensevakta
 
@@ -31,7 +32,7 @@ og ingen REST-kall.
 
 `/var/lib/fergeruter/collector.sqlite` (WAL, `auto_vacuum=INCREMENTAL`):
 
-- `positions`: linje, tid, kjelde (`stream`/`rest`), fartøy, tur (`journey_ref`), posisjon, ved kai, kai (innanfor 250 m av ei kjend kai), mål, forseinking, `vehicle_status`, `valid_until`. Same fartøy og same `recordedAt` blir lagra éin gong.
+- `positions`: linje, tid, kjelde (`stream`/`rest`/`ais`), fartøy, tur (`journey_ref`), posisjon, ved kai, kai (innanfor 250 m av ei kjend kai), mål, forseinking, `vehicle_status`, `valid_until`, og for AIS fart (`speed_kn`), kurs, heading og navigasjonsstatus (fartøy `mmsi:<mmsi>`). Same fartøy og same `recordedAt` blir lagra éin gong. AIS-posisjonane går ikkje gjennom hendingslogikken; hendingane kjem framleis berre frå Entur.
 - `events`: `departed` (forlét kai), `arrived` (kom til kai), `sailed` (`liveProvesSailed` i core seier at turen i rutetabellen er køyrd), `cancelled` (Entur melder `CANCELLED`). Unike per dag, linje, slag, tur og kai.
 - `meta`: siste kjende posisjon per linje, så han overlever omstart.
 
