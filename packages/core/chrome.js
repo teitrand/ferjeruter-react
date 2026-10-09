@@ -51,12 +51,21 @@ export function positionNoteKey(live, liveFailed, quays) {
   return "position.planned";
 }
 
-/** Lokal utvikling og /dev/ på Pages. Produksjon tek ikkje ?rute=. */
+/**
+ * Lokal utvikling, /dev/ på Pages og førehandsvisinga av React-skalet
+ * (teitrand.github.io/ferjeruter-react/). Produksjon (rota av eige domene) tek ikkje ?rute=.
+ */
 export function isPreview(loc) {
   if (!loc) return false;
   const host = loc.hostname || "";
   const path = loc.pathname || "";
-  return host === "localhost" || host === "127.0.0.1" || path.includes("/dev/");
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    path.includes("/dev/") ||
+    path === "/ferjeruter-react" ||
+    path.startsWith("/ferjeruter-react/")
+  );
 }
 
 /** ?rute=1136|1135|kombi, berre i førehandsvising. */

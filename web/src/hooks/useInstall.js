@@ -6,10 +6,11 @@ import { appMode } from "../../../packages/core/index.js";
  * - skjult når sida alt er opna som installert app
  * - har nettlesaren eiga installering (beforeinstallprompt), blir ho brukt
  * - elles opnar knappen rettleiinga (`help`)
- * Sjølve service workeren (offline) kjem i PR 6; knappen og rettleiinga er berre skalet.
+ * `early` (captureInstallPrompt i pwa/register.js) har hendinga om ho kom før React
+ * monterte. Nettlesaren tilbyr installering berre med manifest (og service worker).
  * @returns {{ visible: boolean, helpOpen: boolean, install: () => void, closeHelp: () => void }}
  */
-export function useInstall(track, { enabled = true } = {}) {
+export function useInstall(track, { enabled = true, early = null } = {}) {
   const [visible, setVisible] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const deferred = useRef(null);
@@ -18,23 +19,28 @@ export function useInstall(track, { enabled = true } = {}) {
     if (!enabled || appMode(window) === "pwa") return undefined;
     setVisible(true);
     const onPrompt = (event) => {
-      event.preventDefault();
+      event.preventDefault?.();
       deferred.current = event;
       setVisible(true);
     };
+    const pending = early?.take();
+    if (pending) deferred.current = pending;
     const onInstalled = () => {
       track("App installed", { how: "native" });
       deferred.current = null;
       setVisible(false);
       setHelpOpen(false);
     };
-    window.addEventListener("beforeinstallprompt", onPrompt);
+    // Med `early` lyttar han alt på window (og kallar preventDefault); elles gjer vi det her.
+    const unsubscribe = early ? early.subscribe(onPrompt) : null;
+    if (!early) window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
+      unsubscribe?.();
+      if (!early) window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [enabled, track]);
+  }, [enabled, track, early]);
 
   const install = async () => {
     const prompt = deferred.current;

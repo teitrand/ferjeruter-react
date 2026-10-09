@@ -1,5 +1,5 @@
 /** Kvar skalet hentar data, og sjølve hentinga. */
-import { productionDataUrl } from "../../../packages/core/index.js";
+import { productionDataUrl, timetableFingerprint } from "../../../packages/core/index.js";
 
 export const DATA_FILES = {
   routes: "ruter.json",
@@ -11,8 +11,8 @@ export const DATA_FILES = {
 
 /**
  * Basen for data/*.json. Standard er `./data/` ved sida av skalet (vite dev serverar
- * data/ frå repoet, og byggjet legg ein kopi i dist/data/). Ved publisering (PR 6)
- * set ein VITE_DATA_BASE til dei levande filene.
+ * data/ frå repoet, og byggjet legg ein kopi i dist/data/). Pages-arbeidsflyten set
+ * VITE_DATA_BASE til dei levande filene (sjå .github/workflows/pages.yml).
  */
 export function dataBase(env = {}) {
   return withSlash(env.VITE_DATA_BASE || "./data/");
@@ -64,4 +64,36 @@ export async function fetchAppData(fetchImpl, base, liveBase = base) {
     signalLog: signalLog && typeof signalLog.days === "object" ? signalLog : null,
     connections: connections && Array.isArray(connections.lines) ? connections : null,
   };
+}
+
+const fingerprint = (data) => (data?.routes ? timetableFingerprint(data.routes, data.kombirute, data.connections) : null);
+const sameJson = (a, b) => a === b || (a != null && b != null && JSON.stringify(a) === JSON.stringify(b));
+
+/**
+ * Nye filer inn i data som alt er vist. Same rutetabell (timetableFingerprint) gjev dei
+ * gamle objekta for rutetabell, kombirute og korrespondanse; same meldingar og signallogg
+ * gjev dei gamle objekta der òg. Ei valfri fil som manglar no, held på den gamle. Er alt likt, kjem `previous` sjølv tilbake, så React
+ * ikkje teiknar på nytt.
+ * @returns {{ data: object, timetableChanged: boolean }}
+ */
+export function mergeLoaded(previous, fresh) {
+  // Som loadRoutes() i vanilla: ei valfri fil som ikkje kom, tek ikkje bort den vi har.
+  const loaded = {
+    ...fresh,
+    kombirute: fresh.kombirute ?? previous.kombirute ?? null,
+    connections: fresh.connections ?? previous.connections ?? null,
+    messages: fresh.messages ?? previous.messages ?? null,
+    signalLog: fresh.signalLog ?? previous.signalLog ?? null,
+  };
+  const timetableChanged = fingerprint(previous) !== fingerprint(loaded);
+  const next = {
+    ...previous,
+    ...(timetableChanged
+      ? { routes: loaded.routes, kombirute: loaded.kombirute, connections: loaded.connections }
+      : {}),
+    messages: sameJson(previous.messages, loaded.messages) ? previous.messages : loaded.messages,
+    signalLog: sameJson(previous.signalLog, loaded.signalLog) ? previous.signalLog : loaded.signalLog,
+  };
+  const unchanged = Object.keys(next).every((key) => next[key] === previous[key]);
+  return { data: unchanged ? previous : next, timetableChanged };
 }
