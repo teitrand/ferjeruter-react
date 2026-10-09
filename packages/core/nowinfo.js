@@ -84,6 +84,8 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, atQua
   let place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
   if (atQuay && !status?.underway) place = t("status.mooredAt", { quay: atQuay });
   if (place) lines.push({ kind: "place", text: place });
+  // Utanfor ruta (AIS): ingen neste avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
+  if (status?.outside) return { lines };
   const ran = visible(running);
   const current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;
   const after = (leg) => ran.find((item) => item !== leg && clockMs(item.departure, nowMs) >= clockMs(leg.arrival || leg.departure, nowMs) - 1000) || null;
