@@ -238,13 +238,14 @@ export function App({
                 showPast={ui.showPast}
                 onTogglePast={() => act({ type: "togglePast" })}
                 onDetail={(leg) => act({ type: "detail", leg })}
+                live={lede && !lede.noTrips ? lede.live : null}
               />
             ) : null}
             <Footnote notes={notes} connection={connection.footnote} />
           </section>
         </div>
       </main>
-      <Footer chrome={chrome} onFeedback={() => setFeedbackOpen(true)} />
+      <Footer chrome={chrome} notes={notes} onFeedback={() => setFeedbackOpen(true)} />
       <InstallDialog open={install.helpOpen} onClose={install.closeHelp} />
       <DepartureDialog detail={detail} onClose={() => dispatch({ type: "detail", leg: null })} />
       <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />

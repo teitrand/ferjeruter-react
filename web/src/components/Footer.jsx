@@ -17,8 +17,41 @@ function Operator({ text, phone }) {
   );
 }
 
-/** Operatør og ferjetelefon, AIS-kjelde, høgtidsmerknad og tilbakemelding. */
-export function Footer({ chrome, onFeedback }) {
+const NLOD_URL = "https://data.norge.no/nlod/no/2.0";
+
+/**
+ * «Om dataa»: samanleggbar og kort. Kva posisjonen kjem frå no (same tekst som før i fotnoten, id
+ * position-note), kva «Live» og «Siste kjende» betyr, kjeldene og rutetabellen.
+ */
+function AboutData({ notes }) {
+  return (
+    <details className="about-data" id="about-data">
+      <summary>{t("about.title")}</summary>
+      <dl>
+        <dt>{t("about.position")}</dt>
+        <dd>
+          <span id="position-note">{t(notes.position)}</span> {t("about.priority")}
+        </dd>
+        <dd>{t("about.ages")}</dd>
+        <dt>{t("about.sources")}</dt>
+        <dd>
+          <ul>
+            <li>{t("about.ais")}</li>
+            <li>{t("about.entur")}</li>
+          </ul>
+        </dd>
+        <dt>{t("about.timetable")}</dt>
+        <dd>
+          {t("footnote.timetable")}{" "}
+          <span id="timetable-updated">{notes.updated ? t("timetable.updated", { date: notes.updated }) : ""}</span>
+        </dd>
+      </dl>
+    </details>
+  );
+}
+
+/** Heilt nede: operatør og ferjetelefon, kjeldekreditering (AIS frå Kystverket, NLOD), «Om dataa», høgtidsmerknad og tilbakemelding. */
+export function Footer({ chrome, notes, onFeedback }) {
   const vessel = chrome?.vessel;
   const phone = vessel ? vessel.phone : "916 69 340";
   const text = vessel ? t("footer.operatorVessel", { name: vessel.name, phone }) : t("footer.operator");
@@ -27,14 +60,20 @@ export function Footer({ chrome, onFeedback }) {
       <p>
         <span id="footer-operator">
           <Operator text={text} phone={phone} />
-        </span>{" "}
-        AIS:{" "}
+        </span>
+      </p>
+      <p id="footer-credit">
+        {t("footer.credit")}{" "}
         <a href={NAIS_URL} target="_blank" rel="noreferrer">
-          NAIS / Kystverket
+          NAIS
+        </a>{" "}
+        ·{" "}
+        <a href={NLOD_URL} target="_blank" rel="noreferrer">
+          {t("footer.licence")}
         </a>
-        .
       </p>
       <p>{t("footer.holidays")}</p>
+      {notes ? <AboutData notes={notes} /> : null}
       <p>
         <button type="button" id="feedback-open" className="feedback-link" onClick={onFeedback}>
           {t("feedback.open")}

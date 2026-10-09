@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { telHref } from "../../../packages/core/index.js";
 import { useAnnounce } from "./Announcer.jsx";
 import { CallLink } from "./CallLink.jsx";
+import { NowLive } from "./LiveCrossing.jsx";
 import { t } from "./i18n.js";
 
 function PhoneIcon() {
@@ -162,25 +163,37 @@ function TransferRow({ row }) {
 }
 
 /**
- * «No»-merket i tidslinja: viser kvar i dagen vi er, med framdrifta som fyll. Statusteksten
- * står berre éin stad, i statuslinja øvst (Lede), så merket har ingen eigen tekst og er
- * skjult for skjermlesar.
+ * «No»-raden i tidslinja: kvar i dagen vi er, og heimen til sanntida (kjeldemerket «Live frå AIS» osv.).
+ * På overfart (`live.crossing`) viser raden ferjelinja med ferja som einaste framdriftsvising. Elles, ved
+ * kai, er det den vanlege stolpen (liggetida som fyll) utan ferje, med merket attmed «No».
+ * Utan `live` (andre dagar, ingen sanntid) er raden berre «No», skjult for skjermlesar som før.
  */
-function NowRow({ row }) {
+function NowRow({ row, live }) {
   const kind = row.layover ? "is-layover" : row.underway ? "is-underway" : "is-moored";
-  const hasProgress = row.progress != null;
+  const crossing = Boolean(live?.crossing);
+  const hasProgress = row.progress != null && !crossing;
+  const className = `now ${kind}${hasProgress ? " has-progress" : ""}${live ? " now-live" : ""}${crossing ? " has-crossing" : ""}`;
+  const style = hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined;
+  if (!live) {
+    return (
+      <div className={className} style={style} aria-hidden="true">
+        {hasProgress ? (
+          <span className="now-track">
+            <span className="now-fill" />
+          </span>
+        ) : null}
+        <span className="now-label">{t("now")}</span>
+      </div>
+    );
+  }
   return (
-    <div
-      className={`now ${kind}${hasProgress ? " has-progress" : ""}`}
-      style={hasProgress ? { "--now-progress": `${Math.round(row.progress * 100)}%` } : undefined}
-      aria-hidden="true"
-    >
+    <div className={className} style={style} role="group" aria-label={t("now")}>
       {hasProgress ? (
-        <span className="now-track">
+        <span className="now-track" aria-hidden="true">
           <span className="now-fill" />
         </span>
       ) : null}
-      <span className="now-label">{t("now")}</span>
+      <NowLive live={live} label={t("now")} />
     </div>
   );
 }
@@ -223,7 +236,7 @@ function useDepartureAnnouncements(rows, scope) {
   }, [rows, scope, announce]);
 }
 
-function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
+function TimelineRows({ timeline, showPast, onTogglePast, onDetail, live = null }) {
   useDepartureAnnouncements(timeline.rows, timeline.scope);
   if (timeline.empty) {
     return (
@@ -244,7 +257,7 @@ function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
       <div className="timeline">
         {timeline.rows.map((row) => {
           const Row = ROWS[row.kind];
-          return <Row key={row.key} row={row} onDetail={onDetail} />;
+          return <Row key={row.key} row={row} onDetail={onDetail} live={live} />;
         })}
         {timeline.emptyPlace ? <p className="empty">{timeline.emptyPlace}</p> : null}
       </div>

@@ -1,6 +1,5 @@
 import { Countdown } from "./Countdown.jsx";
 import { InstallButton } from "./InstallDialog.jsx";
-import { LiveStatus } from "./LiveCrossing.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
 import { t } from "./i18n.js";
 
@@ -57,8 +56,8 @@ function NextDeparture({ next }) {
 }
 
 /**
- * Statusområdet: éi statuslinje (teksten kjem frå core currentStatus, som i vanilla-appen),
- * med sanntida under: merket, og på overfart framdrift og ferje. Ingen andre statustekstar.
+ * Statusområdet: éi statuslinje (teksten kjem frå core currentStatus, som i vanilla-appen, retta
+ * etter AIS-posisjonen). Sanntida (kjeldemerket og ferjelinja) står i «No»-raden i tidslinja.
  */
 export function Lede({ lede }) {
   if (!lede) return null;
@@ -81,7 +80,6 @@ export function Lede({ lede }) {
           </>
         ) : null}
       </p>
-      {lede.live ? <LiveStatus live={lede.live} /> : null}
     </div>
   );
 }

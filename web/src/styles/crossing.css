@@ -113,11 +113,9 @@
 .stop-state.status-in { animation: status-in var(--dur-status) var(--ease-status); }
 
 /* ---------- Ferjelinja: framdrift og ferje på éi linje mellom kaiane ----------
- * Geometri (botn av .ferry-line): linja 4 px med midte 6 px oppe, fyllet 6 px på same
- * midte, kaiprikkane 10 px på same midte, ferja (36×18) står på linja.
+ * Geometri (botn av .ferry-line): linja 4 px med midte 6 px oppe, kaiprikkane 10 px på same
+ * midte, ferja (36×18) står på linja og er einaste framdriftsvising.
  * Heil linje = målt og fersk (live). Stipla = ikkje eksakt (berekna, siste kjende, ukjend).
- * Stiplane er statisk bakgrunn: fyllet blir avdekt med to motsette translateX, så
- * mønsteret står i ro under glidinga (ingen scaleX som strekkjer stiplane, ingen layout).
  */
 .ferry-line-wrap {
   margin-top: 0.15rem;
@@ -135,35 +133,16 @@
   border-radius: var(--rail-h);
   background: var(--track);
 }
-.line-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(6px - var(--progress-h) / 2);
-  height: var(--progress-h);
-  border-radius: var(--progress-h);
-  overflow: hidden;
-  transform: translateX(calc((var(--p, 0) - 1) * 100%));
-}
-.line-fill-inner {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--progress-h);
-  background: var(--fill-measured);
-  transform: translateX(calc((1 - var(--p, 0)) * 100%));
-}
+/* Éi linje utan eigen framdriftsstolpe: ferja på linja er framdrifta. Heil = målt og fersk (live), stipla = ikkje eksakt. */
+.crossing[data-line="solid"] .line-track { background: var(--fill-measured); }
 .crossing[data-line="dashed"] .line-track {
-  background: repeating-linear-gradient(90deg, var(--track-dash) 0 8px, transparent 8px 13px);
-}
-.crossing[data-line="dashed"] .line-fill-inner {
-  border-radius: 0;
   background: repeating-linear-gradient(90deg, var(--fill-measured) 0 8px, transparent 8px 13px);
 }
-.crossing[data-source="calc"] .line-fill-inner,
-.crossing[data-source="unknown"] .line-fill-inner {
+.crossing[data-source="calc"] .line-track,
+.crossing[data-source="unknown"] .line-track {
   background: repeating-linear-gradient(90deg, var(--fill-calc) 0 8px, transparent 8px 13px);
 }
-.crossing[data-source="unknown"] .line-fill { opacity: 0.55; }
+.crossing[data-source="unknown"] .line-track { opacity: 0.55; }
 
 .quay {
   position: absolute;
@@ -212,13 +191,15 @@
 .line-labels {
   display: flex;
   justify-content: space-between;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
   margin-top: 0.25rem;
   font-size: 0.78rem;
   color: var(--muted);
 }
-.line-labels > span { min-width: 0; overflow-wrap: anywhere; }
-.line-labels > span:last-child { text-align: right; }
+/* Namna blir ikkje bråka midt i ordet ved 200 %: dei går heller på ei ny line. */
+.line-labels > span { min-width: 0; overflow-wrap: break-word; }
+.line-labels > span:last-child { text-align: right; margin-left: auto; }
 
 .progress-meta {
   margin: 0.35rem 0 0;
@@ -228,10 +209,7 @@
 }
 .source-note { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--muted); }
 
-/* Overgangar berre etter fyrste frame (LiveStatus set is-ready). Fyllet, motflyttinga og
-   ferja har same tid og kurve, så dei held følgje og stiplane står i ro. */
-.crossing.is-ready .line-fill,
-.crossing.is-ready .line-fill-inner,
+/* Overgangar berre etter fyrste frame (NowLive set is-ready). Berre ferja glir (transform). */
 .crossing.is-ready .ferry-runner {
   transition: transform var(--dur-position) var(--ease-position);
 }
@@ -244,19 +222,20 @@
 .countdown { white-space: nowrap; }
 .countdown-text.is-tabular { font-variant-numeric: tabular-nums; }
 
-/* ---------- Statusområdet øvst: statuslinja med sanntida under ---------- */
+/* ---------- Statusområdet øvst: berre statuslinja ---------- */
 .status-area { grid-area: lede; min-width: 0; }
 .status-area .lede { margin-bottom: 0; }
-.status-live { margin-top: 0.5rem; }
-.status-live .crossing {
-  margin: 0;
-  background: var(--paper);
-  border: 0;
-  box-shadow: var(--shadow);
-}
-.status-live .crossing-head { margin-bottom: 0.45rem; }
-/* Berre merket (ved kai / utan overfart) står rett på den mørke toppen. */
-.status-live > .live[data-state="calc"] { background: var(--paper); }
+
+/* ---------- «No»-raden i tidslinja: heimen til sanntida ----------
+ * «No» og kjeldemerket på same linje. På overfart ferjelinja under (kaia på kvar si side, ferja på
+ * linja), ved kai den vanlege stolpen utan ferje. Skrifta følgjer rem, så 200 % bryt i staden for å klippe.
+ */
+.now.now-live { display: block; padding: 0.55rem 0.75rem; }
+.now.now-live::before { top: 0.95rem; }
+.now-head { position: relative; z-index: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.6rem; }
+.now.has-crossing .crossing { padding: 0.5rem 0 0; background: none; box-shadow: none; border-radius: 0; }
+.now.is-underway .live[data-state="calc"] { background: transparent; }
+.now .crossing { position: relative; z-index: 1; }
 
 /* ---------- Mindre rørsle: ingen overgangar, ingen puls, ingen status-in ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -267,3 +246,17 @@
 .crossing[data-motion="reduce"] { --dur-position: 0ms; --dur-status: 0ms; --dur-fade: 0ms; }
 .crossing[data-motion="reduce"] .live { animation: none; }
 .crossing[data-motion="reduce"] .live-dot::after { animation: none; display: none; }
+
+/* ---------- «Om dataa» i bunnteksten ---------- */
+.about-data { margin: 0.6rem 0; max-width: 46rem; }
+.about-data summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.35rem 0;
+  min-height: 24px;
+}
+.about-data summary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+.about-data dl { margin: 0.35rem 0 0; }
+.about-data dt { margin-top: 0.6rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
+.about-data dd { margin: 0.2rem 0 0; line-height: 1.45; }
+.about-data ul { margin: 0; padding-left: 1.1rem; }
