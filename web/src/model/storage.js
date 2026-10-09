@@ -100,11 +100,6 @@ export function timetableCache(storage) {
   };
 }
 
-/** Same som timetableFingerprint i core, for eit { routes, kombirute, connections }-objekt. */
-export function timetableKey(data) {
-  return data?.routes ? timetableFingerprint(data.routes, data.kombirute, data.connections) : null;
-}
-
 /** Sambandet som galdt i dag sist (1136/1135/kombi), så tittelen er rett før data er lasta. */
 export function readLastMode(storage, today = todayIso()) {
   try {

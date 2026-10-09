@@ -11,7 +11,6 @@ import {
   connectionIndex,
   connectionNote,
   crossesArea,
-  currentStatus,
   departureStateKey,
   departureStateText,
   durationText,
@@ -30,15 +29,12 @@ import {
   pastDepartureCount,
   signalObservedAtQuay,
   signalPhone,
-  statusFromPosition,
   statusProgress,
-  knownQuays,
-  runningLegs,
   timelineEvents,
   tripStatus,
 } from "../../../packages/core/index.js";
-import { planContext, statusEvidence, statusView } from "./context.js";
-import { positionFixes } from "./crossing.js";
+import { planContext, statusEvidence } from "./context.js";
+import { nowStatus } from "./crossing.js";
 
 /**
  * @typedef {object} DepartureRow
@@ -143,15 +139,7 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     statuses.set(event.leg, status);
   }
   // Same status som statuslinja: AIS er sanninga når ho seier noko anna enn rutetabellen.
-  const status = today
-    ? statusFromPosition(currentStatus(dayLegs, now, ev, statusView(ctx)), {
-        running: runningLegs(dayLegs, now, ev),
-        fixes: positionFixes(data),
-        quays: knownQuays(ctx),
-        now,
-        nowMs: Date.now(),
-      })
-    : null;
+  const status = today ? nowStatus(data, ctx, dayLegs, now, ev) : null;
   if (status) events.push({ at: status.at, kind: "status", now: status });
   events.sort(compareTimelineEvents);
 

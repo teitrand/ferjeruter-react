@@ -242,12 +242,6 @@ export function easterSundayIso(year) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-export function isoShift(iso, days) {
-  const date = new Date(`${iso}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 export const publicHolidayYears = new Map();
 
 /**
@@ -264,11 +258,11 @@ export function publicHolidays(year) {
     `${year}-05-17`,
     `${year}-12-25`,
     `${year}-12-26`,
-    isoShift(easter, -3),
-    isoShift(easter, -2),
-    isoShift(easter, 1),
-    isoShift(easter, 39),
-    isoShift(easter, 50),
+    shiftIso(easter, -3),
+    shiftIso(easter, -2),
+    shiftIso(easter, 1),
+    shiftIso(easter, 39),
+    shiftIso(easter, 50),
   ]);
   publicHolidayYears.set(year, set);
   return set;

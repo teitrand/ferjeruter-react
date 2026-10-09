@@ -10,7 +10,6 @@ import {
   bestFix,
   positionNoteKey,
   statusFromPosition,
-  aisQuay,
   outsideFix,
   FIX_FRESH_MS,
   FIX_PULSE_MS,
@@ -532,9 +531,9 @@ test("statuslinja: ferja ikkje avgått (AIS ved startkaia) – raden «No» ligg
   assert.equal(moving.underway, true);
   // Langsamt i fjorden utan å vere ved ei kai: ikkje påstå noko nytt.
   assert.equal(statusFromPosition(moored, { running: [BACK], quays: ["Standal", "Trandal"], now: 20 * 60 + 22, fixes: [ais(0.4, t2 - 10000, { sog: 0.2 })], nowMs: t2 }), moored);
-  // Signalturar, avlyste og tomme statusar blir ikkje rørte.
+  // Signalturar, avlyste og tomme statusar blir ikkje rørte (berre atQuay kjem til: kvar AIS viser ferja).
   const signal = { ...underway, signal: "running" };
-  assert.equal(statusFromPosition(signal, { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 14, fixes: [ais(1, oslo(20, 14, 20), { sog: 0 })], nowMs: oslo(20, 14, 30) }), signal);
+  assert.deepEqual(statusFromPosition(signal, { running: [OUT], quays: ["Standal", "Trandal"], now: 20 * 60 + 14, fixes: [ais(1, oslo(20, 14, 20), { sog: 0 })], nowMs: oslo(20, 14, 30) }), { ...signal, atQuay: "Trandal" });
   assert.equal(statusFromPosition(null, { running: [], quays: [], fixes: [], nowMs: 0 }), null);
 });
 
@@ -548,14 +547,16 @@ test("statuslinja: «ferdig for dagen på Standal» eller «ligg til kai på Sta
   assert.equal(fixed.short, "Ferja ligg til kai på Trandal");
   assert.equal(fixed.at, 1240, "same plass i tidslinja");
   const same = { at: 1240, text: "Ferja er ferdig for dagen på Trandal" };
-  assert.equal(statusFromPosition(same, { ...ctx, fixes }), same);
+  assert.deepEqual(statusFromPosition(same, { ...ctx, fixes }), { ...same, atQuay: "Trandal" });
   const wrongQuay = { at: 1240, short: "Ferja ligg til kai på Standal", text: "Ferja ligg til kai på Standal." };
   assert.equal(statusFromPosition(wrongQuay, { ...ctx, fixes }).text, "Ferja ligg til kai på Trandal.");
 });
 
-test("aisQuay: kaia berre ved fersk AIS (ved kai 4 min), ikkje Entur, ikkje i fart", () => {
+test("status.atQuay: kaia berre ved fersk AIS (ved kai 4 min), ikkje Entur, ikkje i fart", () => {
   const nowMs = oslo(23, 0);
   const quays = ["Standal", "Trandal"];
+  const aisQuay = (fixes, quaysIn, at) =>
+    statusFromPosition({ short: "Ferdig for dagen", text: "Ferdig for dagen." }, { running: [], fixes, quays: quaysIn, now: 23 * 60, nowMs: at }).atQuay ?? null;
   assert.equal(aisQuay([ais(0, nowMs - 90000, { sog: 0 })], quays, nowMs), "Standal");
   assert.equal(aisQuay([ais(0, nowMs - 3 * 60000, { sog: 0 })], quays, nowMs), "Standal", "3 min sidan: framleis live ved kai");
   assert.equal(aisQuay([ais(0, nowMs - 5 * 60000, { sog: 0 })], quays, nowMs), null, "5 min: siste kjende, ikkje «live»");
@@ -613,7 +614,7 @@ test("utanfor ruta og ekstraturar: statuslinja tek AIS framfor rutetabellen", ()
   }
   // Ikkje for signal/avlyst.
   const signal = { ...moored, signal: true };
-  assert.equal(statusFromPosition(signal, { running: [OUT], fixes: [farAis(nowMs - 30000)], quays, now: 20 * 60 + 8, nowMs }), signal);
+  assert.deepEqual(statusFromPosition(signal, { running: [OUT], fixes: [farAis(nowMs - 30000)], quays, now: 20 * 60 + 8, nowMs }), signal);
   // I fart i ruteområdet utan passande tur (ekstratur / meir enn 10 min forseinka): ikkje «ligg til kai».
   const lateFix = ais(0.5, nowMs - 10000, { sog: 9 });
   const late = statusFromPosition(moored, { running: [leg("Standal", "Trandal", "19:00:00", "19:15:00")], fixes: [lateFix], quays, now: 20 * 60 + 8, nowMs });

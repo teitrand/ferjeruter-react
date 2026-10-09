@@ -3,8 +3,8 @@
  * Rein logikk utan DOM og utan global tilstand. Det appen veit, kjem inn som `ev` og `view`.
  */
 import { t } from "../../assets/i18n.js?v=84";
-import { clockMinutes, durationText, hasPassed, hhmm } from "./time.js?v=84";
-import { LAYOVER_MIN_MINUTES, catalogKeys, legIndex, quayPlace, sameLeg } from "./legs.js?v=84";
+import { clockMinutes, durationText, hhmm } from "./time.js?v=84";
+import { LAYOVER_MIN_MINUTES, legIndex, quayPlace, sameLeg } from "./legs.js?v=84";
 import { isLiveFresh, leftOrigin, legForLive } from "./live.js?v=84";
 import { firstKnownQuay } from "./plan.js?v=84";
 import { signalReachedDestination, signalSkippedStatus } from "./signal.js?v=84";
@@ -44,29 +44,6 @@ export function outerDeadheadMinutes(fromQuay, toQuay) {
   if (!from || !to || from === to) return null;
   if (isOuterQuay(from) === isOuterQuay(to)) return null;
   return OUTER_DEADHEAD_MINUTES;
-}
-
-/** Kortaste hol mellom to kaier i tabellen, t.d. Valderøya 12:30 → Standal 14:40. */
-export function minDeadheadMinutes(allLegs, fromQuay, toQuay) {
-  const byDate = new Map();
-  for (const leg of allLegs || []) {
-    for (const date of catalogKeys(leg)) {
-      if (!byDate.has(date)) byDate.set(date, []);
-      byDate.get(date).push(leg);
-    }
-  }
-  let shortest = null;
-  for (const dayLegs of byDate.values()) {
-    dayLegs.sort((a, b) => a.departure.localeCompare(b.departure));
-    for (let i = 0; i < dayLegs.length - 1; i += 1) {
-      const leg = dayLegs[i];
-      const next = dayLegs[i + 1];
-      if (leg.to !== fromQuay || next.from !== toQuay) continue;
-      const gap = clockMinutes(next.departure) - clockMinutes(leg.arrival);
-      if (gap > 0 && (shortest == null || gap < shortest)) shortest = gap;
-    }
-  }
-  return shortest;
 }
 
 /** Kortaste planlagde overfarten mellom to kaier. Tomturen tek ikkje heile holet. */
@@ -182,17 +159,6 @@ export function returnHomeStatus(last, back, now) {
 
 export function isVisibleDeparture(leg) {
   return !leg.hideDeparture;
-}
-
-export function nextArrivalAt(legs, quay, skipPassed = false) {
-  if (!quay) return null;
-  return (
-    legs.find((leg) => {
-      if (leg.to !== quay) return false;
-      if (skipPassed && hasPassed(leg.arrival)) return false;
-      return true;
-    }) || null
-  );
 }
 
 export function layoverAfter(leg, next) {

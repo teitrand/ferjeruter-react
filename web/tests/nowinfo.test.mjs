@@ -18,7 +18,7 @@ const DAY = [
 ];
 const ev = (extra = {}) => ({ date: "2026-10-09", today: "2026-10-09", cancelledJourneys: new Set(), messageCancelled: new Set(), ...extra });
 const info = (nowMs, { status, legs = DAY, running = legs, legsOn = () => DAY, event = ev(), today = "2026-10-09", atQuay = null } = {}) =>
-  nowInfo({ status, legs, running, ev: event, nowMs, today, legsOn, atQuay });
+  nowInfo({ status: atQuay && status ? { ...status, atQuay } : status, legs, running, ev: event, nowMs, today, legsOn });
 const texts = (result) => result.lines.map((line) => `${line.kind}: ${line.text}`);
 const done = { short: "Ferja er ferdig for dagen på Standal", text: "Ferja er ferdig for dagen på Standal." };
 

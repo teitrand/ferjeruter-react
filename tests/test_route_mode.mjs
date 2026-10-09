@@ -28,7 +28,6 @@ import {
   activeMode,
   TIMETABLE_CACHE_KEY,
   MESSAGES_CACHE_KEY,
-  LAST_MODE_KEY,
   readCachedTimetable,
   readCachedMessages,
   readLastMode,
@@ -47,10 +46,8 @@ import {
   dayType,
   passengerJourneysFrom,
   modeFromText,
-  nextArrivalAt,
   quayPlace,
   quaysInDay,
-  routeModeFromMessages,
   resolveRoutePlan,
   switchFromText,
   windowFromText,
@@ -71,6 +68,9 @@ import {
   parseFjord1Published,
   parseFjord1TrafficHtml,
 } from "../packages/core/index.js";
+
+/** Samanfatning av resolveRoutePlan: berre modusen. */
+const routeModeFromMessages = (messages, now, date) => resolveRoutePlan(messages, now, date).mode;
 
 // Fast kopi av rutetabellen (henta 2026-10-02). data/ruter.json rullar datovindauget
 // fram kvar dag, så testar med faste datoar ville slutta å finne avgangane.

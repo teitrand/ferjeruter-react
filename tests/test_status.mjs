@@ -44,13 +44,9 @@ import {
   layoverAfter,
   liveProvesSailed,
   cancelledJourneyIds,
-  seenJourneyIds,
   actualDeparturesFromPayload,
   osloDayStartIso,
-  minDeadheadMinutes,
   OUTER_DEADHEAD_MINUTES,
-  nextArrivalAt,
-  excerptText,
   headingDay,
   todayIso,
   quayPlace,
@@ -95,10 +91,6 @@ const weekdayHome = [
 
 test("heimkaia er fyrste avgang", () => {
   assert.equal(homeQuay(wednesday), "Standal");
-});
-
-test("kortaste hol Valderøya–Standal er 130 min", () => {
-  assert.equal(minDeadheadMinutes(wednesday, "Valderøya", "Standal"), 130);
 });
 
 test("før fyrste avgang ligg ferja på Standal", () => {
@@ -1552,23 +1544,7 @@ test("kort vending gjev vanleg kai-status, ikkje liggetid i NO", () => {
   assert.equal(layoverAfter(legs[0], legs[1]), null);
 });
 
-test("morgonpendelen har ankomst attende til Standal kl 07:20", () => {
-  const morning = [
-    leg("Standal", "Trandal", "06:45:00", "07:00:00"),
-    leg("Trandal", "Standal", "07:05:00", "07:20:00"),
-  ];
-  const inbound = nextArrivalAt(morning, "Standal");
-  assert.equal(inbound.arrival, "07:20:00");
-  assert.equal(inbound.from, "Trandal");
-});
-
-test("utdrag bryt ved ord og I dag står i knappen, ikkje i overskrifta", () => {
-  const long = "Ferja er innstilt i dag på grunn av tekniske problem ved kaiene i Hjørundfjorden.";
-  const excerpt = excerptText(long, 40);
-  assert.ok(excerpt.endsWith("…"));
-  assert.ok(excerpt.length <= 41);
-  assert.doesNotMatch(excerpt, / {2}/);
-  assert.equal(excerptText("Kort melding"), "Kort melding");
+test("I dag står i knappen, ikkje i overskrifta", () => {
   assert.doesNotMatch(headingDay(todayIso()), /^I dag/);
   assert.doesNotMatch(headingDay("2020-01-15"), /^I dag/);
 });

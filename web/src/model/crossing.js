@@ -3,7 +3,18 @@
  * posisjonane vi kjenner. Komponentane reknar sjølv ut framdrift og alder kvart sekund
  * (core crossingView / positionSourceView); her kjem berre turen og posisjonane.
  */
-import { clockMs, fixAtQuay, fixBelongsTo, fixFromLive, matchCrossingLeg, runningLegs } from "../../../packages/core/index.js";
+import {
+  clockMs,
+  currentStatus,
+  fixAtQuay,
+  fixBelongsTo,
+  fixFromLive,
+  knownQuays,
+  matchCrossingLeg,
+  runningLegs,
+  statusFromPosition,
+} from "../../../packages/core/index.js";
+import { statusView } from "./context.js";
 
 function within(leg, nowMs, slackMs) {
   return clockMs(leg.departure, nowMs) - slackMs <= nowMs && nowMs < clockMs(leg.arrival, nowMs) + slackMs;
@@ -21,6 +32,17 @@ function liveLeg(running, fixes, nowMs) {
 /** Alle målte posisjonar vi kjenner: Entur (data.live) og AIS (data.positions). Rekkefølgja avgjer core bestFix. */
 export function positionFixes(data) {
   return [fixFromLive(data.live), ...(Array.isArray(data.positions) ? data.positions : [])].filter(Boolean);
+}
+
+/**
+ * Kvar ferja er no: rutetabellen og Entur-beviset (currentStatus), retta av fersk AIS (statusFromPosition).
+ * Éi kjelde: statuslinja (ledeModel) og «No»-raden (buildTimeline) les begge denne, så dei seier det same.
+ * @param {object[]} legs   dagens turar
+ * @param {object[]} [running]  runningLegs(legs, now, ev), om kalleren har dei frå før
+ */
+export function nowStatus(data, ctx, legs, now, ev, running = runningLegs(legs, now, ev)) {
+  const status = currentStatus(legs, now, ev, statusView(ctx));
+  return statusFromPosition(status, { running, fixes: positionFixes(data), quays: knownQuays(ctx), now, nowMs: Date.now() });
 }
 
 /**
