@@ -1,5 +1,5 @@
 /*
- * Sanntid i React-skalet: live-merke, framdriftslinje, ferje på skinne, nedteljing.
+ * Sanntid i React-skalet: live-merke, ferjelinja (framdrift og ferje på éi linje), nedteljing.
  * Token og mål frå Designer (ferje-animasjon/SPEC.md). Berre lyst tema; mørkt tema
  * er ikkje godkjent og manglar i resten av appen, så det kjem eventuelt seinare.
  * Berre transform og opacity blir animert.
@@ -17,6 +17,7 @@
   --unknown-line: #8a9497;
 
   --track: #e4ddcf;
+  --track-dash: #cbbfa8; /* stipla linje: litt mørkare, så stiplane syner på papiret */
   --fill-measured: var(--water);
   --fill-calc: #66757a;
   --quay: var(--fjord);
@@ -111,56 +112,62 @@
 
 .stop-state.status-in { animation: status-in var(--dur-status) var(--ease-status); }
 
-/* ---------- Framdrift ---------- */
-.progress-track {
-  position: relative;
-  height: var(--progress-h);
-  border-radius: var(--progress-h);
-  background: var(--track);
-  overflow: hidden;
-}
-.progress-fill {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  transform: scaleX(var(--p, 0));
-  background: var(--fill-measured);
-}
-.crossing[data-source="calc"] .progress-fill {
-  background: repeating-linear-gradient(135deg, var(--fill-calc) 0 4px, transparent 4px 7px);
-}
-.crossing[data-source="unknown"] .progress-fill { background: var(--fill-calc); opacity: 0.45; }
-
-.progress-meta {
-  margin: 0.3rem 0 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------- Skinne mellom kaiane med ferje ---------- */
-.rail-wrap {
-  margin-top: 0.6rem;
+/* ---------- Ferjelinja: framdrift og ferje på éi linje mellom kaiane ----------
+ * Geometri (botn av .ferry-line): linja 4 px med midte 6 px oppe, fyllet 6 px på same
+ * midte, kaiprikkane 10 px på same midte, ferja (36×18) står på linja.
+ * Heil linje = målt og fersk (live). Stipla = ikkje eksakt (berekna, siste kjende, ukjend).
+ * Stiplane er statisk bakgrunn: fyllet blir avdekt med to motsette translateX, så
+ * mønsteret står i ro under glidinga (ingen scaleX som strekkjer stiplane, ingen layout).
+ */
+.ferry-line-wrap {
+  margin-top: 0.15rem;
   padding: 0 calc(var(--ferry-w) / 2);
   overflow: hidden;
   overflow: clip;
 }
-.rail { position: relative; height: calc(var(--ferry-h) + 20px); }
-.rail-line {
+.ferry-line { position: relative; height: calc(var(--ferry-h) + 12px); }
+.line-track {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 4px;
+  bottom: calc(6px - var(--rail-h) / 2);
   height: var(--rail-h);
   border-radius: var(--rail-h);
   background: var(--track);
 }
-.crossing[data-source="calc"] .rail-line {
-  background: repeating-linear-gradient(90deg, var(--track) 0 6px, transparent 6px 10px);
+.line-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(6px - var(--progress-h) / 2);
+  height: var(--progress-h);
+  border-radius: var(--progress-h);
+  overflow: hidden;
+  transform: translateX(calc((var(--p, 0) - 1) * 100%));
 }
+.line-fill-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--progress-h);
+  background: var(--fill-measured);
+  transform: translateX(calc((1 - var(--p, 0)) * 100%));
+}
+.crossing[data-line="dashed"] .line-track {
+  background: repeating-linear-gradient(90deg, var(--track-dash) 0 8px, transparent 8px 13px);
+}
+.crossing[data-line="dashed"] .line-fill-inner {
+  border-radius: 0;
+  background: repeating-linear-gradient(90deg, var(--fill-measured) 0 8px, transparent 8px 13px);
+}
+.crossing[data-source="calc"] .line-fill-inner,
+.crossing[data-source="unknown"] .line-fill-inner {
+  background: repeating-linear-gradient(90deg, var(--fill-calc) 0 8px, transparent 8px 13px);
+}
+.crossing[data-source="unknown"] .line-fill { opacity: 0.55; }
+
 .quay {
   position: absolute;
-  bottom: calc(4px + var(--rail-h) / 2 - var(--quay-dot) / 2);
+  bottom: calc(6px - var(--quay-dot) / 2);
   width: var(--quay-dot);
   height: var(--quay-dot);
   border-radius: 50%;
@@ -201,19 +208,30 @@
 }
 .crossing[data-source="calc"] .ferry-approx,
 .crossing[data-source="unknown"] .ferry-approx { opacity: 1; }
-.rail-labels {
+/* Kainamna ved endane (under prikkane). Lange namn eller stor skrift: brytast, aldri overlapp. */
+.line-labels {
   display: flex;
   justify-content: space-between;
-  margin: 0.25rem calc(var(--ferry-w) / -2) 0;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
   font-size: 0.78rem;
   color: var(--muted);
 }
-.source-note { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.line-labels > span { min-width: 0; overflow-wrap: anywhere; }
+.line-labels > span:last-child { text-align: right; }
 
-/* Overgangar berre etter fyrste frame (LiveStatus set is-ready). */
-.crossing.is-ready .progress-fill {
-  transition: transform var(--dur-position) var(--ease-position);
+.progress-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
+.source-note { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--muted); }
+
+/* Overgangar berre etter fyrste frame (LiveStatus set is-ready). Fyllet, motflyttinga og
+   ferja har same tid og kurve, så dei held følgje og stiplane står i ro. */
+.crossing.is-ready .line-fill,
+.crossing.is-ready .line-fill-inner,
 .crossing.is-ready .ferry-runner {
   transition: transform var(--dur-position) var(--ease-position);
 }

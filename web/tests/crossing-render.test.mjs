@@ -84,16 +84,24 @@ function draw(element, lang = "nn") {
   return clean(renderToString(element));
 }
 
-test("live-overfart: progressbar med kjelde i aria-valuetext, skinna er aria-hidden, puls", async () => {
+test("live-overfart: éi linje der framdrift og ferje ligg saman, progressbar med kjelde, heil linje, puls", async () => {
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
   setLang("nn");
   const html = clean(renderToString(createElement(CrossingView, { view: view(aisAt(0.62, FIXED - 12000)) })));
-  assert.match(html, /class="crossing is-ready" data-source="measured" style="--p:0\.6\d*"/);
+  assert.match(html, /class="crossing is-ready" data-source="measured" data-line="solid" style="--p:0\.6\d*"/);
   assert.match(html, /class="live" data-state="live" data-fresh="1"/);
   assert.match(text(html), /Live · AIS · 12 s/);
   assert.match(html, /role="progressbar" aria-label="Overfarten Trandal → Standal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60" aria-valuetext="60 % av overfarten frå Trandal til Standal, målt med AIS"/);
-  assert.match(html, /class="rail-wrap" aria-hidden="true"/);
-  assert.match(html, /<svg class="ferry" viewBox="0 0 36 18"/);
+  // Éi linje: spor, fyll, kaiane og ferja er alle inne i same progressbar.
+  const line = html.slice(html.indexOf('class="ferry-line"'), html.indexOf('class="line-labels"'));
+  assert.match(line, /role="progressbar"/);
+  for (const part of ["line-track", "line-fill", "line-fill-inner", "quay a", "quay b", "ferry-runner"]) {
+    assert.match(line, new RegExp(`class="${part}"`), part);
+  }
+  assert.match(line, /<svg class="ferry" viewBox="0 0 36 18" focusable="false" aria-hidden="true"/);
+  assert.equal((html.match(/role="progressbar"/g) || []).length, 1, "berre éi linje");
+  assert.doesNotMatch(html, /rail-wrap|progress-track/, "ingen eiga ferjelinje under ein progressbar");
+  assert.match(html, /class="line-labels" aria-hidden="true"><span>Trandal<\/span><span>Standal<\/span>/);
   assert.match(text(html), /Posisjon målt med AIS frå Kystverket\./);
   assert.doesNotMatch(html, /aria-live/, "ingen live-region per overfart");
 });
@@ -102,7 +110,7 @@ test("mindre rørsle: ingen puls, data-motion=reduce, ingen overgang før fyrste
   const html = clean(
     renderToString(createElement(CrossingView, { view: view(aisAt(0.5, FIXED - 5000)), reducedMotion: true, animate: false }))
   );
-  assert.match(html, /class="crossing" data-source="measured" data-motion="reduce"/);
+  assert.match(html, /class="crossing" data-source="measured" data-line="solid" data-motion="reduce"/);
   assert.doesNotMatch(html, /data-fresh/);
   const css = readFileSync(new URL("src/styles/crossing.css", new URL("..", import.meta.url)), "utf8");
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*:root \{ --dur-position: 0ms; --dur-status: 0ms; --dur-fade: 0ms; \}/);
@@ -110,6 +118,11 @@ test("mindre rørsle: ingen puls, data-motion=reduce, ingen overgang før fyrste
   for (const [, props] of css.matchAll(/transition:\s*([^;]+);/g)) {
     for (const part of props.split(",")) assert.match(part.trim(), /^(transform|opacity|filter) /, part);
   }
+  // Fyllet blir avdekt med translateX, aldri skalert (scaleX ville strekkje stiplane).
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /scaleX/);
+  assert.match(css, /\.line-fill \{[^}]*transform: translateX\(calc\(\(var\(--p, 0\) - 1\) \* 100%\)\)/);
+  assert.match(css, /\.line-fill-inner \{[^}]*transform: translateX\(calc\(\(1 - var\(--p, 0\)\) \* 100%\)\)/);
+  assert.match(css, /\.crossing\.is-ready \.line-fill,\s*\.crossing\.is-ready \.line-fill-inner,\s*\.crossing\.is-ready \.ferry-runner \{\s*transition: transform var\(--dur-position\) var\(--ease-position\);/);
 });
 
 test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
@@ -117,13 +130,13 @@ test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
   setLang("nn");
   const fix = aisAt(0.4, FIXED - 3 * 60000);
   const stale = clean(renderToString(createElement(CrossingView, { view: view(fix) })));
-  assert.match(stale, /data-source="stale"/);
+  assert.match(stale, /data-source="stale" data-line="dashed"/);
   assert.match(stale, /class="live" data-state="stale">/);
   assert.match(text(stale), /Siste kjende · 3 min sidan/);
   assert.match(stale, /aria-valuetext="[^"]*, siste kjende posisjon"/);
 
   const unknown = clean(renderToString(createElement(CrossingView, { view: view(aisAt(0.2, oslo(20, 22))) })));
-  assert.match(unknown, /data-source="unknown"/);
+  assert.match(unknown, /data-source="unknown" data-line="dashed"/);
   assert.match(text(unknown), /Ukjent · ingen sanntid sidan 20:22/);
   assert.match(text(unknown), /Vi veit ikkje kvar ferja er no\. Posisjonen er berre rekna ut frå rutetabellen\./);
   // Gammal posisjon: framdrifta er rutetabellen (65 %), merkt som anslag.
@@ -131,12 +144,15 @@ test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
   assert.match(unknown, /aria-valuetext="65 % av overfarten frå Trandal til Standal, posisjon ukjend, berekna frå rutetabellen"/);
 
   const calc = clean(renderToString(createElement(CrossingView, { view: view(null) })));
-  assert.match(calc, /data-source="calc"/);
+  assert.match(calc, /data-source="calc" data-line="dashed"/);
   assert.match(text(calc), /Berekna · rutetabell/);
   assert.match(calc, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
   assert.match(text(calc), /Posisjonen er berre rekna ut frå rutetabellen\./);
   assert.match(text(calc), /ca\. 67 % av overfarten · planlagt framme 20:35/);
-  assert.match(calc, /class="ferry-approx">≈</);
+  assert.match(calc, /class="ferry-approx" aria-hidden="true">≈</);
+  const css = readFileSync(new URL("src/styles/crossing.css", new URL("..", import.meta.url)), "utf8");
+  assert.match(css, /\.crossing\[data-line="dashed"\] \.line-track \{\s*background: repeating-linear-gradient/);
+  assert.match(css, /\.crossing\[data-line="dashed"\] \.line-fill-inner \{[^}]*repeating-linear-gradient/);
 });
 
 test("engelsk og tysk", async () => {
@@ -178,7 +194,7 @@ test("appen: éitt statusområde – statuslinja med framdrift og ferje under, b
   assert.equal((html.match(/data-announcer=""/g) || []).length, 1, "éin live-region for sanntid");
   const area = statusArea(html);
   assert.match(area, /<p class="lede" id="lede-status">Ferja er på veg mot Standal\. /, "teksten kjem frå currentStatus, som før");
-  assert.match(area, /class="crossing" data-source="calc"/);
+  assert.match(area, /class="crossing" data-source="calc" data-line="dashed"/);
   assert.match(area, /aria-valuetext="65 % av overfarten frå Trandal til Standal, berekna frå rutetabellen"/);
   assert.match(text(area), /Berekna · rutetabell/);
   // Éin statustekst: «No»-merket i tidslinja har ingen eigen tekst og ingen overfartslinje.
@@ -206,7 +222,7 @@ test("appen: Entur-posisjon midt på fjorden gjev målt framdrift; ekte VM ved k
     Longitude: a.longitude + (b.longitude - a.longitude) * 0.7,
   };
   const html = renderApp({ initialEntur: { live: core.parseVehicleMonitoring(message) } });
-  assert.match(html, /class="crossing" data-source="measured"/);
+  assert.match(html, /class="crossing" data-source="measured" data-line="solid"/);
   assert.match(html, /class="live" data-state="live" data-fresh="1"/);
   assert.match(text(html), /Live · Entur · 10 s/);
   assert.match(html, /aria-valuetext="70 % av overfarten frå Trandal til Standal, målt, frå sanntid hos Entur"/);
