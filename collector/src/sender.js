@@ -10,10 +10,14 @@ export const MAX_QUEUE = 500;
 export const MAX_BATCH = 50;
 
 /**
+ * Køa ligg i minnet, men kvar hending har ein nøkkel (events.key i SQLite). Ved start les
+ * main.js usende hendingar (sent_at IS NULL) inn att, og `onSent` set sent_at når workeren
+ * har teke imot dei.
  * @param {{ enabled: boolean, requested?: boolean, url: string, key: string }} cfg
- * @param {{ fetchImpl?: typeof fetch, now?: () => number, log?: Function }} [opts]
+ * @param {{ fetchImpl?: typeof fetch, now?: () => number, log?: Function,
+ *   onSent?: (keys: string[], atMs: number) => void }} [opts]
  */
-export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () => {} } = {}) {
+export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () => {}, onSent = () => {} } = {}) {
   const enabled = Boolean(cfg?.enabled && cfg.url && cfg.key);
   const queue = [];
   const backoff = createBackoff();
@@ -29,9 +33,10 @@ export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () 
 
   return {
     enabled,
-    enqueue(event) {
+    enqueue(event, key = null) {
       if (!enabled) return false;
-      queue.push(event);
+      if (key && queue.some((item) => item.key === key)) return false;
+      queue.push({ key, event });
       if (queue.length > MAX_QUEUE) {
         queue.shift();
         state.dropped += 1;
@@ -43,9 +48,17 @@ export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () 
       if (!enabled || !queue.length || now() < backoff.blockedUntil) return 0;
       const batch = queue.slice(0, MAX_BATCH);
       try {
-        const res = await post("/v1/events", { schema: 1, events: batch });
+        const res = await post("/v1/events", { schema: 1, events: batch.map((item) => item.event) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         queue.splice(0, batch.length);
+        const keys = batch.map((item) => item.key).filter(Boolean);
+        if (keys.length) {
+          try {
+            onSent(keys, now());
+          } catch (error) {
+            log("sendar-meta-feil", { error: String(error?.message || error) });
+          }
+        }
         backoff.succeed();
         state.sent += batch.length;
         state.lastSentAt = new Date(now()).toISOString();

@@ -65,7 +65,10 @@ test("init med ET-Client-Name, éin subscribe per linje, pong på ping, posisjon
   stream.start();
   const ws = sockets[0];
   assert.deepEqual(ws.opts.protocols, ["graphql-transport-ws"]);
-  assert.equal(ws.opts.headers["ET-Client-Name"], "teitrand-fergeruter");
+  assert.equal(ws.opts.headers["ET-Client-Name"], "teitrand-fergeruter-innsamlar");
+  ws.onopen();
+  assert.equal(ws.sent[0].payload["ET-Client-Name"], "teitrand-fergeruter-innsamlar");
+  ws.sent.length = 0;
   ws.onopen();
   assert.equal(ws.sent[0].type, "connection_init");
   ws.serverSends({ type: "connection_ack" });
@@ -133,5 +136,48 @@ test("ingen ack på 15 s, eller ingen pong, lukkar og prøver att", () => {
   time.advance(20000);
   assert.equal(sockets[1].closed, true);
   assert.equal(stream.state.connected, false);
+  stream.stop();
+});
+
+test("Reviewer: backoff blir ikkje nullstilt av ei gammal, sunn tilkopling; berre ei ny som lever ≥ 2 min", () => {
+  const time = fakeTime();
+  const { FakeSocket, sockets } = fakeSocketClass();
+  const stream = createStream({
+    lines: ["1136"],
+    onVehicle: () => {},
+    WebSocketImpl: FakeSocket,
+    now: () => time.now,
+    setTimer: time.set,
+    clearTimer: time.clear,
+  });
+  const ackAndLive = (ms) => {
+    const ws = sockets.at(-1);
+    ws.onopen();
+    ws.serverSends({ type: "connection_ack" });
+    // Svar på ping, så sambandet lever.
+    const until = time.now + ms;
+    while (time.now < until) {
+      time.advance(Math.min(30000, until - time.now));
+      if (ws.sent.at(-1)?.type === "ping") ws.serverSends({ type: "pong" });
+    }
+  };
+  const nextGap = () => {
+    const before = sockets.length;
+    const at = time.now;
+    sockets.at(-1).onclose({ code: 1006, reason: "" });
+    while (sockets.length === before) time.advance(1000);
+    return (time.now - at) / 1000;
+  };
+  stream.start();
+  ackAndLive(5 * 60000); // éi sunn tilkopling i 5 min
+  const gaps = [];
+  for (let i = 0; i < 8; i++) gaps.push(nextGap()); // så mange som døyr før ack
+  assert.deepEqual(gaps, [15, 30, 60, 120, 240, 480, 900, 900]);
+  // Ei ny tilkopling som lever 1 min, nullstiller ikkje …
+  ackAndLive(60000);
+  assert.equal(nextGap(), 900);
+  // … men ei som lever ≥ HEALTHY_AFTER_MS, gjer det.
+  ackAndLive(2 * 60000);
+  assert.equal(nextGap(), 15);
   stream.stop();
 });

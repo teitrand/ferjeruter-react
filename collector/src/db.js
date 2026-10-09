@@ -43,6 +43,11 @@ CREATE INDEX IF NOT EXISTS events_date ON events(service_date, line);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
+/** Den unike nøkkelen for ei hending (dag, linje, slag, tur, kai, slot). */
+export function eventKey(ev) {
+  return [ev.serviceDate, ev.line, ev.kind, ev.journeyRef || "", ev.stop || "", ev.slot || ""].join("|");
+}
+
 export function openDb(path, { retentionDays = 30 } = {}) {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA auto_vacuum = INCREMENTAL");
@@ -77,7 +82,7 @@ export function openDb(path, { retentionDays = 30 } = {}) {
     },
     /** Returnerer true om hendinga er ny (nøkkelen er unik per dag, linje, slag og tur/kai). */
     insertEvent(ev) {
-      const key = [ev.serviceDate, ev.line, ev.kind, ev.journeyRef || "", ev.stop || "", ev.slot || ""].join("|");
+      const key = eventKey(ev);
       const res = insEvent.run(key, String(ev.line), ev.kind, ev.serviceDate, ev.at, ev.journeyRef || null, ev.stop || null,
         ev.detail ? JSON.stringify(ev.detail) : null);
       return res.changes > 0;
@@ -94,6 +99,31 @@ export function openDb(path, { retentionDays = 30 } = {}) {
     positionsBetween(fromMs, toMs, line = null) {
       const sql = `SELECT * FROM positions WHERE observed_at >= ? AND observed_at < ?${line ? " AND line = ?" : ""} ORDER BY observed_at`;
       return line ? db.prepare(sql).all(fromMs, toMs, line) : db.prepare(sql).all(fromMs, toMs);
+    },
+    /** Hendingar som ikkje er sende til workeren, eldste fyrst (til avsendaren ved start). */
+    unsentEvents(limit = 500) {
+      return db
+        .prepare("SELECT * FROM events WHERE sent_at IS NULL ORDER BY at LIMIT ?")
+        .all(limit)
+        .map((row) => ({
+          key: row.key,
+          event: {
+            line: row.line,
+            kind: row.kind,
+            serviceDate: row.service_date,
+            at: new Date(row.at).toISOString(),
+            journeyRef: row.journey_ref,
+            stop: row.stop,
+            detail: row.detail ? JSON.parse(row.detail) : null,
+          },
+        }));
+    },
+    /** Set sent_at på hendingane workeren har teke imot. */
+    markSent(keys, atMs = Date.now()) {
+      const stmt = db.prepare("UPDATE events SET sent_at = ? WHERE key = ?");
+      let n = 0;
+      for (const key of keys) n += Number(stmt.run(atMs, key).changes);
+      return n;
     },
     setMeta(key, value) {
       setMeta.run(key, JSON.stringify(value));

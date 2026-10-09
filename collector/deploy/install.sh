@@ -22,7 +22,8 @@ fi
 git -C "$APP" fetch --quiet --depth 50 origin "$REF"
 git -C "$APP" checkout --quiet --detach FETCH_HEAD
 git -C "$APP" rev-parse --short HEAD > "$APP/VERSION"
-(cd "$APP" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=warn)
+# Berre innsamlaren (ingen React/Vite frå resten av arbeidsområdet) på serveren.
+(cd "$APP" && npm ci --omit=dev -w collector --ignore-scripts --no-audit --no-fund --loglevel=warn)
 chown -R root:root "$APP"
 chmod -R u=rwX,go=rX "$APP"
 

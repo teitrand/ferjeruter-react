@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { shouldFetchLive } from "../../packages/core/index.js";
 import { loadData, legsFor, writeJsonAtomic } from "./data.js";
-import { openDb } from "./db.js";
+import { eventKey, openDb } from "./db.js";
 import { createRestPoller } from "./rest.js";
 import { createSender } from "./sender.js";
 import { buildStatus } from "./status.js";
@@ -64,8 +64,14 @@ export async function run(cfg) {
   const legsForLine = (line, date) => legsFor(data, line, date);
   const tracker = createTracker({ legsFor: legsForLine });
   tracker.restore(db.getMeta("lastKnown"));
-  const sender = createSender(cfg.sender, { log });
+  const sender = createSender(cfg.sender, { log, onSent: (keys, atMs) => db.markSent(keys, atMs) });
   if (cfg.sender.requested && !cfg.sender.enabled) log("sendar-av", { reason: "URL eller nøkkel manglar" });
+  if (sender.enabled) {
+    // Hendingar som ikkje kom fram før førre stopp, blir sende no.
+    const unsent = db.unsentEvents();
+    for (const { key, event } of unsent) sender.enqueue(event, key);
+    if (unsent.length) log("sendar-usende", { n: unsent.length });
+  }
   log("start", { version, mode: cfg.mode, lines: cfg.lines, db: cfg.dbPath, sender: sender.enabled, node: process.version });
 
   const counters = { positions: 0, duplicates: 0, events: 0 };
@@ -80,7 +86,7 @@ export async function run(cfg) {
       if (db.insertEvent(ev)) {
         counters.events += 1;
         log("hending", { kind: ev.kind, line: ev.line, stop: ev.stop || null, journey: ev.journeyRef || null, at: new Date(ev.at).toISOString() });
-        sender.enqueue({ ...ev, at: new Date(ev.at).toISOString() });
+        sender.enqueue({ ...ev, at: new Date(ev.at).toISOString() }, eventKey(ev));
       }
     }
   };
@@ -91,6 +97,8 @@ export async function run(cfg) {
     lines: cfg.lines,
     onVehicle,
     log,
+    // Rategrensa held over omstartar (sjå restartBlockUntil i rest.js).
+    persist: { load: () => db.getMeta("restRate"), save: (value) => db.setMeta("restRate", value) },
     inService: (line, nowMs) => {
       const legs = legsForLine(line, osloDate(nowMs));
       return legs.length ? shouldFetchLive(legs, nowMs) : true;

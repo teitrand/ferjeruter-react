@@ -13,7 +13,7 @@ og skriv ein status-JSON med «det vi veit» per linje. Appen treng han ikkje: u
 | `https://api.entur.io/realtime/v1/rest/vm` (SIRI VM) | Reserve når straumen har vore nede i 2 min, og berre i driftstida for linja. | Kvar linje høgst éin gong per 60 s. Alle REST-kall: høgst 2 per 60 s og minst 30 s mellom (Entur: 4/min, 15 s; VM svara 429 på to kall med 20 s mellom 9. oktober). Backoff 1 → 15 min, og aldri før `Retry-After`. |
 | `teitrand.github.io/fergeruter/data/*.json` | Rutetabell, kombirute, meldingar, signallogg (ikkje Entur). | Kvar time. Siste gode kopi i `cache/`. |
 
-Alle kall har `ET-Client-Name: teitrand-fergeruter` (`ENTUR_CLIENT` i core).
+Alle kall har `ET-Client-Name: teitrand-fergeruter-innsamlar` (`COLLECTOR_CLIENT` i `collector/src/client.js`), skilt frå `teitrand-fergeruter` som nettlesarane brukar.
 
 ### Grensevakta
 
@@ -106,7 +106,7 @@ systemctl list-timers fergeruter-compare.timer
 
 Installering og oppdatering (som root): `collector/deploy/install-node.sh` (Node 24 LTS frå
 NodeSource sitt signerte apt-arkiv, med unattended-upgrades) og `collector/deploy/install.sh <ref>`
-(git-utsjekk i `/opt/fergeruter/app`, `npm ci --omit=dev`, einingar, omstart).
+(git-utsjekk i `/opt/fergeruter/app`, `npm ci --omit=dev -w collector`, einingar, omstart).
 
 Herding i einingane: eigen brukar `fergeruter`, ingen capabilities, `ProtectSystem=strict`
 (berre `/var/lib/fergeruter` skrivbar), `ProtectHome`, `PrivateTmp`, `PrivateDevices`,

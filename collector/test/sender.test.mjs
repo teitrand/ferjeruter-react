@@ -57,3 +57,24 @@ test("standardoppsett", () => {
   assert.equal(c.mode, "stream");
   assert.equal(c.httpPort, 8787);
 });
+
+test("Reviewer: usende hendingar frå databasen blir sende ved start, og sent_at blir sett", async () => {
+  const { openDb } = await import("../src/db.js");
+  const db = openDb(":memory:");
+  const ev = { serviceDate: "2026-10-09", line: "1136", kind: "sailed", at: Date.parse("2026-10-09T08:00:00Z"), journeyRef: "MOR:ServiceJourney:1", stop: "Standal" };
+  db.insertEvent(ev);
+  db.insertEvent({ ...ev, journeyRef: "MOR:ServiceJourney:2" });
+  assert.equal(db.unsentEvents().length, 2);
+  const bodies = [];
+  const s = createSender(
+    { enabled: true, url: "https://w", key: "k" },
+    { fetchImpl: async (url, init) => (bodies.push(JSON.parse(init.body)), new Response(null, { status: 204 })), onSent: (keys, at) => db.markSent(keys, at) }
+  );
+  for (const { key, event } of db.unsentEvents()) s.enqueue(event, key);
+  assert.equal(s.enqueue(db.unsentEvents()[0].event, db.unsentEvents()[0].key), false, "ingen dobbel i køa");
+  assert.equal(await s.flush(), 2);
+  assert.equal(bodies[0].events[0].journeyRef, "MOR:ServiceJourney:1");
+  assert.equal(bodies[0].events[0].at, "2026-10-09T08:00:00.000Z");
+  assert.equal(db.unsentEvents().length, 0);
+  db.close();
+});

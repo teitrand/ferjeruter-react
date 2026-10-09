@@ -7,7 +7,7 @@
  * - Vi sender ping kvart minutt. Utan pong på 20 s er sambandet dødt og blir lukka.
  * - Stille straum er normalt (ferja sender ikkje om natta), så stille åleine gjev ikkje ny tilkopling.
  */
-import { ENTUR_CLIENT } from "../../packages/core/index.js";
+import { COLLECTOR_CLIENT } from "./client.js";
 import { createRateLimiter } from "./ratelimit.js";
 import { VEHICLES_WS_URL, fromVehicleUpdate, subscriptionQuery } from "./vehicles.js";
 
@@ -56,6 +56,8 @@ export function createStream({
   let stopped = false;
   let timers = new Set();
   let awaitingPong = false;
+  /** Når den gjeldande tilkoplinga fekk connection_ack (ms). Null før ack og etter brot. */
+  let ackedAt = null;
 
   const later = (fn, ms) => {
     const t = setTimer(() => {
@@ -79,7 +81,10 @@ export function createStream({
 
   function scheduleReconnect(reason) {
     if (stopped) return;
-    const lived = state.connectedAt ? now() - Date.parse(state.connectedAt) : 0;
+    // Berre ei tilkopling som fekk ack og levde lenge nok, nullstiller backoff. Tilkoplingar
+    // som døyr før ack, aukar ventetida 15 s → 30 s → … → 15 min.
+    const lived = ackedAt != null ? now() - ackedAt : 0;
+    ackedAt = null;
     state.reconnectDelayMs = lived >= HEALTHY_AFTER_MS ? RECONNECT_START_MS : nextReconnectDelay(state.reconnectDelayMs);
     const delay = Math.max(state.reconnectDelayMs, connectLimiter.waitMs());
     state.nextConnectAt = new Date(now() + delay).toISOString();
@@ -115,7 +120,7 @@ export function createStream({
     try {
       socket = new WebSocketImpl(url, {
         protocols: ["graphql-transport-ws"],
-        headers: { "ET-Client-Name": ENTUR_CLIENT },
+        headers: { "ET-Client-Name": COLLECTOR_CLIENT },
       });
     } catch (error) {
       state.lastError = String(error?.message || error);
@@ -127,7 +132,7 @@ export function createStream({
       state.lastError = "ingen connection_ack";
       teardown("ack-timeout");
     }, ACK_TIMEOUT_MS);
-    socket.onopen = () => send({ type: "connection_init", payload: { "ET-Client-Name": ENTUR_CLIENT } });
+    socket.onopen = () => send({ type: "connection_init", payload: { "ET-Client-Name": COLLECTOR_CLIENT } });
     socket.onerror = (event) => {
       state.lastError = String(event?.message || event?.error?.message || "websocket-feil");
     };
@@ -151,7 +156,8 @@ export function createStream({
         clearTimer(ackTimer);
         timers.delete(ackTimer);
         state.connected = true;
-        state.connectedAt = new Date(now()).toISOString();
+        ackedAt = now();
+        state.connectedAt = new Date(ackedAt).toISOString();
         state.lastError = null;
         log("ws-tilkopla", { lines });
         for (const line of lines) send({ id: String(line), type: "subscribe", payload: { query: subscriptionQuery(line) } });
