@@ -8,7 +8,7 @@ av eigaren.
 
 - **ruter.trandal.org** er ei vidaresending hos Domeneshop: `301` til
   `https://teitrand.github.io/fergeruter/`. Det finst ingen CNAME-fil i det gamle repoet, og
-  Pages der har ikkje eige domene. Alle brukarar, òg dei med installert app, køyrer altså
+  Pages der har ikkje eige domene (`cname: null`). Alle brukarar, òg dei med installert app, køyrer altså
   den gamle appen på **teitrand.github.io/fergeruter/**.
 - **Den gamle appen** (teitrand/fergeruter, `main` → `/fergeruter/`, `dev` → `/fergeruter/dev/`)
   har alle datajobbane:
@@ -32,40 +32,69 @@ av eigaren.
 2. Set ein tagg i dette repoet på `main`, t.d. `react-for-bytet-ÅÅÅÅ-MM-DD`.
 3. Sjekk at `vanilla-prod-2026-10-08` i det gamle repoet framleis er det `main` der byggjer
    frå, eller lag ein ny tagg på det som er i produksjon no.
-4. Set ned TTL på DNS-oppføringa for ruter.trandal.org hos Domeneshop eit døgn før.
+4. Set ned TTL på DNS-oppføringane for `ruter` hos Domeneshop eit døgn før.
 5. **Plausible:** sjå i innstillingane til sida om det er ei liste over tillatne vertsnamn.
    I dag kjem hendingane frå `teitrand.github.io`; etter bytet kjem dei frå `ruter.trandal.org`.
    Begge må vere tillatne i overgangen. Skalet sender ikkje hendingar frå `/ferjeruter-react/`,
    `/dev/` eller localhost, men gjer det i rota av eige domene.
+6. **Vel tidspunkt:** Tor Eirik vel ei roleg tid, ikkje rett før ein avgang. I opptil om lag
+   ein time etter DNS-steget kan ruter.trandal.org vere utilgjengeleg eller gje
+   sertifikatfeil (sjå steg 6–7 under).
 
-## Sjølve bytet
+## Sjølve bytet (i denne rekkjefølgja)
+
+Byggjet med `WEB_BASE=/` må liggje klart på Pages **før** DNS flyttar. Elles serverer
+Pages framleis byggjet for `/ferjeruter-react/`, og `/ferjeruter-react/assets/…` gjev 404
+i rota av domenet. DNS blir flytta **sist**.
 
 1. **Repo-variabel** i teitrand/ferjeruter-react (Settings → Secrets and variables → Actions →
    Variables): `WEB_BASE` = `/`. La `DATA_BASE` vere (standard er
    `https://teitrand.github.io/fergeruter/data/`).
-   Med `WEB_BASE=/` blir sida bygd for rota, utan `noindex`, og `?rute=` blir ignorert
-   (kombi følgjer trafikkmeldingane, som i produksjon i dag).
-2. **Pages i teitrand/ferjeruter-react** (Settings → Pages): Custom domain = `ruter.trandal.org`.
-   Kjelda er GitHub Actions, så det trengst ingen CNAME-fil. Slå på «Enforce HTTPS» når
-   sertifikatet er klart.
-   Gjerne: verifiser domenet under kontoinnstillingane (Pages → Verified domains), så ingen
+   *Verknad:* ingen før neste bygg. ruter.trandal.org er uendra.
+2. **Det gamle repoet skal ikkje ha domenet.** Eit domene kan berre vere knytt til éi
+   Pages-side. Per 9.10.2026 har teitrand/fergeruter ikkje eige domene (`cname: null` i
+   Pages-API-et, ingen CNAME-fil). Har det fått eitt sidan, fjern det der fyrst.
+3. **Eige domene i teitrand/ferjeruter-react** (Settings → Pages → Custom domain):
+   `ruter.trandal.org`. Kjelda er GitHub Actions, så det trengst ingen CNAME-fil. DNS-sjekken
+   til GitHub feilar til steg 6. Det er venta.
+   *Verknad:* GitHub sender no `teitrand.github.io/ferjeruter-react/` vidare til
+   `ruter.trandal.org`, som framleis er 301 til den gamle appen. Førehandsvisinga er dermed
+   borte. ruter.trandal.org og den gamle appen er uendra.
+4. **Køyr «Publiser React-skalet til GitHub Pages»** (workflow_dispatch). Byggjet får base `/`
+   og ingen `noindex`.
+   *Verknad:* ingen på ruter.trandal.org enno, for DNS peikar ikkje til Pages.
+5. **Sjekk byggjet før DNS:**
+   - Lat ned artefakten frå køyringa og sjå at `index.html` har `/assets/index-….js` (utan
+     `/ferjeruter-react/`) og ingen `noindex`.
+   - Eller spør Pages direkte med vertsnamnet, over http (sertifikatet finst ikkje enno):
+     `curl -s -H "Host: ruter.trandal.org" http://185.199.108.153/ | grep assets/`
+   - Er noko gale: rett det og køyr steg 4 på nytt. DNS er ikkje rørt.
+6. **Domeneshop (sist):**
+   - Fjern vidaresendinga (301 web-forward) for ruter.trandal.org.
+   - Fjern alle A-, AAAA- og TXT-oppføringar på `ruter`. Ein CNAME kan ikkje stå saman med
+     andre oppføringar på same namn.
+   - Legg inn `CNAME ruter → teitrand.github.io.`
+   *Verknad:* når DNS har spreidd seg, kjem brukarane til React-skalet. Til sertifikatet er
+   klart, kan https gje sertifikatfeil eller ikkje svare.
+7. **Sertifikat:** GitHub lagar HTTPS-sertifikatet etter at CNAME-en er på plass. Det tek frå
+   nokre minutt til om lag ein time. «Enforce HTTPS» kan ikkje slåast på før det er klart.
+   Slå det på då. Står det fast over lenge, fjern domenet i Pages-innstillingane og legg det
+   inn att (det startar sertifikatet på nytt).
+8. Gjerne: verifiser domenet under kontoinnstillingane (Pages → Verified domains), så ingen
    andre kan ta det.
-3. **Domeneshop:** fjern vidaresendinga (301) for ruter.trandal.org og legg inn
-   `CNAME ruter → teitrand.github.io.`
-4. **Køyr «Publiser React-skalet til GitHub Pages»** (workflow_dispatch), så byggjet får `/`.
-5. Etter dette sender `teitrand.github.io/ferjeruter-react/` vidare til `ruter.trandal.org`.
-   `teitrand.github.io/fergeruter/` (den gamle appen) står som før.
+9. `teitrand.github.io/fergeruter/` (den gamle appen) står som før.
 
 ## Sjekk etterpå
 
-- `https://ruter.trandal.org/` viser React-skalet. Kjeldekoden har `/assets/index-….js` og ingen
-  `<meta name="robots" content="noindex">`.
+- `https://ruter.trandal.org/` viser React-skalet, med gyldig sertifikat og «Enforce HTTPS»
+  på. Kjeldekoden har `/assets/index-….js` og ingen `<meta name="robots" content="noindex">`.
 - DevTools → Application: service worker `https://ruter.trandal.org/sw.js` med scope `/`,
   cache `fergeruter-web-<hash>`, og manifestet utan feil. Offline etter éi lasting.
 - Data lastar (ruter, kombirute, meldingar, signallogg), Entur gjev posisjon, og trafikkmeldingar
   frå workeren kjem når fila er gammal.
 - Plausible får hendingar med vertsnamnet ruter.trandal.org.
 - `?rute=kombi` gjer ingenting på ruter.trandal.org (berre på førehandsvisinga).
+- `https://teitrand.github.io/ferjeruter-react/` sender vidare til `https://ruter.trandal.org/`.
 
 ## Installerte gamle appar
 
@@ -102,9 +131,13 @@ Bytet over krev ikkje at datajobbane flyttar. Når dei skal flytte:
 
 ## Rull tilbake
 
-- **Rask:** Domeneshop: fjern CNAME og legg inn att vidaresendinga `301` til
-  `https://teitrand.github.io/fergeruter/`. Fjern eige domene i Pages for ferjeruter-react.
-  Den gamle appen og datajobbane er ikkje endra, så han er klar med ein gong.
+- **Rask:** hos Domeneshop: fjern CNAME-en på `ruter`, og legg inn att vidaresendinga `301`
+  til `https://teitrand.github.io/fergeruter/`. Fjern så eige domene i Pages for
+  ferjeruter-react. Den gamle appen og datajobbane er ikkje endra, så han er klar med ein gong.
+  DNS treng tid til å spreie seg; låg TTL hjelper.
+- **Førehandsvisinga att:** når domenet er fjerna, slutter GitHub å sende
+  `teitrand.github.io/ferjeruter-react/` vidare. Set `WEB_BASE` tilbake (fjern variabelen)
+  og køyr Pages-arbeidsflyten, så byggjet har `/ferjeruter-react/` igjen.
 - Har den gamle appen endra seg sidan: byggjer `main` frå taggen `vanilla-prod-2026-10-08`
   (eller taggen frå «Før bytet»).
 - Brukarar som har fått skalet sin service worker på ruter.trandal.org: navigering går «nett
