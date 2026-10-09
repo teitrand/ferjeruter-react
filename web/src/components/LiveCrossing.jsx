@@ -109,7 +109,7 @@ export function CrossingView({ view, reducedMotion = false, animate = true, show
  * Fyrste teikning utan overgang (ferja hoppar ikkje inn frå venstre); overgangane blir
  * slått på etter fyrste frame. Utan sanntid å vise er det berre «No».
  */
-export function NowLive({ live, label, nowMs = null }) {
+export function NowLive({ live, label, nowMs = null, children = null }) {
   const view = usePositionState(live, { nowMs });
   const reducedMotion = useReducedMotion();
   const [ready, setReady] = useState(false);
@@ -124,6 +124,7 @@ export function NowLive({ live, label, nowMs = null }) {
         {view ? <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} /> : null}
       </div>
       {view && live?.crossing ? <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} showBadge={false} /> : null}
+      {children}
     </>
   );
 }

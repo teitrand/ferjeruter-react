@@ -407,3 +407,81 @@ test("bunnteksten: kreditering av AIS frå Kystverket (NLOD) og «Om dataa» (sa
   }
   await setLang("nn");
 });
+
+// --- Teksten i «No»-raden: kvar ferja er, neste tur, overfartstid, turen etter ---
+
+const infoLines = (html) => [...nowArea(html).matchAll(/<li class="now-info-(\w+)">([^<]*)<\/li>/g)].map((m) => `${m[1]}: ${m[2]}`);
+
+function atTime(ms, render) {
+  current = ms;
+  try {
+    return render();
+  } finally {
+    current = FIXED;
+  }
+}
+
+test("«No»-raden om natta ved kai: kvar ferja er, fyrste tur i morgon, nedteljing, overfartstid, turen etter", () => {
+  const html = atTime(oslo(21, 7), () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - oslo(21, 7) + 20000, { sog: 0 })] } }));
+  const now = nowArea(html);
+  assert.match(now, /^<div class="now is-moored now-live" role="group" aria-label="No">/);
+  assert.match(text(now), /Live frå AIS · 20 s/, "kjeldemerket står framleis");
+  assert.match(now, /<ul class="now-info">/);
+  const lines = infoLines(html);
+  assert.match(lines[0], /^place: Ferja (ligg til kai|er ferdig for dagen) på (Standal|Trandal)$/);
+  assert.match(lines[1], /^next: Første tur i morgon \d\d:\d\d frå \w+, om \d+ t \d+ min( · på signal)?$/);
+  assert.match(lines[2], /^trip: Overfarta tek \d+ min, framme \d\d:\d\d$/);
+  assert.match(lines[3], /^then: Deretter \d\d:\d\d frå \w+$/);
+  assert.doesNotMatch(now, /class="ferry|role="progressbar"/, "ved kai: ingen ferje");
+});
+
+test("«No»-raden med AIS ved Standal-kaia seier kvar ferja er frå AIS, òg når tabellen seier noko anna", () => {
+  // 20:30: tabellen seier overfart Trandal → Standal (framme 20:35), men AIS viser ferja ved Standal-kaia.
+  const html = renderApp({ initialSanntid: { entries: [aisEntry(1, 15000, { sog: 0 })] } });
+  const lines = infoLines(html);
+  assert.equal(lines[0], "place: Ferja ligg til kai på Standal");
+  assert.doesNotMatch(lines.join(" "), /på veg/);
+  assert.match(statusArea(html), /Ferja ligg til kai på Standal\./);
+});
+
+test("«No»-raden dagtid ved kai mellom turar: neste avgang med nedteljing, overfartstid og turen etter", () => {
+  const html = atTime(oslo(20, 16), () => renderApp());
+  const lines = infoLines(html);
+  assert.equal(lines[0], "place: Ferja ligg til kai på Trandal");
+  assert.match(lines[1], /^next: Neste avgang 20:20 frå Trandal, om 4 min/);
+  assert.equal(lines[2], "trip: Overfarta tek 15 min, framme 20:35");
+  // Same dag, nokre veker seinare i tabellen: «Neste avgang» står òg i toppen, men «No»-raden er ferdig for seg.
+  assert.match(nowArea(html), /Berekna frå rutetabellen/);
+});
+
+test("«No»-raden på overfart: ferja på linja, minutt att til framkomst og kvar ferja skal", () => {
+  const html = renderApp({ initialSanntid: { entries: [aisEntry(0.5, 8000, { sog: 11 })] } });
+  const now = nowArea(html);
+  assert.match(now, /<svg class="ferry"/);
+  assert.match(text(now), /Live frå AIS · 8 s/);
+  assert.match(text(now), /av overfarten · Framme 20:35 · om 5 min/);
+  const lines = infoLines(html);
+  assert.equal(lines[0], "place: Ferja er på veg mot Standal");
+  assert.match(lines[1], /^then: Første tur i morgon \d\d:\d\d frå \w+( · på signal)?$/, "siste tur i dag: seier kva som kjem i morgon");
+});
+
+test("«No»-raden: nn, en og de, og ingen tekst utan tabell", async () => {
+  const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
+  for (const [lang, pattern] of [
+    ["en", /^next: First sailing tomorrow \d\d:\d\d from \w+, in \d+ h \d+ min/],
+    ["de", /^next: Erste Fahrt morgen \d\d:\d\d ab \w+, in \d+ Std\. \d+ Min\./],
+  ]) {
+    await setLang(lang);
+    const html = atTime(oslo(21, 7), () => renderApp({ lang }));
+    assert.match(infoLines(html)[1], pattern, lang);
+  }
+  await setLang("nn");
+});
+
+test("«No»-raden: tekst utan overflyt – brotne ord, ingen fast breidd, liste utan punkt", () => {
+  const css = readFileSync(new URL("src/styles/crossing.css", new URL("..", import.meta.url)), "utf8");
+  const rule = css.match(/\.now-info \{[^}]*\}/)[0];
+  assert.match(rule, /list-style: none/);
+  assert.match(rule, /overflow-wrap: break-word/);
+  assert.doesNotMatch(rule, /(^|[^-])width:|white-space: nowrap|px/, "ingen fast breidd, ingen px: skrifta følgjer rem");
+});

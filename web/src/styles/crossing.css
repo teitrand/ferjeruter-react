@@ -260,3 +260,25 @@
 .about-data dt { margin-top: 0.6rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
 .about-data dd { margin: 0.2rem 0 0; line-height: 1.45; }
 .about-data ul { margin: 0; padding-left: 1.1rem; }
+
+/* ---------- Tekst i «No»-raden: kvar ferja er, neste tur, overfartstid ---------- */
+.now-info {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+.now-info li { min-width: 0; }
+.now-info-place { font-weight: 600; }
+.now-info-trip, .now-info-then { color: var(--muted); font-size: 0.86rem; }
+.now-info-cancelled { color: var(--stop-fg); font-weight: 600; }
+
+/* Smal skjerm og 200 %: merket får bryte linja i staden for å gå ut av raden. */
+.live { max-width: 100%; min-width: 0; box-sizing: border-box; padding-block: 0.1rem; }
+.live-label { min-width: 0; overflow-wrap: break-word; }

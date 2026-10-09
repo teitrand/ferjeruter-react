@@ -239,6 +239,7 @@ export function App({
                 onTogglePast={() => act({ type: "togglePast" })}
                 onDetail={(leg) => act({ type: "detail", leg })}
                 live={lede && !lede.noTrips ? lede.live : null}
+            info={lede && !lede.noTrips ? lede.info : null}
               />
             ) : null}
             <Footnote notes={notes} connection={connection.footnote} />
