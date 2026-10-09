@@ -6,7 +6,7 @@
  *   fekk. Ho eldast av seg sjølv (Live → Siste kjende → Ukjent, core fixFreshness), og då tek
  *   Entur over, og så rutetabellen. Ingen feilmelding til brukaren berre fordi workeren manglar.
  * - Posisjonen blir aldri funnen opp: `msgtime` frå AIS er tida, ikkje når vi fekk svaret.
- * - Spør berre i driftsvindauget, minst 15 s mellom kall (same som max-age på svaret),
+ * - Spør minst 15 s mellom kall i driftsvindauget (same som max-age på svaret) og minst 60 s utanfor (natt),
  *   backoff 1 → 15 min etter feil, og ikkje medan fana er gøymd.
  */
 import { fixFromAis, legsForDate, liveBackoff, shouldFetchLive, todayIso } from "../../../packages/core/index.js";
@@ -16,6 +16,8 @@ import { enturMode } from "./entur.js";
 export const SANNTID_URL = "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/latest";
 export const SANNTID_TIMEOUT_MS = 4000;
 export const SANNTID_MIN_INTERVAL_MS = 15000;
+/** Utanfor driftsvindauget (natt): AIS sender heile døgnet, så vi spør, men sjeldnare. */
+export const SANNTID_IDLE_INTERVAL_MS = 60000;
 
 /** Adressa til workeren. VITE_SANNTID_URL overstyrer; «off» (eller tom) slår henting av AIS av. */
 export function sanntidUrl(env = {}) {
@@ -116,12 +118,18 @@ export function sanntidReducer(state, action) {
   }
 }
 
-/** Tid for nytt kall: synleg fane, driftsvindauge, minst 15 s sidan sist, ikkje i backoff. */
+/**
+ * Tid for nytt kall: synleg fane, ikkje i backoff, minst 15 s sidan sist. I driftsvindauget følgjer vi
+ * det; utanfor (natt, ferdig for dagen) spør vi minst kvart minutt, for AIS sender òg frå ei ferje ved kai.
+ */
 export function sanntidDue({ fetchedAt = 0, blockedUntil = 0 }, data, ui, nowMs = Date.now(), hidden = false) {
   if (hidden || (!data.routes && !data.kombirute)) return false;
-  if (nowMs - fetchedAt < SANNTID_MIN_INTERVAL_MS) return false;
+  if (nowMs < (blockedUntil || 0)) return false;
+  const since = nowMs - fetchedAt;
+  if (since < SANNTID_MIN_INTERVAL_MS) return false;
   const legs = legsForDate(todayIso(), planContext(data, { ...ui, date: null }));
-  return shouldFetchLive(legs, nowMs, blockedUntil);
+  if (shouldFetchLive(legs, nowMs, blockedUntil)) return true;
+  return since >= SANNTID_IDLE_INTERVAL_MS;
 }
 
 /** Sambandet AIS gjeld for (same som sanntida frå Entur: i dag, ikkje vald dag). */

@@ -485,3 +485,20 @@ test("«No»-raden: tekst utan overflyt – brotne ord, ingen fast breidd, liste
   assert.match(rule, /overflow-wrap: break-word/);
   assert.doesNotMatch(rule, /(^|[^-])width:|white-space: nowrap|px/, "ingen fast breidd, ingen px: skrifta følgjer rem");
 });
+
+test("natt: fersk AIS ved kai gjev «Live frå AIS» og «ligg til kai på X» frå AIS – og siste kjende etter 4 min", () => {
+  const night = oslo(21, 7);
+  const fresh = atTime(night, () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - night + 90000, { sog: 0 })] } }));
+  assert.match(text(nowArea(fresh)), /Live frå AIS · 1 min/);
+  assert.equal(infoLines(fresh)[0], "place: Ferja ligg til kai på Standal");
+  assert.match(statusArea(fresh), /Ferja er ferdig for dagen på Standal\./, "overskrifta seier ikkje imot");
+  assert.match(text(fresh), /Posisjonen kjem frå AIS i sanntid no\./);
+  assert.doesNotMatch(nowArea(fresh), /class="ferry|role="progressbar"/);
+  // 6 min gammal AIS ved kai: siste kjende (opptil 15 min), ikkje «live», og «No»-raden påstår ikkje meir enn tabellen.
+  const stale = atTime(night, () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - night + 6 * 60000, { sog: 0 })] } }));
+  assert.match(text(nowArea(stale)), /Siste kjende frå AIS · 6 min sidan/);
+  assert.equal(infoLines(stale)[0], "place: Ferja er ferdig for dagen på Standal");
+  // 20 min gammal: ukjend, rutetabellen.
+  const old = atTime(night, () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - night + 20 * 60000, { sog: 0 })] } }));
+  assert.match(text(nowArea(old)), /Ukjent · ingen sanntid sidan/);
+});

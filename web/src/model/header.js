@@ -1,5 +1,6 @@
 /** Toppen: kva rute som gjeld, og statuslinja (alltid om i dag). */
 import {
+  aisQuay,
   activeMode,
   countdown,
   currentStatus,
@@ -87,7 +88,9 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
     // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
     live: liveStatus(status, legs, now, ev, data),
     // Teksten i «No»-raden: kvar ferja er, neste/fyrste tur med nedteljing, overfartstid og turen etter.
-    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx) }),
+    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx),
+      atQuay: aisQuay(positionFixes(data), knownQuays(ctx), Date.now()),
+    }),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

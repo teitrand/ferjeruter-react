@@ -17,8 +17,8 @@ const DAY = [
   leg("Trandal", "Standal", "20:20", "20:30"),
 ];
 const ev = (extra = {}) => ({ date: "2026-10-09", today: "2026-10-09", cancelledJourneys: new Set(), messageCancelled: new Set(), ...extra });
-const info = (nowMs, { status, legs = DAY, running = legs, legsOn = () => DAY, event = ev(), today = "2026-10-09" } = {}) =>
-  nowInfo({ status, legs, running, ev: event, nowMs, today, legsOn });
+const info = (nowMs, { status, legs = DAY, running = legs, legsOn = () => DAY, event = ev(), today = "2026-10-09", atQuay = null } = {}) =>
+  nowInfo({ status, legs, running, ev: event, nowMs, today, legsOn, atQuay });
 const texts = (result) => result.lines.map((line) => `${line.kind}: ${line.text}`);
 const done = { short: "Ferja er ferdig for dagen på Standal", text: "Ferja er ferdig for dagen på Standal." };
 
@@ -127,4 +127,15 @@ test("tabellen seier overfart, men AIS viser ferja ved kai: planlagd avgang, ikk
 
 test("utan status eller turar blir det ikkje funne på tekst", () => {
   assert.deepEqual(info(oslo(9, 12, 0), { status: null, legs: [], running: [], legsOn: () => [] }).lines, []);
+});
+
+test("fersk AIS ved kai om natta: «ligg til kai på X» frå AIS, og fyrste tur i morgon under", () => {
+  setLang("nn");
+  const lines = texts(info(oslo(9, 21, 10), { status: done, atQuay: "Standal" }));
+  assert.equal(lines[0], "place: Ferja ligg til kai på Standal");
+  assert.equal(lines[1], "next: Første tur i morgon 06:40 frå Standal, om 9 t 30 min");
+  // AIS ved ei anna kai enn rutetabellen sa: AIS vinn.
+  assert.equal(info(oslo(9, 21, 10), { status: done, atQuay: "Trandal" }).lines[0].text, "Ferja ligg til kai på Trandal");
+  // På overfart etter tabellen og ikkje overstyrt: AIS-kaia blir ikkje brukt.
+  assert.equal(info(oslo(9, 20, 5), { status: { underway: true, text: "Ferja er på veg mot Standal" }, atQuay: "Standal" }).lines[0].text, "Ferja er på veg mot Standal");
 });
