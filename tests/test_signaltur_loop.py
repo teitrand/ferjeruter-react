@@ -237,6 +237,10 @@ class PublishTests(unittest.TestCase):
 
 
 class WorkflowContractTests(unittest.TestCase):
+    @unittest.skipUnless(
+        (ROOT / ".github" / "workflows" / "log-signalturar.yml").exists(),
+        "datajobbane ligg berre i det gamle fergeruter-repoet",
+    )
     def test_worker_er_klokka_og_github_cron_er_reserve(self):
         text = (ROOT / ".github" / "workflows" / "log-signalturar.yml").read_text(encoding="utf-8")
         script = SCRIPT.read_text(encoding="utf-8")

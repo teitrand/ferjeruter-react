@@ -18,7 +18,7 @@
         try {
           var host = location.hostname;
           var path = location.pathname || "";
-          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1) {
+          if (host === "localhost" || host === "127.0.0.1" || path.indexOf("/dev/") !== -1 || path.indexOf("/ferjeruter-react/") !== -1) {
             return null;
           }
         } catch (e) {}

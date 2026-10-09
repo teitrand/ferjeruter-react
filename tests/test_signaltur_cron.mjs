@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import worker, {
@@ -354,12 +354,16 @@ function nextCronAfter(crons, instant) {
 
 test("wrangler har kveldskøyring som ikkje blir midnatt i Oslo", () => {
   const toml = readFileSync(new URL("../cloudflare/signaltur-cron/wrangler.toml", import.meta.url), "utf8");
-  const workflow = readFileSync(new URL("../.github/workflows/log-signalturar.yml", import.meta.url), "utf8");
   const crons = cronsFromToml(toml);
   assert.deepEqual(crons, ["7,37 4-21 * * *"]);
   assert.equal(toml.includes("7 22"), false);
-  assert.match(workflow, /cron: "7,37 4-21 \* \* \*"/);
-  assert.equal(workflow.includes('cron: "7 22 * * *"'), false);
+  // Arbeidsflyten for signalturar ligg berre i det gamle fergeruter-repoet.
+  const workflowUrl = new URL("../.github/workflows/log-signalturar.yml", import.meta.url);
+  if (existsSync(workflowUrl)) {
+    const workflow = readFileSync(workflowUrl, "utf8");
+    assert.match(workflow, /cron: "7,37 4-21 \* \* \*"/);
+    assert.equal(workflow.includes('cron: "7 22 * * *"'), false);
+  }
 
   const summerArrival = new Date("2026-07-15T20:35:00+02:00");
   const winterArrival = new Date("2026-01-14T20:35:00+01:00");

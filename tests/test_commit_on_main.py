@@ -165,6 +165,10 @@ class PublishTests(unittest.TestCase):
 
 
 class WorkflowWiringTests(unittest.TestCase):
+    @unittest.skipUnless(
+        (ROOT / ".github" / "workflows" / "log-signalturar.yml").exists(),
+        "datajobbane ligg berre i det gamle fergeruter-repoet",
+    )
     def test_datajobbar_brukar_felles_push(self):
         names = [
             "update-trafikkmeldinger.yml",

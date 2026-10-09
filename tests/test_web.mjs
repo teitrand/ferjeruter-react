@@ -974,7 +974,7 @@ test("fotnoten: posisjon, papirruteplan og NAIS som vanilla-appen", () => {
   assert.equal(app.feedbackMailto("no", ""), core.feedbackMailto("no", ""));
 });
 
-test("skalet lastar Plausible med same oppsett som vanilla (ingen hendingar frå localhost og /dev/)", () => {
+test("skalet lastar Plausible med same oppsett som vanilla (ingen hendingar frå localhost, /dev/ og førehandsvisinga)", () => {
   const snippet = (html) => {
     const start = html.indexOf("<!-- Privacy-friendly analytics by Plausible -->");
     const end = html.indexOf("</script>", html.indexOf("plausible.init", start));
@@ -983,5 +983,9 @@ test("skalet lastar Plausible med same oppsett som vanilla (ingen hendingar frå
   const vanilla = snippet(readFileSync(new URL("../index.html", import.meta.url), "utf8"));
   const shell = snippet(readFileSync(new URL("../web/index.html", import.meta.url), "utf8"));
   assert.ok(vanilla && vanilla.includes('path.indexOf("/dev/")'));
-  assert.equal(shell, vanilla);
+  // Førehandsvisinga på teitrand.github.io/ferjeruter-react/ skal ikkje telje i statistikken
+  // til ruter.trandal.org. Elles same oppsett. I rota av eige domene blir hendingane sende.
+  const guard = ' || path.indexOf("/ferjeruter-react/") !== -1';
+  assert.ok(shell.includes(guard));
+  assert.equal(shell.replace(guard, ""), vanilla);
 });
