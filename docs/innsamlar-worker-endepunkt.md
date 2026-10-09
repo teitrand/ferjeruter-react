@@ -1,7 +1,6 @@
-# Endepunkt i workeren for innsamlaren (forslag, ikkje laga)
+# Endepunkt i workeren for innsamlaren
 
-Til godkjenning. Ingenting i `cloudflare/` er endra, og ingenting er deploya. Avsendaren i
-innsamlaren er av til dette er godkjent og laga.
+Laga i `cloudflare/sanntid/` og deploya som `fergeruter-sanntid` (sjå README der). Nøkkelen er Worker-løyndomen `COLLECTOR_KEY`. Avsendaren i innsamlaren sender hit.
 
 ## Prinsipp
 
