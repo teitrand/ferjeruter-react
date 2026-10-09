@@ -1,0 +1,10 @@
+[Unit]
+Description=Nattleg samanlikning av gårsdagen (Fergeruter)
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 Europe/Oslo
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

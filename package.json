@@ -5,11 +5,15 @@
   "type": "module",
   "workspaces": [
     "packages/core",
-    "web"
+    "web",
+    "collector"
   ],
   "scripts": {
     "dev:web": "npm run dev -w web",
     "build:web": "npm run build -w web",
-    "test:web": "npm test -w web"
+    "test:web": "npm test -w web",
+    "collector": "npm start -w collector",
+    "compare": "npm run compare -w collector",
+    "test:collector": "npm test -w collector"
   }
 }
