@@ -12,10 +12,10 @@ function dataFiles() {
  * Gjer data/*.json tilgjengeleg for React-skalet utan å kopiere filene inn i web/.
  * - `vite` (dev): serverar /data/<fil>.json direkte frå data/ i repoet.
  * - `vite build`: legg ein kopi i dist/data/, så dist/ kan prøvast åleine med
- *   `vite preview`. Når skalet blir publisert (PR 6) skal det lese dei levande filene
- *   via VITE_DATA_BASE, ikkje denne kopien.
+ *   `vite preview`. Når skalet blir publisert, les det dei levande filene via
+ *   VITE_DATA_BASE, og då blir kopien ikkje lagd (`emit: false`).
  */
-export function repoData() {
+export function repoData({ emit = true } = {}) {
   return {
     name: "fergeruter:repo-data",
     configureServer(server) {
@@ -28,6 +28,7 @@ export function repoData() {
       });
     },
     generateBundle() {
+      if (!emit) return;
       for (const name of dataFiles()) {
         this.emitFile({ type: "asset", fileName: `data/${name}`, source: readFileSync(DATA_DIR + name) });
       }

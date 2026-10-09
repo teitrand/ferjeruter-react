@@ -1,0 +1,56 @@
+name: Publiser React-skalet til GitHub Pages
+
+# Byggjer web/dist og publiserer via GitHub Pages (kjelde: GitHub Actions).
+# Berre ved push til main og manuelt. Ingen cron.
+#
+# Data: produksjonsfilene til fergeruter på teitrand.github.io (CORS: *).
+# ruter.trandal.org/data/ sender 301 utan CORS-hovud, så nettlesaren stoppar det.
+#
+# Overstyr utan kodeendring med repo-variablar (Settings → Variables → Actions):
+# - WEB_BASE: «/» når sida skal liggje i rota av eige domene
+# - DATA_BASE: anna adresse for data/*.json
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Installer
+        run: npm ci
+      - name: Bygg React-skalet
+        run: npm run build:web
+        env:
+          WEB_BASE: ${{ vars.WEB_BASE || '/ferjeruter-react/' }}
+          VITE_DATA_BASE: ${{ vars.DATA_BASE || 'https://teitrand.github.io/fergeruter/data/' }}
+      - name: Last opp
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Publiser
+        id: deploy
+        uses: actions/deploy-pages@v4
