@@ -204,3 +204,29 @@ test("fotnote, botn, install- og tilbakemeldingsvindauge som i vanilla", () => {
   const k = render({ override: "kombi", kombirute: KOMBI, date: "2026-10-09" });
   assert.match(k, new RegExp(`id="timetable-pdf" href="${(KOMBI.source || "https://frammr.no/").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").slice(0, 40)}`));
 });
+
+test("siste samband i dag gjev rett tittel før data er lasta (ingen blink)", () => {
+  const html = renderToString(
+    createElement(App, { lastMode: "kombi", initialState: { routeChoice: "1136", lang: "nn" }, memory: memoryOnly() })
+  ).replace(/<!-- -->/g, "");
+  assert.match(html, /<header class="site-header">/, "ikkje is-pending-route");
+  assert.match(html, /id="route-title">Sæbø–Leknes–Skår–Trandal–Standal</);
+  assert.match(html, /id="route-badge" class="route-badge">Kombirute</);
+  assert.match(html, /id="day-label" class="day-label">Lastar/);
+  const none = renderToString(createElement(App, { initialState: { routeChoice: "1136", lang: "nn" }, memory: memoryOnly() }));
+  assert.match(none, /<header class="site-header is-pending-route">/);
+});
+
+test("fotnoten: «ingen kontakt med Entur» når sanntida feila, som vanilla (nn, en, de)", () => {
+  const expected = {
+    nn: /Fekk ikkje kontakt med Entur/,
+    en: /Could not reach Entur/,
+    de: /Keine Verbindung zu Entur/,
+  };
+  for (const [lang, pattern] of Object.entries(expected)) {
+    const failed = render({ lang, initialEntur: { liveFailed: true } });
+    assert.match(failed.match(/<span id="position-note">[^<]*/)[0], pattern, lang);
+    const planned = render({ lang });
+    assert.doesNotMatch(planned.match(/<span id="position-note">[^<]*/)[0], pattern, lang);
+  }
+});

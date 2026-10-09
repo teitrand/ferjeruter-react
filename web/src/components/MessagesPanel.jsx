@@ -50,8 +50,35 @@ function SummaryBar({ messages, expanded, onToggle }) {
   );
 }
 
+/**
+ * Verken fila, Fjord1 eller cachen gav meldingar. Vanilla skriv same tekstane inn i eit
+ * gøymt panel; her blir dei viste, med lenkje til Fjord1.
+ */
+function MessagesError() {
+  return (
+    <section className="panel panel-messages" id="messages-panel" aria-labelledby="meldingar-title">
+      <div className="panel-head">
+        <h2 id="meldingar-title" className="visually-hidden">
+          {t("messages.title")}
+        </h2>
+        <p className="meta" id="messages-meta">
+          {t("messages.fetchError")}
+        </p>
+      </div>
+      <div id="messages" className="message-list">
+        <p className="empty">
+          <a href="https://www.fjord1.no/trafikkmeldingar" target="_blank" rel="noreferrer">
+            {t("messages.seeFjord1")}
+          </a>
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /** Trafikkmeldingar. `panel` kjem frå messagesPanel i core (via model/controls.js). */
-export function MessagesPanel({ panel, route, expanded, onToggle, onFilter }) {
+export function MessagesPanel({ panel, route, expanded, onToggle, onFilter, failed = false }) {
+  if (failed) return <MessagesError />;
   if (panel.hidden) return null;
   return (
     <section className="panel panel-messages" id="messages-panel" aria-labelledby="meldingar-title">

@@ -17,11 +17,12 @@ import { useClock } from "./hooks/useClock.js";
 import { useEntur } from "./hooks/useEntur.js";
 import { useInstall } from "./hooks/useInstall.js";
 import { useMessages } from "./hooks/useMessages.js";
+import { useWake } from "./hooks/useWake.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
-import { footnoteModel, ledeModel, routeChrome } from "./model/header.js";
-import { markPwaFirstOpen, writeHideArrivals, writeRouteChoice } from "./model/storage.js";
+import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
+import { markPwaFirstOpen, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
 import { actionEvent, track as sendEvent, visitEvents } from "./model/track.js";
 import { initialUi, uiReducer } from "./state.js";
@@ -42,6 +43,11 @@ const NO_CONNECTION = { lines: [], value: null, footnote: "" };
  * `liveDataBase` er der meldingar og signallogg ligg (produksjonsfilene på /dev/, sjå data.js),
  * `messageCache` er localStorage-lageret for meldingar (null = ingen).
  *
+ * PWA (berre i nettlesaren, null i testar): `timetableCache` er rutetabellen i localStorage,
+ * `lastMode` sambandet som galdt i dag sist (tittel utan blink), `pwaEvents` meldingane frå
+ * service workeren, `installPrompt` beforeinstallprompt fanga før React monterte.
+ * Sida vaknar (useWake): meldingar og sanntid blir henta på nytt.
+ *
  * Plausible: kvar handling går via `act`, som sender same hending som vanilla-appen
  * (model/track.js) før reduceren får ho. Ringelenkjer, installering og tilbakemelding
  * sender sjølve via TrackContext.
@@ -50,6 +56,10 @@ export function App({
   dataBase = "./data/",
   liveDataBase = dataBase,
   messageCache = null,
+  timetableCache = null,
+  lastMode = null,
+  pwaEvents = null,
+  installPrompt = null,
   initialData = null,
   initialEntur = null,
   initialState = null,
@@ -57,10 +67,20 @@ export function App({
 }) {
   const [ui, dispatch] = useReducer(uiReducer, initialState, (given) => ({ ...initialUi(), ...given }));
   const live = !initialData;
-  const { data: loaded, status } = useAppData(dataBase, initialData, liveDataBase);
-  const messages = useMessages(liveDataBase, loaded.messages, { live, ready: status === "ready", cache: messageCache });
+  const woke = useWake({ enabled: live, events: pwaEvents });
+  const { data: loaded, status } = useAppData(dataBase, initialData, liveDataBase, {
+    cache: timetableCache,
+    reload: woke.timetable,
+  });
+  const { messages, failed: messagesFailed } = useMessages(liveDataBase, loaded.messages, {
+    live,
+    // Som vanilla: meldingane blir henta òg når rutetabellen feilar.
+    ready: status !== "loading",
+    cache: messageCache,
+    refresh: woke.wake + woke.messages,
+  });
   const base = useMemo(() => ({ ...loaded, messages }), [loaded, messages]);
-  const clockMs = useClock();
+  const clockMs = useClock(woke.wake);
   const entur = useEntur(base, ui, clockMs, initialEntur);
   const data = useMemo(() => withEntur(base, entur), [base, entur]);
   const memoryRef = useRef(givenMemory);
@@ -75,6 +95,13 @@ export function App({
   const ready = hasTimetable(data);
   const now = nowMinutes(clockMs);
   const chrome = useMemo(() => (ready ? routeChrome(data, ui) : null), [ready, data, ui]);
+  // Før data: sambandet frå sist i dag, så tittelen er rett med ein gong.
+  const todaySelected = isTodaySelected(ui);
+  const headerChrome = useMemo(
+    () => chrome || (lastMode && todaySelected ? chromeForMode(lastMode) : null),
+    [chrome, lastMode, todaySelected]
+  );
+  const todayMode = useMemo(() => (ready ? routeChrome(data, { ...ui, date: null }).mode : null), [ready, data, ui]);
   const lede = ready ? ledeModel(data, ui, memory, now) : null;
   const place = ready ? placeFilterModel(data, ui) : null;
   const connection = ready ? connectionModel(data, ui) : NO_CONNECTION;
@@ -111,7 +138,7 @@ export function App({
       sendEvent(win, name, null, uiRef.current, { interactive: false });
     }
   }, [win]);
-  const install = useInstall(track, { enabled: live });
+  const install = useInstall(track, { enabled: live, early: installPrompt });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
@@ -132,8 +159,13 @@ export function App({
 
   useEffect(() => {
     document.documentElement.lang = ui.lang;
-    if (chrome) document.title = t(chrome.metaTitleKey);
-  }, [ui.lang, chrome]);
+    if (headerChrome) document.title = t(headerChrome.metaTitleKey);
+  }, [ui.lang, headerChrome]);
+
+  // Som writeLastMode i vanilla: sambandet som gjeld i dag, til neste opning.
+  useEffect(() => {
+    if (live && todayMode) writeLastMode(todayMode);
+  }, [live, todayMode]);
 
   const onRoute = (route) => {
     writeRouteChoice(route);
@@ -154,10 +186,11 @@ export function App({
         {t("skip")}
       </a>
       <div className="skyline" aria-hidden="true" />
-      <Header chrome={chrome} lede={lede} ui={ui} onRoute={onRoute} onLang={onLang} install={install} />
+      <Header chrome={headerChrome} lede={lede} ui={ui} onRoute={onRoute} onLang={onLang} install={install} />
       <main id="innhald">
-        <div className={panel.hidden ? "layout is-single" : "layout"} id="layout">
+        <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">
           <MessagesPanel
+            failed={messagesFailed}
             panel={panel}
             route={chosenRoute(ui)}
             expanded={ui.messagesExpanded}
@@ -169,6 +202,7 @@ export function App({
               date={selectedDate(ui)}
               isToday={isTodaySelected(ui)}
               loading={!ready && status === "loading"}
+              error={!ready && status === "error"}
               onDay={(days) => act({ type: "day", days })}
             />
             {place ? <PlaceFilter place={place} dispatch={act} /> : null}

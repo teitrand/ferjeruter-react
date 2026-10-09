@@ -27,6 +27,16 @@ const CHROME = {
   kombi: { title: "route.titleKombi", eyebrow: "eyebrow.kombi", meta: "meta.titleKombi" },
 };
 
+/**
+ * Tittel og overtittel for eit samband før data er lasta (siste samband i dag frå
+ * localStorage), så overskrifta ikkje blinkar. Utan båt; den kjem med routeChrome.
+ */
+export function chromeForMode(mode) {
+  const keys = CHROME[mode];
+  if (!keys) return null;
+  return { mode, kombi: mode === "kombi", titleKey: keys.title, eyebrowKey: keys.eyebrow, metaTitleKey: keys.meta, vessel: null };
+}
+
 /** Tittel, overtittel og kombirute-merke for det sambandet som gjeld den valde dagen. */
 export function routeChrome(data, ui) {
   const ctx = planContext(data, ui);

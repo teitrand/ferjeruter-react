@@ -930,6 +930,18 @@ test("sida har ikkje statusbanner over innhaldet", () => {
   assert.doesNotMatch(html, /class="status-banner"/);
 });
 
+test("?rute= verkar på førehandsvisinga av React-skalet, men ikkje på eige domene", () => {
+  const at = (href) => {
+    const url = new URL(href);
+    return { hostname: url.hostname, pathname: url.pathname, href };
+  };
+  assert.equal(routeOverride(at("https://teitrand.github.io/ferjeruter-react/?rute=kombi")), "kombi");
+  assert.equal(routeOverride(at("https://teitrand.github.io/ferjeruter-react/index.html?rute=1135")), "1135");
+  assert.equal(routeOverride(at("https://teitrand.github.io/ferjeruter-react/?rute=tull")), null);
+  assert.equal(routeOverride(at("https://ruter.trandal.org/?rute=kombi")), null);
+  assert.equal(routeOverride(at("https://teitrand.github.io/ferjeruter-reactx/?rute=kombi")), null);
+});
+
 test("?rute= verkar berre på /dev/ og localhost", () => {
   assert.equal(
     isPreview({ hostname: "localhost", pathname: "/", href: "http://localhost:8080/?rute=kombi" }),

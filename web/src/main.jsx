@@ -5,8 +5,21 @@ import { App } from "./App.jsx";
 import { detectLang } from "./components/i18n.js";
 import { routeOverride } from "../../packages/core/index.js";
 import { dataBase, liveDataBase } from "./model/data.js";
-import { browserMemory, messageCache, readHideArrivals, readRouteChoice } from "./model/storage.js";
+import {
+  browserMemory,
+  messageCache,
+  readHideArrivals,
+  readLastMode,
+  readRouteChoice,
+  timetableCache,
+} from "./model/storage.js";
+import { captureInstallPrompt, createPwaEvents, registerServiceWorker } from "./pwa/register.js";
 import { initialUi } from "./state.js";
+
+// Før React: beforeinstallprompt kan kome tidleg, og service workeren bør starte med ein gong.
+const installPrompt = captureInstallPrompt(window);
+const pwaEvents = createPwaEvents();
+registerServiceWorker(pwaEvents, { enabled: import.meta.env.PROD, baseUrl: import.meta.env.BASE_URL });
 
 const initialState = initialUi({
   routeChoice: readRouteChoice(),
@@ -21,6 +34,10 @@ createRoot(document.getElementById("root")).render(
       dataBase={dataBase(import.meta.env)}
       liveDataBase={liveDataBase(import.meta.env, location)}
       messageCache={messageCache()}
+      timetableCache={timetableCache()}
+      lastMode={readLastMode()}
+      pwaEvents={pwaEvents}
+      installPrompt={installPrompt}
       initialState={initialState}
       memory={browserMemory()}
     />

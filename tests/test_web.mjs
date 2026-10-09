@@ -9,13 +9,24 @@ import * as app from "../assets/app.js";
 import * as core from "../packages/core/index.js";
 import { LIVE_MIN_INTERVAL_MS, SAILED_KEY, departureStateKey, loadEnturEvidence, parseVehicleMonitoring } from "../packages/core/index.js";
 import { stripVersionQuery } from "../web/build/strip-version-query.js";
-import { renderServiceWorker } from "../web/scripts/build-sw.mjs";
+import { HEAD_LINKS, pwaFiles, shellManifest } from "../web/build/pwa-assets.js";
+import { dataUrls, renderServiceWorker } from "../web/scripts/build-sw.mjs";
+import { serviceWorkerUrls } from "../web/src/pwa/register.js";
+import { noindexUnlessRoot } from "../web/build/noindex.js";
 import { memoryOnly, planContext, rememberBookings, statusEvidence } from "../web/src/model/context.js";
-import { dataBase, fetchAppData, liveDataBase } from "../web/src/model/data.js";
+import { dataBase, fetchAppData, liveDataBase, mergeLoaded } from "../web/src/model/data.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "../web/src/model/controls.js";
 import { emptyEntur, enturDue, enturReducer, enturRequest, rememberEntur, withEntur } from "../web/src/model/entur.js";
 import { footnoteModel, ledeModel, routeChrome } from "../web/src/model/header.js";
-import { browserMemory, messageCache } from "../web/src/model/storage.js";
+import {
+  LAST_MODE_KEY,
+  TIMETABLE_CACHE_KEY,
+  browserMemory,
+  messageCache,
+  readLastMode,
+  timetableCache,
+  writeLastMode,
+} from "../web/src/model/storage.js";
 import { buildTimeline } from "../web/src/model/timeline.js";
 import { actionEvent, track as trackShell, visitEvents } from "../web/src/model/track.js";
 import { initialUi, uiReducer } from "../web/src/state.js";
@@ -208,25 +219,206 @@ test("web: Vite-tillegget fjernar berre ?v=<tal> på relative importar", async (
   assert.equal(await plugin.resolveId.call(ctx, "./time.js", "/r/x.js", {}), null);
 });
 
-test("web: service workeren for skalet kjem frå sw.js og rører ikkje vanilla-cachane", () => {
-  const template = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
-  const out = renderServiceWorker(template, { version: "abc123", files: ["assets/index-x.js", "index.html", "data/ruter.json"] });
-  assert.match(out, /const CACHE = IS_DEV \? "fergeruter-web-dev-abc123" : "fergeruter-web-abc123";/);
-  assert.ok(out.includes('"./assets/index-x.js"') && out.includes('"./"'));
+test("web: service workeren for skalet har eigne cachar og eige scope", () => {
+  const template = readFileSync(new URL("../web/pwa/sw-template.js", import.meta.url), "utf8");
+  const data = dataUrls({ VITE_DATA_BASE: "https://teitrand.github.io/fergeruter/data" });
+  const out = renderServiceWorker(template, { version: "abc123", files: ["assets/index-x.js", "index.html", "icons/icon-192.png"], data });
+  assert.match(out, /const CACHE = "fergeruter-web-abc123";/);
+  assert.ok(out.includes('"./assets/index-x.js"') && out.includes('"./"') && out.includes('"./icons/icon-192.png"'));
   assert.ok(!out.includes("?v="), "ingen ?v= i precache");
-  assert.ok(out.includes('self.addEventListener("fetch"'), "strategiane frå malen er med");
-  const isOwnCache = (dev) =>
-    new Function("self", `${out.match(/^const IS_DEV.*$/m)[0]}\n${out.match(/^function isOwnCache[\s\S]*?^\}$/m)[0]}\nreturn isOwnCache;`)({
-      location: { pathname: dev ? "/fergeruter/dev/web/sw.js" : "/fergeruter/web/sw.js" },
+  assert.ok(out.includes('"https://teitrand.github.io/fergeruter/data/ruter.json"'));
+  assert.ok(out.includes('"https://teitrand.github.io/fergeruter/data/trafikkmeldinger.json"'));
+  const isOwnCache = new Function(`${out.match(/^function isOwnCache[\s\S]*?^\}$/m)[0]}\nreturn isOwnCache;`)();
+  // CacheStorage er felles for teitrand.github.io: vanilla-cachane er ikkje våre.
+  assert.equal(isOwnCache(`fergeruter-v${appVersion()}`), false);
+  assert.equal(isOwnCache(`fergeruter-dev-v${appVersion()}`), false);
+  assert.equal(isOwnCache("fergeruter-web-old"), true);
+  // Og vanilla ryddar ikkje i våre (isOwnCache i sw.js til vanilla).
+  const vanillaSw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
+  const vanillaOwn = (dev) =>
+    new Function("self", `${vanillaSw.match(/^const IS_DEV.*$/m)[0]}\n${vanillaSw.match(/^function isOwnCache[\s\S]*?^\}$/m)[0]}\nreturn isOwnCache;`)({
+      location: { pathname: dev ? "/fergeruter/dev/sw.js" : "/fergeruter/sw.js" },
     });
-  for (const dev of [false, true]) {
-    const own = isOwnCache(dev);
-    assert.equal(own(`fergeruter-v${appVersion()}`), false);
-    assert.equal(own(`fergeruter-dev-v${appVersion()}`), false);
-    assert.equal(own("fergeruter-web-old"), !dev);
-    assert.equal(own("fergeruter-web-dev-old"), dev);
-  }
+  for (const dev of [false, true]) assert.equal(vanillaOwn(dev)("fergeruter-web-abc123"), false);
+  // Ingen Service-Worker-Allowed eller scope utover mappa.
+  assert.doesNotMatch(out, /Service-Worker-Allowed|scope:/);
   assert.throws(() => renderServiceWorker("const X = 1;", { version: "x", files: [] }), /CACHE/);
+});
+
+test("web: dataUrls tek berre med datafiler utanfor byggjet", () => {
+  assert.deepEqual(dataUrls({}), []);
+  assert.deepEqual(dataUrls({ VITE_DATA_BASE: "./data/" }), []);
+  const remote = dataUrls({ VITE_DATA_BASE: "https://x.test/data/" });
+  assert.equal(remote.length, 5);
+  const split = dataUrls({ VITE_DATA_BASE: "./data/", VITE_LIVE_DATA_BASE: "https://live.test/data" });
+  assert.deepEqual(split, ["https://live.test/data/trafikkmeldinger.json", "https://live.test/data/signalturar.json"]);
+});
+
+/** Køyrer sw.js i ein sandkasse med falske cachar, fetch og klientar. */
+async function swSandbox(out, { origin = "https://teitrand.github.io", scope = "/ferjeruter-react/" } = {}) {
+  const stores = new Map();
+  const cacheFor = (name) => {
+    if (!stores.has(name)) stores.set(name, new Map());
+    const map = stores.get(name);
+    const keyOf = (req) => (typeof req === "string" ? new URL(req, origin + scope).href : req.url);
+    return {
+      match: async (req) => map.get(keyOf(req))?.clone(),
+      put: async (req, res) => void map.set(keyOf(req), res),
+      addAll: async () => undefined,
+      keys: async () => [...map.keys()],
+    };
+  };
+  const listeners = {};
+  const posted = [];
+  let server = {};
+  const self = {
+    location: new URL(origin + scope + "sw.js"),
+    addEventListener: (type, fn) => (listeners[type] = fn),
+    skipWaiting: () => undefined,
+    clients: { matchAll: async () => [{ postMessage: (data) => posted.push(data) }], claim: async () => undefined },
+  };
+  const caches = { open: async (name) => cacheFor(name), keys: async () => [...stores.keys()], delete: async (name) => stores.delete(name) };
+  const fetchImpl = async (req) => {
+    const url = typeof req === "string" ? req : req.url;
+    if (!(url in server)) throw new TypeError("offline");
+    return new Response(server[url], { status: 200 });
+  };
+  new Function("self", "caches", "fetch", "Request", "Response", out)(self, caches, fetchImpl, Request, Response);
+  const run = async (url) => {
+    let responded = null;
+    const waits = [];
+    const request = new Request(url);
+    listeners.fetch({ request, respondWith: (p) => (responded = p), waitUntil: (p) => waits.push(p) });
+    const response = responded ? await responded : null;
+    const body = response ? await response.text() : null; // sida les svaret
+    await Promise.all(waits);
+    return body;
+  };
+  return { run, posted, setServer: (next) => (server = next), stores };
+}
+
+test("web: service workeren melder ny rutetabell sjølv når sida har lese den gamle", async () => {
+  const template = readFileSync(new URL("../web/pwa/sw-template.js", import.meta.url), "utf8");
+  const url = "https://teitrand.github.io/fergeruter/data/ruter.json";
+  const out = renderServiceWorker(template, { version: "t", files: [], data: [url] });
+  const sw = await swSandbox(out);
+  sw.setServer({ [url]: '{"fetchedAt":"A"}' });
+  assert.equal(await sw.run(url), '{"fetchedAt":"A"}');
+  assert.deepEqual(sw.posted, [], "fyrste gong: ingenting å melde");
+  sw.setServer({ [url]: '{"fetchedAt":"B"}' });
+  assert.equal(await sw.run(url), '{"fetchedAt":"A"}', "stale-while-revalidate gjev den gamle fyrst");
+  assert.deepEqual(sw.posted, [{ type: "timetable-updated" }]);
+  assert.equal(await sw.run(url), '{"fetchedAt":"B"}');
+  // Offline: cachen svarar.
+  sw.setServer({});
+  assert.equal(await sw.run(url), '{"fetchedAt":"B"}');
+  // Andre opphav enn sida og datakjelda (Entur, Fjord1) går forbi.
+  assert.equal(await sw.run("https://api.entur.io/realtime/v1/rest/vm"), null);
+});
+
+test("web: manifest og ikon for skalet kjem frå vanilla-filene", () => {
+  const manifest = JSON.parse(shellManifest());
+  const vanilla = JSON.parse(readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8"));
+  assert.equal(manifest.name, vanilla.name);
+  // Relativt: appen er mappa skalet ligg i, ikkje den gamle appen på /fergeruter/.
+  assert.equal(manifest.start_url, "./");
+  assert.equal(manifest.scope, "./");
+  assert.equal(manifest.id, "./");
+  assert.deepEqual(manifest.icons.map((icon) => icon.src), ["icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-192.png", "icons/icon-maskable-512.png"]);
+  const files = pwaFiles();
+  for (const icon of manifest.icons) assert.ok(files[icon.src]?.length > 100, icon.src);
+  assert.ok(files["favicon.svg"] && files["icons/apple-touch-icon.png"]);
+  for (const link of HEAD_LINKS) {
+    assert.ok(!link.href.startsWith("/"), "relative lenkjer verkar under /ferjeruter-react/ og i rota");
+    assert.ok(files[link.href], link.href);
+  }
+  assert.deepEqual(noindexUnlessRoot("/").transformIndexHtml(), []);
+  assert.equal(noindexUnlessRoot("/ferjeruter-react/").transformIndexHtml()[0].attrs.content, "noindex");
+});
+
+test("web: index.html har tittel, metadata og noscript før JS", () => {
+  const html = readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
+  assert.match(html, /<title>Fergeorakelet 1136 · Standal–Trandal<\/title>/);
+  assert.match(html, /<meta name="description" content="[^"]+">/);
+  assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes">/);
+  assert.match(html, /<meta name="apple-mobile-web-app-title" content="Fergeorakelet">/);
+  assert.match(html, /<meta name="mobile-web-app-capable" content="yes">/);
+  assert.match(html, /<noscript>[\s\S]*href="https:\/\/www\.fjord1\.no\/trafikkmeldingar"[\s\S]*<\/noscript>/);
+  assert.doesNotMatch(html, /name="robots"/, "noindex blir sett av byggjet, ikkje i kjelda");
+});
+
+test("web: sw.js blir registrert i mappa skalet ligg i", () => {
+  assert.deepEqual(serviceWorkerUrls("/ferjeruter-react/", "https://teitrand.github.io/ferjeruter-react/?rute=kombi"), {
+    url: "https://teitrand.github.io/ferjeruter-react/sw.js",
+    scope: "/ferjeruter-react/",
+  });
+  assert.deepEqual(serviceWorkerUrls("/", "https://ruter.trandal.org/"), { url: "https://ruter.trandal.org/sw.js", scope: "/" });
+  assert.deepEqual(serviceWorkerUrls("./", "http://localhost:4173/"), { url: "http://localhost:4173/sw.js", scope: "/" });
+});
+
+test("web: rutetabell-cache og siste samband har eigne nøklar", () => {
+  const storage = fakeStorage();
+  const cache = timetableCache(storage);
+  assert.equal(cache.read(), null);
+  cache.write({ routes: ROUTES, kombirute: KOMBI, connections: null });
+  assert.equal(cache.read().routes.fetchedAt, ROUTES.fetchedAt);
+  assert.equal(TIMETABLE_CACHE_KEY, "fergeruter-web-timetable-v1");
+  assert.notEqual(TIMETABLE_CACHE_KEY, app.TIMETABLE_CACHE_KEY, "den gamle appen les ikkje skalet sin cache");
+  assert.notEqual(LAST_MODE_KEY, app.LAST_MODE_KEY);
+  assert.deepEqual(Object.keys(storage.data), [TIMETABLE_CACHE_KEY]);
+  writeLastMode("kombi", storage, "2026-10-09");
+  assert.equal(readLastMode(storage, "2026-10-09"), "kombi");
+  assert.equal(readLastMode(storage, "2026-10-10"), null, "berre same dag");
+  writeLastMode("tull", storage, "2026-10-09");
+  assert.equal(readLastMode(storage, "2026-10-09"), "kombi");
+  const broken = fakeStorage({ [TIMETABLE_CACHE_KEY]: "{", [LAST_MODE_KEY]: "x" });
+  assert.equal(timetableCache(broken).read(), null);
+  assert.equal(readLastMode(broken), null);
+});
+
+test("web: mergeLoaded held på objekta når ingenting er nytt", () => {
+  const first = { routes: ROUTES, kombirute: KOMBI, connections: CONNECTIONS, messages: { fetchedAt: "x", messages: [] }, signalLog: null };
+  const same = mergeLoaded(first, JSON.parse(JSON.stringify(first)));
+  assert.equal(same.data, first, "same innhald gjev same objekt (inga omteikning)");
+  assert.equal(same.timetableChanged, false);
+  const newer = { ...JSON.parse(JSON.stringify(first)), routes: { ...ROUTES, fetchedAt: "2099-01-01T00:00:00Z" } };
+  const changed = mergeLoaded(first, newer);
+  assert.equal(changed.timetableChanged, true);
+  assert.equal(changed.data.routes.fetchedAt, "2099-01-01T00:00:00Z");
+  assert.equal(changed.data.messages, first.messages, "meldingane er like og blir ståande");
+  const missing = mergeLoaded(first, { ...first, kombirute: null, connections: null, messages: null });
+  assert.equal(missing.data, first, "valfrie filer som ikkje kom, tek ikkje bort dei vi har");
+});
+
+test("web: «vis tidlegare» held seg ved byte av språk og samband, ikkje ved ny dag (som vanilla)", () => {
+  let ui = uiReducer(initialUi(), { type: "togglePast" });
+  assert.equal(ui.showPast, true);
+  ui = uiReducer(ui, { type: "lang", lang: "de" });
+  assert.equal(ui.showPast, true);
+  ui = uiReducer(ui, { type: "lang", lang: "en" });
+  ui = uiReducer(ui, { type: "route", route: "1135" });
+  assert.equal(ui.showPast, true);
+  ui = uiReducer(ui, { type: "route", route: "1136" });
+  assert.equal(ui.showPast, true);
+  ui = uiReducer(ui, { type: "day", days: 1 });
+  assert.equal(ui.showPast, false, "goToDay i vanilla lukkar lista");
+});
+
+test("web: fotnoten skil «ingen posisjon» frå «ingen kontakt» som vanilla", () => {
+  for (const lang of ["nn", "en", "de"]) {
+    setLang(lang, { persist: false });
+    const data = { routes: ROUTES, kombirute: null, live: null };
+    const planned = footnoteModel({ ...data, liveFailed: false }, initialUi(), null).position;
+    const offline = footnoteModel({ ...data, liveFailed: true }, initialUi(), null).position;
+    assert.equal(planned, "position.planned");
+    assert.equal(offline, "position.offline");
+    app.setTestState({ routes: ROUTES, live: null, liveFailed: true });
+    assert.equal(app.positionNoteKey(), offline, `vanilla og skalet er like (${lang})`);
+    app.setTestState({ liveFailed: false });
+    assert.equal(app.positionNoteKey(), planned);
+    app.resetTestState();
+  }
+  setLang("nn", { persist: false });
 });
 
 // --- Entur-bevis (5a) ----------------------------------------------------------------------
