@@ -2,10 +2,10 @@
  * Overfarten som er i gang: kor langt ferja har kome, og kor godt vi veit det.
  * Rein logikk utan DOM. Brukt av framdriftslinja og «Live»-merket i React-skalet.
  *
- * Posisjonen kjem som ein «fix» med kjelde:
- *   "ais"      målt av ferja sjølv (AIS). Ikkje kopla til enno, sjå fixFromAis.
- *   "entur"    sanntidsposisjonen frå Entur (SIRI VM, parseVehicleMonitoring).
- *   "computed" rekna ut frå rutetabellen. Aldri ein måling.
+ * Posisjonen kjem som ein «fix» med kjelde, i denne rekkefølgja (bestFix):
+ *   "ais"      målt av ferja sjølv (AIS, via workeren). Sanninga for posisjon.
+ *   "entur"    sanntidsposisjonen frå Entur (SIRI VM, parseVehicleMonitoring). Neste nivå.
+ *   "computed" rekna ut frå rutetabellen. Reserve, aldri ein måling.
  *
  * Dette er visning, ikkje bevis: ein gammal eller berekna posisjon seier ingenting om
  * at ein tur gjekk. tripStatus/liveProvesSailed avgjer framleis kva som har gått.
@@ -51,6 +51,8 @@ export const FIX_SOURCES = ["ais", "entur", "computed"];
  */
 
 function finite(value) {
+  // null og "" er «ukjend», ikkje 0 (Number(null) er 0, og 0 kn ville sagt «ved kai»).
+  if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -88,8 +90,8 @@ export function fixFromLive(live) {
 }
 
 /**
- * Inngangen for AIS. Ikkje kopla til noko enno: innsamlaren (eller ein annan kjelde)
- * kan gje dekoda AIS-meldingar hit seinare, ein per fartøy.
+ * Inngangen for AIS: ei dekoda AIS-melding per fartøy. Appen får dei frå workeren
+ * (`ais` i GET /v1/latest, sjå web/src/model/sanntid.js).
  * @param {{ mmsi: number|string, latitude: number, longitude: number, sog?: number,
  *   cog?: number, navStatus?: number, timestamp: number|string }} msg
  *   sog i knop (102.3 = ukjend), cog i grader (360 = ukjend), navStatus 5 = fortøydd.
@@ -124,6 +126,40 @@ export function newestFix(fixes) {
   for (const fix of fixes || []) {
     if (!fix || fix.source === "computed") continue;
     if (!best || fix.at > best.at || (fix.at === best.at && fix.source === "ais")) best = fix;
+  }
+  return best;
+}
+
+const FRESHNESS_RANK = { live: 2, stale: 1, unknown: 0 };
+const SOURCE_RANK = { ais: 2, entur: 1 };
+
+/**
+ * Posisjonen vi stolar mest på: AIS > Entur > (utan måling) rutetabell.
+ * Fyrst ferskleik (live > siste kjende > ukjend), så kjelde (AIS føre Entur), så nyaste.
+ * Ein AIS-posisjon som er live vinn altså alltid; ein gamal AIS-posisjon slår ikkje ein
+ * fersk Entur-posisjon (då veit vi meir frå Entur). Mellom ukjende vinn den nyaste, så
+ * «ingen sanntid sidan hh:mm» viser siste gong vi faktisk visste noko.
+ * `computed` er aldri ein måling og blir hoppa over.
+ */
+export function bestFix(fixes, nowMs) {
+  let best = null;
+  let bestRank = -1;
+  for (const fix of fixes || []) {
+    if (!fix || fix.source === "computed") continue;
+    const rank = FRESHNESS_RANK[fixFreshness(fix, nowMs)];
+    if (!best) {
+      best = fix;
+      bestRank = rank;
+      continue;
+    }
+    let better;
+    if (rank !== bestRank) better = rank > bestRank;
+    else if (rank > 0 && fix.source !== best.source) better = (SOURCE_RANK[fix.source] || 0) > (SOURCE_RANK[best.source] || 0);
+    else better = fix.at > best.at || (fix.at === best.at && fix.source === "ais");
+    if (better) {
+      best = fix;
+      bestRank = rank;
+    }
   }
   return best;
 }
@@ -298,8 +334,8 @@ export function fixBelongsTo(fix, leg, nowMs) {
 export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = null }) {
   if (!leg) return null;
   const trip = tripKey(leg);
-  // Berre posisjonar som høyrer til denne overfarten. Nyaste vinn, AIS ved likt.
-  const own = newestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)));
+  // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
+  const own = bestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)), nowMs);
   let state = "calc";
   let source = "computed";
   let progress = timetableFraction(leg, nowMs);
@@ -372,7 +408,7 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
  * Nyaste målte posisjon avgjer; utan posisjon er statusen berekna frå rutetabellen.
  */
 export function positionSourceView(fixes, nowMs, previous = null) {
-  const own = newestFix(fixes);
+  const own = bestFix(fixes, nowMs);
   const state = own ? fixFreshness(own, nowMs) : "calc";
   const trusted = own && state !== "unknown";
   const ageMs = own ? Math.max(0, nowMs - own.at) : null;
@@ -399,22 +435,21 @@ function ageText(ms) {
   return durationText(Math.floor(seconds / 60));
 }
 
-function sourceName(source) {
-  return source === "ais" ? t("crossing.sourceAis") : t("crossing.sourceEntur");
-}
+/** Nøkkel med kjelda i namnet: crossing.liveAis, crossing.lastKnownEntur, … (calc og unknown har ingen kjelde og kjem ikkje hit). */
+const withSource = (base, source) => (source === "ais" ? `${base}Ais` : `${base}Entur`);
 
 function clockOf(ms) {
   return ms == null ? "" : osloHm(new Date(ms).toISOString());
 }
 
-/** Teksten i merket: «Live · AIS · 12 s», «Siste kjende · 3 min sidan», … */
+/** Teksten i merket, med den verkelege kjelda: «Live frå AIS · 12 s», «Siste kjende frå Entur · 3 min sidan», … */
 export function crossingBadge(view) {
   if (!view) return "";
   switch (view.state) {
     case "live":
-      return t("crossing.live", { source: sourceName(view.source), age: ageText(view.ageMs) });
+      return t(withSource("crossing.live", view.source), { age: ageText(view.ageMs) });
     case "stale":
-      return t("crossing.lastKnown", { age: ageText(view.ageMs) });
+      return t(withSource("crossing.lastKnown", view.source), { age: ageText(view.ageMs) });
     case "unknown":
       return t("crossing.unknownSince", { time: clockOf(view.fixAt) });
     default:
@@ -427,7 +462,7 @@ export function crossingNote(view) {
   if (!view) return "";
   if (view.state === "calc") return t("crossing.noteCalc");
   if (view.state === "unknown") return t("crossing.noteUnknown");
-  if (view.state === "stale") return t("crossing.noteStale", { time: clockOf(view.fixAt) });
+  if (view.state === "stale") return t(withSource("crossing.noteStale", view.source), { time: clockOf(view.fixAt) });
   return view.source === "ais" ? t("crossing.noteAis") : t("crossing.noteEntur");
 }
 
@@ -443,7 +478,7 @@ export function crossingProgressText(view) {
 function sourceKey(view) {
   if (view.state === "calc") return "crossing.srcCalc";
   if (view.state === "unknown") return "crossing.srcUnknown";
-  if (view.state === "stale") return "crossing.srcStale";
+  if (view.state === "stale") return withSource("crossing.srcStale", view.source);
   return view.source === "ais" ? "crossing.srcAis" : "crossing.srcEntur";
 }
 

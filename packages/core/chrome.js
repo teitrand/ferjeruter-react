@@ -5,6 +5,7 @@
 import { t } from "../../assets/i18n.js?v=84";
 import { ALLOWED_MODES } from "./plan.js?v=84";
 import { liveStatus } from "./status.js?v=84";
+import { bestFix, fixFreshness } from "./crossing.js?v=84";
 
 export const FEEDBACK_MAIL = "teitrand@hotmail.com";
 export const FEEDBACK_GITHUB = "https://github.com/teitrand/fergeruter/issues/new";
@@ -45,7 +46,15 @@ export function routeFootnotes(mode, { kombirute = null, vessel = null } = {}) {
  * nettlesaren ser berre «Failed to fetch» og aldri 429. Difor reknar vi kvar
  * feil ved kallet som «fekk ikkje kontakt», og tomt svar som «ingen posisjon».
  */
-export function positionNoteKey(live, liveFailed, quays) {
+export function positionNoteKey(live, liveFailed, quays, fixes = null, nowMs = Date.now()) {
+  // `fixes` er null i vanilla-appen (berre Entur). I React-skalet er det alle målte
+  // posisjonar (Entur og AIS); då nemner noten berre kjelda posisjonen faktisk kjem frå.
+  if (fixes) {
+    const best = bestFix(fixes, nowMs);
+    if (best && fixFreshness(best, nowMs) === "live") return best.source === "ais" ? "position.liveAis" : "position.live";
+    if (liveFailed) return "position.offline";
+    return "position.plannedAny";
+  }
   if (liveStatus(live, quays)) return "position.live";
   if (liveFailed) return "position.offline";
   return "position.planned";

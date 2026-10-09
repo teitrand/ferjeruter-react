@@ -20,7 +20,7 @@ import {
   vesselNameForTable,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence, statusView } from "./context.js";
-import { liveStatus } from "./crossing.js";
+import { liveStatus, positionFixes } from "./crossing.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
@@ -90,7 +90,8 @@ export function footnoteModel(data, ui, chrome) {
   const ready = Boolean(data.routes || data.kombirute);
   const quays = ready ? knownQuays(planContext(data, ui)) : [];
   return {
-    position: positionNoteKey(data.live, data.liveFailed, quays),
+    // Med AIS i bruk (data.sanntidOn) nemner fotnoten berre kjelda posisjonen faktisk kjem frå.
+    position: positionNoteKey(data.live, data.liveFailed, quays, data.sanntidOn ? positionFixes(data) : null),
     updated: data.routes?.fetchedAt ? formatDateOnly(data.routes.fetchedAt) : null,
     ...routeFootnotes(chrome?.mode, { kombirute: data.kombirute, vessel: chrome?.vessel }),
   };
