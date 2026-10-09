@@ -28,6 +28,7 @@ function FerryIcon() {
 export function sourceAttr(view) {
   if (view.state === "calc") return "calc";
   if (view.state === "unknown") return "unknown";
+  if (view.state === "outside") return "stale";
   return view.state === "stale" ? "stale" : "measured";
 }
 
@@ -123,7 +124,7 @@ export function NowLive({ live, label, nowMs = null, children = null }) {
         <span className="now-label">{label}</span>
         {view ? <LiveBadge key={view.state} view={view} reducedMotion={reducedMotion} /> : null}
       </div>
-      {view && live?.crossing ? <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} showBadge={false} /> : null}
+      {view && live?.crossing && view.state !== "outside" ? <CrossingView view={view} reducedMotion={reducedMotion} animate={ready} showBadge={false} /> : null}
       {children}
     </>
   );

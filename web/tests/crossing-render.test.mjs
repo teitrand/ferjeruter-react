@@ -502,3 +502,16 @@ test("natt: fersk AIS ved kai gjev «Live frå AIS» og «ligg til kai på X» f
   const old = atTime(night, () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - night + 20 * 60000, { sog: 0 })] } }));
   assert.match(text(nowArea(old)), /Ukjent · ingen sanntid sidan/);
 });
+
+test("utanfor ruta: «Nå»-raden og overskrifta seier det, utan ferjelinje, framdrift eller neste tur", () => {
+  const far = core.fixFromAis({ mmsi: 257297400, latitude: 62.45, longitude: 6.2, sog: 8, cog: 200, navStatus: 0, timestamp: FIXED - 20000 });
+  const html = renderApp({ initialSanntid: { entries: [{ line: "1136", fix: far }] } });
+  const now = nowArea(html);
+  assert.match(text(now), /Utanfor ruta · AIS kl\. 20:29/);
+  assert.equal(infoLines(html).length, 1);
+  assert.match(infoLines(html)[0], /^place: Ferja er utanfor ruta/);
+  assert.doesNotMatch(now, /class="ferry|role="progressbar"|ferry-runner/);
+  assert.doesNotMatch(now, /Overfarta tek|Neste avgang|framme/);
+  assert.match(statusArea(html), /Ferja er utanfor ruta\./);
+  assert.doesNotMatch(statusArea(html), /på veg mot/);
+});

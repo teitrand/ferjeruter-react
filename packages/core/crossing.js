@@ -120,6 +120,32 @@ export function fixFromAis(msg) {
   };
 }
 
+function nearestQuayM(fix) {
+  let best = null;
+  for (const quay of Object.values(QUAY_COORDS)) {
+    const d = distanceMeters(fix.latitude, fix.longitude, quay.latitude, quay.longitude);
+    if (best == null || d < best) best = d;
+  }
+  return best;
+}
+
+/**
+ * Den nyaste AIS-posisjonen når han ligg utanfor ruta (ekstratur, omveg, verkstad, anna samband), elles null.
+ * Utan `leg`: lenger enn OUTSIDE_AREA_M frå alle kaier. Med `leg`: utanfor korridoren rundt strekninga.
+ * Ikkje når ei nyare Entur-måling finst, eller ferja ligg ved ei kai vi kjenner. Posisjonen blir ikkje
+ * funnen opp: han er den siste AIS-meldinga, med eigen tid.
+ */
+export function outsideFix(fixes, nowMs, leg = null) {
+  const ais = (fixes || []).filter((fix) => fix?.source === "ais" && Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude));
+  const newest = ais.reduce((best, fix) => (!best || fix.at > best.at ? fix : best), null);
+  if (!newest || nowMs - newest.at > OUTSIDE_MAX_AGE_MS) return null;
+  if ((fixes || []).some((fix) => fix && fix.source !== "ais" && fix.source !== "computed" && fix.at > newest.at)) return null;
+  const nearest = nearestQuayM(newest);
+  if (nearest == null || nearest <= QUAY_RADIUS_M * 2) return null;
+  if (leg ? nearRoute(newest, leg) : nearest <= OUTSIDE_AREA_M) return null;
+  return newest;
+}
+
 /** Nyaste målte posisjon. AIS vinn når to er like gamle. */
 export function newestFix(fixes) {
   let best = null;
@@ -190,6 +216,11 @@ export function clamp01(value) {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
 }
+
+/** Lenger enn dette frå alle kaier vi kjenner = utanfor ruteområdet (ei ferje midt i ei overfart er maks ~2,5 km frå næraste kai). */
+export const OUTSIDE_AREA_M = 4000;
+/** Ein AIS-posisjon utanfor ruta gjeld som «utanfor ruta» så lenge han er nyast og ikkje eldre enn dette. */
+export const OUTSIDE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 /** Ved kai: innanfor 250 m og under 0,5 kn. Utan fart: VehicleAtStop eller berre avstand. */
 export function fixAtQuay(fix, quay) {
@@ -334,6 +365,9 @@ export function fixBelongsTo(fix, leg, nowMs) {
 export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = null }) {
   if (!leg) return null;
   const trip = tripKey(leg);
+  // Ferja ligg utanfor ruta: ingen framdrift, og vi påstår ikkje at ho følgjer rutetabellen.
+  const away = outsideFix(fixes || [fix], nowMs, leg);
+  if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);
   // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
   const own = bestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)), nowMs);
   let state = "calc";
@@ -407,11 +441,33 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   };
 }
 
+/** Visinga når AIS seier at ferja er utanfor ruta: berre kjelde og tid, ingen framdrift (percent 0 er ikkje ein måling). */
+function outsideView(fix, nowMs, trip, previous) {
+  return {
+    ...trip,
+    left: null,
+    source: "ais",
+    state: "outside",
+    measured: true,
+    progress: 0,
+    percent: 0,
+    atQuay: false,
+    fixAt: fix.at,
+    ageMs: Math.max(0, nowMs - fix.at),
+    pulse: false,
+    seenLive: Boolean(previous && previous.trip === trip.trip && previous.seenLive),
+    lastMeasured: null,
+    lastEstimate: null,
+  };
+}
+
 /**
  * Kjelda når ferja ikkje er på overfart (ved kai, før fyrste tur): same merke, utan linje.
  * Nyaste målte posisjon avgjer; utan posisjon er statusen berekna frå rutetabellen.
  */
 export function positionSourceView(fixes, nowMs, previous = null) {
+  const away = outsideFix(fixes, nowMs);
+  if (away) return outsideView(away, nowMs, { trip: "", from: "", to: "", departure: "", arrival: "" }, previous);
   const own = bestFix(fixes, nowMs);
   const state = own ? fixFreshness(own, nowMs) : "calc";
   const trusted = own && state !== "unknown";
@@ -456,6 +512,8 @@ export function crossingBadge(view) {
       return t(withSource("crossing.lastKnown", view.source), { age: ageText(view.ageMs) });
     case "unknown":
       return t("crossing.unknownSince", { time: clockOf(view.fixAt) });
+    case "outside":
+      return t("crossing.outside", { time: clockOf(view.fixAt) });
     default:
       return t("crossing.calc");
   }
@@ -465,6 +523,7 @@ export function crossingBadge(view) {
 export function crossingNote(view) {
   if (!view) return "";
   if (view.state === "calc") return t("crossing.noteCalc");
+  if (view.state === "outside") return t("crossing.noteOutside");
   if (view.state === "unknown") return t("crossing.noteUnknown");
   if (view.state === "stale") return t(withSource("crossing.noteStale", view.source), { time: clockOf(view.fixAt) });
   return view.source === "ais" ? t("crossing.noteAis") : t("crossing.noteEntur");
@@ -473,6 +532,7 @@ export function crossingNote(view) {
 /** Synleg tekst ved framdriftslinja. */
 export function crossingProgressText(view) {
   if (!view) return "";
+  if (view.state === "outside") return t("crossing.progressOutside");
   if (view.atQuay && view.progress >= 1) return t("crossing.atQuay", { quay: view.to });
   // «om 9 min» etter framkomsttida, berre når det er minst eitt minutt att.
   const left = view.left >= 1 ? ` · ${t("countdown.in", { duration: durationText(view.left) })}` : "";
@@ -482,6 +542,7 @@ export function crossingProgressText(view) {
 }
 
 function sourceKey(view) {
+  if (view.state === "outside") return "crossing.srcOutside";
   if (view.state === "calc") return "crossing.srcCalc";
   if (view.state === "unknown") return "crossing.srcUnknown";
   if (view.state === "stale") return withSource("crossing.srcStale", view.source);
@@ -507,6 +568,7 @@ export function crossingValueText(view) {
 export function crossingAnnouncement(before, after) {
   if (!before || !after || before.trip !== after.trip) return "";
   if (before.state === after.state) return "";
+  if (after.state === "outside" && before.seenLive) return t("crossing.annOutside");
   if ((after.state === "unknown" || after.state === "calc") && before.seenLive) {
     return t(after.state === "calc" ? "crossing.annCalc" : "crossing.annUnknown");
   }
@@ -566,6 +628,18 @@ export function aisQuay(fixes, quays, nowMs) {
 
 export function statusFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (!status || status.signal || status.cancelled) return status;
+  // AIS seier at ferja er utanfor ruta: det vinn over rutetabellen, òg når AIS-meldinga er nokre minutt gammal.
+  const away = outsideFix(fixes, nowMs);
+  if (away) {
+    return {
+      at: now,
+      underway: false,
+      outside: true,
+      short: t("status.outside"),
+      text: `${t("status.outsideSince", { time: osloHm(new Date(away.at).toISOString()) })}.`,
+      position: "ais",
+    };
+  }
   const best = bestFix(fixes, nowMs);
   if (!best || best.source !== "ais" || fixFreshness(best, nowMs) !== "live") return status;
   const quay = (quays || []).find((name) => fixAtQuay(best, name)) || null;
@@ -590,7 +664,14 @@ export function statusFromPosition(status, { running, fixes, quays, now, nowMs }
   if (status.underway) return status;
   if (best.speedKn != null && best.speedKn < AT_QUAY_MAX_KN) return status;
   const leg = matchCrossingLeg(running, best, { nowMs });
-  if (!leg) return status;
+  if (!leg) {
+    // Fersk AIS i fart i ruteområdet, men ingen planlagd tur passar (ekstratur, eller meir enn 10 min forseinka): ikkje
+    // «ligg til kai» eller «ferdig for dagen», og ikkje ein påstått tur.
+    if (best.speedKn != null && best.speedKn >= AT_QUAY_MAX_KN && !status.underway) {
+      return { at: now, underway: false, unscheduled: true, short: t("status.unscheduled"), text: `${t("status.unscheduled")}.`, position: "ais" };
+    }
+    return status;
+  }
   return {
     at: now,
     underway: true,

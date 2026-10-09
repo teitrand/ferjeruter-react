@@ -11,6 +11,7 @@ import {
   positionNoteKey,
   statusFromPosition,
   aisQuay,
+  outsideFix,
   FIX_FRESH_MS,
   FIX_PULSE_MS,
   FIX_STALE_MS,
@@ -561,4 +562,66 @@ test("aisQuay: kaia berre ved fersk AIS (ved kai 4 min), ikkje Entur, ikkje i fa
   assert.equal(aisQuay([ais(0.5, nowMs - 10000)], quays, nowMs), null, "midt på fjorden");
   assert.equal(aisQuay([{ ...ais(0, nowMs - 5000, { sog: 0 }), source: "entur" }], quays, nowMs), null, "berre AIS");
   assert.equal(aisQuay([], quays, nowMs), null);
+});
+
+const FAR = { latitude: 62.45, longitude: 6.2 }; // ~20 km frå ruta: verkstad eller anna samband
+const farAis = (at, extra = {}) => fixFromAis({ mmsi: 257297400, ...FAR, sog: 8, cog: 200, timestamp: at, ...extra });
+
+test("utanfor ruta: AIS langt frå alle kaier gjev state «outside», ingen framdrift og ingen tabellpåstand", () => {
+  setLang("nn");
+  const nowMs = oslo(20, 8);
+  const fix = farAis(nowMs - 20000);
+  assert.equal(outsideFix([fix], nowMs), fix);
+  assert.equal(outsideFix([fix], nowMs, OUT), fix, "òg mot ein planlagd tur");
+  const view = crossingView({ leg: OUT, fixes: [fix], nowMs });
+  assert.equal(view.state, "outside");
+  assert.equal(view.source, "ais");
+  assert.equal(view.progress, 0);
+  assert.equal(view.left, null);
+  assert.equal(crossingBadge(view), "Utanfor ruta · AIS kl. 20:07");
+  assert.match(crossingNote(view), /ingen framdrift og følgjer ikkje rutetabellen/);
+  assert.equal(crossingProgressText(view), "Utanfor ruta, ingen framdrift");
+  assert.match(crossingValueText(view), /utanfor ruta/);
+  // Utan overfart (ved kai/før tur): same.
+  assert.equal(positionSourceView([fix], nowMs).state, "outside");
+  // Held seg «utanfor» når posisjonen vert gammal (ingen retur til «Berekna frå rutetabellen»), men ikkje evig.
+  assert.equal(positionSourceView([fix], nowMs + 3 * 3600000).state, "outside");
+  assert.equal(outsideFix([fix], nowMs + 13 * 3600000), null);
+  // Ei nyare Entur-måling på ruta vinn; på ruta (AIS) er ikkje utanfor.
+  const entur = { ...ais(0.5, nowMs), source: "entur" };
+  assert.equal(outsideFix([fix, entur], nowMs), null);
+  assert.equal(outsideFix([ais(0.5, nowMs - 5000)], nowMs, OUT), null);
+  assert.equal(outsideFix([ais(0.5, nowMs - 5000), farAis(nowMs - 90000)], nowMs, OUT), null, "nyaste AIS gjeld");
+  assert.equal(outsideFix([fixFromAis({ mmsi: 1, ...S, sog: 0, timestamp: nowMs })], nowMs), null, "ved kai");
+  // Kunngjering ved skifte frå live til utanfor ruta.
+  const before = crossingView({ leg: OUT, fixes: [ais(0.4, nowMs - 5000)], nowMs });
+  const after = { ...view, trip: before.trip };
+  assert.equal(crossingAnnouncement(before, after), "Ferja er utanfor ruta.");
+});
+
+test("utanfor ruta og ekstraturar: statuslinja tek AIS framfor rutetabellen", () => {
+  setLang("nn");
+  const nowMs = oslo(20, 8);
+  const moored = { at: 20 * 60 + 8, underway: false, short: "Ferja ligg til kai på Standal", text: "Ferja ligg til kai på Standal." };
+  const underwayStatus = { at: 20 * 60 + 8, underway: true, text: "Ferja er på veg mot Trandal" };
+  const quays = ["Standal", "Trandal"];
+  for (const status of [moored, underwayStatus]) {
+    const out = statusFromPosition(status, { running: [OUT, BACK], fixes: [farAis(nowMs - 30000)], quays, now: 20 * 60 + 8, nowMs });
+    assert.equal(out.outside, true);
+    assert.equal(out.underway, false);
+    assert.equal(out.text, "Ferja er utanfor ruta. Siste AIS-posisjon kl. 20:07.");
+  }
+  // Ikkje for signal/avlyst.
+  const signal = { ...moored, signal: true };
+  assert.equal(statusFromPosition(signal, { running: [OUT], fixes: [farAis(nowMs - 30000)], quays, now: 20 * 60 + 8, nowMs }), signal);
+  // I fart i ruteområdet utan passande tur (ekstratur / meir enn 10 min forseinka): ikkje «ligg til kai».
+  const lateFix = ais(0.5, nowMs - 10000, { sog: 9 });
+  const late = statusFromPosition(moored, { running: [leg("Standal", "Trandal", "19:00:00", "19:15:00")], fixes: [lateFix], quays, now: 20 * 60 + 8, nowMs });
+  assert.equal(late.unscheduled, true);
+  assert.equal(late.text, "Ferja er i fart, men vi finn ingen planlagd tur som passar.");
+  // Utan fartsmelding (null) eller stilleståande: ingen påstand.
+  assert.equal(statusFromPosition(moored, { running: [], fixes: [ais(0.5, nowMs - 10000, { sog: 102.3 })], quays, now: 20 * 60 + 8, nowMs }), moored);
+  assert.equal(statusFromPosition(moored, { running: [], fixes: [ais(0.5, nowMs - 10000, { sog: 0 })], quays, now: 20 * 60 + 8, nowMs }), moored);
+  // Berre «fart» når AIS er fersk.
+  assert.equal(statusFromPosition(moored, { running: [], fixes: [ais(0.5, nowMs - 120000, { sog: 9 })], quays, now: 20 * 60 + 8, nowMs }), moored);
 });
