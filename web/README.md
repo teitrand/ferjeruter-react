@@ -25,6 +25,10 @@ npm run test:web       # teiknar <App> med fast data via Vite SSR
 - `src/components/`: Header (språk, tittel, samband, statuslinje), DayNav, Timeline, Footer.
   Same klassenamn som vanilla-appen, så `assets/styles.css` blir brukt som han er.
 
+## Visuell sjekk
+
+Rutina: 360/390/412/430/440 px (telefon), foldbar og nettbrett (768–1180, stå og liggjande), lyst og mørkt, normal og 130 % tekst. 320 px/200 % er berre røyktest. Sjå `docs/visuell-sjekk.md` og `scripts/visual-sweep.mjs`.
+
 ## Fargetema (lys/mørkt)
 
 Standard er å følgje eininga (`prefers-color-scheme`, endrar seg live); knappane **Enhet / Lys / Mørk** i toppen overstyrer, og valet ligg i `localStorage` (`fergeruter-theme`; «Enhet» fjernar nøkkelen).

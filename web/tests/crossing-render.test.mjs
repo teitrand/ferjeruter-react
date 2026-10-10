@@ -486,7 +486,7 @@ test("kortet: nn, en og de", async () => {
 
 test("CSS: kortet bryt tekst i staden for å klippe, px-polstring, ferje 80–88 px, ingen fast breidd på tekst, reduced motion utan glid og puls", () => {
   const css = readFileSync(new URL("src/styles/nowcard.css", new URL("..", import.meta.url)), "utf8");
-  assert.match(css, /--fw: clamp\(80px, 5rem, 88px\)/);
+  assert.match(css, /--fw: clamp\(80px, 12vw, 120px\)/, "ferja: 80 px på telefon, opptil 120 px på nettbrett");
   const main = css.match(/\.na-main \{[^}]*\}/)[0];
   assert.match(main, /font-size: 1\.0625rem/);
   assert.match(main, /overflow-wrap: break-word/);
