@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --deep: #041c24;
   --fjord: #073b4c;
   --water: #1a6b8a;
@@ -13,6 +14,40 @@
   --info: #2b5f8a;
   --line: rgba(7, 59, 76, 0.12);
   --shadow: 0 18px 40px rgba(4, 28, 36, 0.16);
+
+  /*
+   * Roller (tema). Lyst tema er verdiane under; mørkt tema overstyrer dei i web/src/styles/theme.css
+   * under html[data-theme="dark"]. Same namn i begge, så ingen regel treng å vite kva tema det er.
+   * --page: sidebakgrunn (og topp/bunn). --paper: panel. --card: kort, felt og knappar oppå panelet.
+   * --strong: tekst/ramme med full tyngd på ei flate (var --fjord). --link: lenkjer og aktiv tekst (var --water).
+   * --sel-*: valt tilstand (fylt pille). Statusfargar: -fg er tekst, -bg/-line/-soft er flater og rammer.
+   */
+  --page: var(--fjord);
+  --card: #fff;
+  --card-cancel: #fff6f4;
+  --strong: var(--fjord);
+  --link: var(--water);
+  --sel-bg: var(--fjord);
+  --sel-fg: var(--foam);
+  --soft-bg: var(--foam);
+  --send-hover: var(--water);
+  --hover-wash: rgba(255, 255, 255, 0.45);
+  --backdrop: rgba(4, 28, 36, 0.48);
+
+  --ok-fg: #186a5d;
+  --ok-bg: #d7efe8;
+  --ok-line: #b7ddd4;
+  --ok-soft: #e7f6f2;
+  --delay-fg: #8f4a0c;
+  --delay-bg: #fde8d2;
+  --delay-line: #f0d6b4;
+  --delay-soft: #f8ead6;
+  --stop-fg: #a32f27;
+  --stop-bg: #f8d4d0;
+  --stop-line: #f0c4bf;
+  --stop-solid: var(--stop); /* flate med lys tekst oppå (merke, teljar, avbrotskort) */
+  --info-fg: var(--info);
+  --info-bg: #dceaf5;
 }
 
 * { box-sizing: border-box; }
@@ -20,13 +55,13 @@
 html, body {
   margin: 0;
   min-height: 100%;
-  background: var(--fjord);
+  background: var(--page);
 }
 
 body {
   font-family: Outfit, "Segoe UI", sans-serif;
   color: var(--ink);
-  background: var(--fjord);
+  background: var(--page);
   min-height: 100vh;
   min-height: 100dvh;
 }
@@ -86,6 +121,8 @@ main,
 
 .lang-switch {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.25rem;
 }
 
@@ -165,7 +202,7 @@ html[lang="de"] .lang-btn[data-lang="de"],
 }
 
 .install-dialog::backdrop {
-  background: rgba(4, 28, 36, 0.48);
+  background: var(--backdrop);
 }
 
 .install-dialog h2 {
@@ -181,7 +218,7 @@ html[lang="de"] .lang-btn[data-lang="de"],
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--card);
 }
 
 .install-steps.is-likely {
@@ -216,7 +253,7 @@ html[lang="de"] .lang-btn[data-lang="de"],
 }
 
 .install-note a {
-  color: var(--water);
+  color: var(--link);
 }
 
 .brand-mark {
@@ -261,7 +298,7 @@ h1, h2, h3 {
   display: inline-block;
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
-  background: var(--stop);
+  background: var(--stop-solid);
   color: #fffaf1;
   font-size: 0.68rem;
   font-weight: 700;
@@ -384,7 +421,7 @@ h1, h2, h3 {
   border: none;
   border-radius: 12px;
   border-left: 6px solid var(--info);
-  background: #fff;
+  background: var(--card);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -403,7 +440,7 @@ h1, h2, h3 {
 .messages-bar.is-capacity { border-left-color: var(--delay); }
 .messages-bar.is-cancelled {
   border-left-color: var(--stop);
-  background: #fff6f4;
+  background: var(--card-cancel);
 }
 
 .messages-bar-head {
@@ -438,7 +475,7 @@ h1, h2, h3 {
   height: 1.2rem;
   padding: 0 0.32rem;
   border-radius: 999px;
-  background: var(--stop);
+  background: var(--stop-solid);
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -461,7 +498,7 @@ h1, h2, h3 {
   width: 100%;
   font-size: 0.88rem;
   font-weight: 650;
-  color: var(--stop);
+  color: var(--stop-fg);
 }
 
 .messages-bar-toggle {
@@ -469,7 +506,7 @@ h1, h2, h3 {
   margin-left: auto;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--water);
+  color: var(--link);
   white-space: nowrap;
 }
 
@@ -515,8 +552,8 @@ h2 { font-size: 1.45rem; }
 
 .chip {
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--fjord);
+  background: var(--card);
+  color: var(--strong);
   border-radius: 999px;
   padding: 0.38rem 0.75rem;
   font: inherit;
@@ -530,9 +567,9 @@ h2 { font-size: 1.45rem; }
 }
 
 .chip.is-active {
-  background: var(--fjord);
-  color: var(--foam);
-  border-color: var(--fjord);
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+  border-color: var(--sel-bg);
 }
 
 .trip-filter {
@@ -565,7 +602,7 @@ h2 { font-size: 1.45rem; }
   appearance: none;
   -webkit-appearance: none;
   border: 1px solid var(--line);
-  background-color: #fff;
+  background-color: var(--card);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23073b4c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.65rem center;
@@ -575,15 +612,15 @@ h2 { font-size: 1.45rem; }
   font: inherit;
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--fjord);
+  color: var(--strong);
   cursor: pointer;
   min-height: 2.55rem;
 }
 
 .place-select.has-value,
 .conn-select.has-value {
-  border-color: var(--fjord);
-  background-color: var(--foam);
+  border-color: var(--strong);
+  background-color: var(--soft-bg);
 }
 
 .place-select:hover,
@@ -600,8 +637,8 @@ h2 { font-size: 1.45rem; }
   height: 2.55rem;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--fjord);
+  background: var(--card);
+  color: var(--strong);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -658,7 +695,7 @@ h2 { font-size: 1.45rem; }
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 0.85rem 0.95rem;
-  background: #fff;
+  background: var(--card);
   border-left: 6px solid var(--info);
 }
 
@@ -693,7 +730,7 @@ h2 { font-size: 1.45rem; }
 
 .card.is-normal { border-left-color: var(--ok); }
 .card.is-delay, .card.is-capacity { border-left-color: var(--delay); }
-.card.is-cancelled { border-left-color: var(--stop); background: #fff6f4; }
+.card.is-cancelled { border-left-color: var(--stop); background: var(--card-cancel); }
 
 .badge {
   display: inline-block;
@@ -707,10 +744,10 @@ h2 { font-size: 1.45rem; }
   vertical-align: 0.15em;
 }
 
-.badge-normal { background: #d7efe8; color: var(--ok); }
-.badge-delay, .badge-capacity { background: #fde8d2; color: var(--delay); }
-.badge-cancelled { background: #f8d4d0; color: var(--stop); }
-.badge-info { background: #dceaf5; color: var(--info); }
+.badge-normal { background: var(--ok-bg); color: var(--ok-fg); }
+.badge-delay, .badge-capacity { background: var(--delay-bg); color: var(--delay-fg); }
+.badge-cancelled { background: var(--stop-bg); color: var(--stop-fg); }
+.badge-info { background: var(--info-bg); color: var(--info-fg); }
 
 .daynav {
   display: flex;
@@ -721,8 +758,8 @@ h2 { font-size: 1.45rem; }
 
 .daybtn {
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--fjord);
+  background: var(--card);
+  color: var(--strong);
   border-radius: 999px;
   min-width: 2.55rem;
   height: 2.55rem;
@@ -740,7 +777,7 @@ h2 { font-size: 1.45rem; }
 .daybtn:disabled {
   opacity: 0.42;
   cursor: default;
-  background: var(--foam);
+  background: var(--soft-bg);
 }
 
 .daybtn-today {
@@ -796,10 +833,10 @@ h2.day-label {
   gap: 0.4rem;
 }
 
-.stop-phone { color: var(--water); text-underline-offset: 0.12em; }
+.stop-phone { color: var(--link); text-underline-offset: 0.12em; }
 
-.stop-left { color: var(--delay); font-weight: 600; }
-.stop-expired { color: var(--stop); font-weight: 600; }
+.stop-left { color: var(--delay-fg); font-weight: 600; }
+.stop-expired { color: var(--stop-fg); font-weight: 600; }
 
 .stop-transfer {
   color: var(--muted);
@@ -808,7 +845,7 @@ h2.day-label {
 }
 
 .stop-transfer::before {
-  background: #fff;
+  background: var(--card);
   border: 2px dashed var(--line);
   width: 0.4rem;
   height: 0.4rem;
@@ -823,7 +860,7 @@ h2.day-label {
   padding: 0.85rem 0.95rem 0.9rem;
   border: none;
   border-radius: 12px;
-  background: var(--stop);
+  background: var(--stop-solid);
   color: #fffaf1;
   box-shadow: 0 0 0 3px rgba(177, 53, 44, 0.28);
 }
@@ -869,14 +906,14 @@ h2.day-label {
   padding: 0.24rem 0.6rem;
 }
 
-.stop-conn { color: var(--info); }
+.stop-conn { color: var(--info-fg); }
 
 .reveal {
   align-self: flex-start;
   margin: 0.2rem 0 0.5rem;
   border: none;
   background: none;
-  color: var(--water);
+  color: var(--link);
   font: inherit;
   font-size: 0.9rem;
   text-decoration: underline;
@@ -896,7 +933,7 @@ h2.day-label {
 }
 
 .stop-arr::before {
-  background: #fff;
+  background: var(--card);
   border: 2px solid var(--line);
   width: 0.4rem;
   height: 0.4rem;
@@ -914,7 +951,7 @@ h2.day-label {
 .stop-time {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--fjord);
+  color: var(--strong);
 }
 
 .stop-dep .stop-name { font-weight: 600; }
@@ -941,7 +978,7 @@ h2.day-label {
 }
 
 .stop-dep:hover {
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--hover-wash);
 }
 
 .stop-dep:focus-visible {
@@ -957,13 +994,13 @@ h2.day-label {
 
 .departure-dialog .detail-status {
   font-weight: 700;
-  color: var(--fjord);
+  color: var(--strong);
 }
 
 .departure-dialog .detail-caveat {
   padding: 0.7rem 0.85rem;
   border-radius: 14px;
-  background: #f8ead6;
+  background: var(--delay-soft);
   color: var(--ink);
 }
 
@@ -986,7 +1023,7 @@ h2.day-label {
 
 .stop-layover .stop-name {
   font-weight: 600;
-  color: var(--fjord);
+  color: var(--strong);
 }
 
 .stop-layover .stop-time {
@@ -1018,8 +1055,8 @@ h2.day-label {
 .stop-tag {
   margin-left: 0;
   font-size: 0.75rem;
-  color: var(--delay);
-  border: 1px solid #f0d6b4;
+  color: var(--delay-fg);
+  border: 1px solid var(--delay-line);
   border-radius: 999px;
   padding: 0.02rem 0.4rem;
   white-space: nowrap;
@@ -1030,14 +1067,14 @@ h2.day-label {
   align-items: center;
   gap: 0.22rem;
   padding: 0.12rem 0.48rem 0.12rem 0.42rem;
-  color: var(--delay);
+  color: var(--delay-fg);
   text-decoration: none;
   cursor: pointer;
 }
 
 .stop-tag-call:hover,
 .stop-tag-call:focus-visible {
-  background: #f8ead6;
+  background: var(--delay-soft);
   border-color: var(--delay);
   outline: none;
 }
@@ -1049,14 +1086,14 @@ h2.day-label {
 }
 
 .stop-tag-stop {
-  color: var(--stop);
-  border-color: #f0c4bf;
+  color: var(--stop-fg);
+  border-color: var(--stop-line);
 }
 
 .stop-tag-booked {
-  color: var(--ok);
-  border-color: #b7ddd4;
-  background: #e7f6f2;
+  color: var(--ok-fg);
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
 }
 
 .stop.is-cancelled .stop-time,
@@ -1066,7 +1103,7 @@ h2.day-label {
 }
 
 .stop.is-cancelled .stop-state {
-  color: var(--stop);
+  color: var(--stop-fg);
 }
 
 .stop.is-signal-off:not(.is-past) .stop-state {
@@ -1075,7 +1112,7 @@ h2.day-label {
 
 .stop-state {
   font-size: 0.82rem;
-  color: var(--water);
+  color: var(--link);
   font-weight: 600;
   text-align: right;
   white-space: nowrap;
@@ -1179,11 +1216,11 @@ h2.day-label {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ok);
+  color: var(--ok-fg);
 }
 
-.now.is-underway .now-label { color: var(--water); }
-.now.is-layover .now-label { color: var(--delay); }
+.now.is-underway .now-label { color: var(--link); }
+.now.is-layover .now-label { color: var(--delay-fg); }
 
 .now-text {
   font-weight: 600;
@@ -1195,7 +1232,7 @@ h2.day-label {
 }
 
 .footnote a {
-  color: var(--water);
+  color: var(--link);
 }
 
 .site-footer {
@@ -1243,7 +1280,7 @@ h2.day-label {
 }
 
 .feedback-dialog::backdrop {
-  background: rgba(4, 28, 36, 0.48);
+  background: var(--backdrop);
 }
 
 .feedback-dialog h2 {
@@ -1272,8 +1309,8 @@ h2.day-label {
 
 .feedback-rate {
   border: 1px solid var(--line);
-  background: #fff;
-  color: var(--fjord);
+  background: var(--card);
+  color: var(--strong);
 }
 
 .feedback-rate:hover,
@@ -1283,14 +1320,14 @@ h2.day-label {
 }
 
 .feedback-rate.is-active {
-  background: var(--fjord);
-  color: var(--foam);
-  border-color: var(--fjord);
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+  border-color: var(--sel-bg);
 }
 
 .feedback-thanks {
   font-weight: 600;
-  color: var(--ok);
+  color: var(--ok-fg);
 }
 
 .feedback-dialog label {
@@ -1308,7 +1345,7 @@ h2.day-label {
   padding: 0.6rem 0.7rem;
   resize: vertical;
   min-height: 5.5rem;
-  background: #fff;
+  background: var(--card);
 }
 
 .feedback-dialog textarea:focus-visible {
@@ -1323,7 +1360,7 @@ h2.day-label {
 }
 
 .feedback-alt a {
-  color: var(--water);
+  color: var(--link);
 }
 
 .feedback-actions {
@@ -1335,14 +1372,14 @@ h2.day-label {
 
 .feedback-send {
   border: 0;
-  background: var(--fjord);
-  color: var(--foam);
+  background: var(--sel-bg);
+  color: var(--sel-fg);
   font-weight: 600;
 }
 
 .feedback-send:hover,
 .feedback-send:focus-visible {
-  background: var(--water);
+  background: var(--send-hover);
   outline: none;
 }
 
@@ -1355,7 +1392,7 @@ h2.day-label {
 .feedback-cancel:hover,
 .feedback-cancel:focus-visible {
   border-color: var(--water);
-  color: var(--fjord);
+  color: var(--strong);
   outline: none;
 }
 

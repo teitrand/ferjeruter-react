@@ -1,0 +1,89 @@
+/*
+ * Mørkt tema. Rollene (--page, --paper, --card, --strong, --link, -fg/-bg/-line …) er definert i lys variant i
+ * assets/styles.css, crossing.css, nowcard.css og picker.css; her står berre dei mørke verdiane.
+ * Paletten følgjer Designer (bunn-anbefalt.png, na-pen2-tilstandar.png): djup botn, mørk panelflate, ljos tekst.
+ * Tekst ≥ 4,5:1 mot flata han står på (sjekka i tests/theme-contrast.test.mjs). Statusfargane har same tyding som i lyst
+ * tema: grøn = live/normal, oransje = forseinka, raud = avlyst, blå = utanfor ruta/info. Form og tekst følgjer med, ikkje berre farge.
+ * html[data-theme="dark"] blir sett av skriptet i <head> (før fyrste teikning) og av useTheme.
+ */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #041c24;
+  --paper: #0b2630;
+  --card: #10313d;
+  --card-cancel: #2b1d22;
+  --ink: #e4efee;
+  --muted: #a9bec3;
+  --strong: #e4f1ee;
+  --link: #7cc4e0;
+  --water: #5fb3d3;
+  --line: rgba(215, 238, 234, 0.18);
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+  --sel-bg: #d7eeea;
+  --sel-fg: #073b4c;
+  --soft-bg: #17414f;
+  --send-hover: #ffffff;
+  --hover-wash: rgba(215, 238, 234, 0.09);
+  --backdrop: rgba(0, 0, 0, 0.62);
+
+  --ok: #3fae98;
+  --ok-fg: #6fd1ba;
+  --ok-bg: #123f39;
+  --ok-line: #2c6b5f;
+  --ok-soft: #123b36;
+  --delay: #e08a3c;
+  --delay-fg: #f2a65e;
+  --delay-bg: #4a3115;
+  --delay-line: #7a5222;
+  --delay-soft: #3a2a15;
+  --stop: #e0564b;
+  --stop-fg: #ff9a90;
+  --stop-bg: #4a1f1c;
+  --stop-line: #7d3630;
+  --stop-solid: #b83a30;
+  --info: #6aa6d6;
+  --info-fg: #8dbfe8;
+  --info-bg: #23445e;
+
+  --unknown-fg: #b4c3c7;
+  --unknown-bg: #1f3d48;
+  --unknown-line: #7b9299;
+  --track: #24424d;
+  --track-dash: #5d7a82;
+  --fill-calc: #8aa0a6;
+  --quay: #d7eeea;
+  --ferry-outline: #d7eeea; /* lys kontur rundt det svarte skroget (Designer) */
+  --ferry-mast: #b4c3c7;
+  --ferry-red: #d6483d;
+
+  --na-top: #12353f;
+  --na-bottom: #0d2a34;
+  --na-mountain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90' preserveAspectRatio='none'%3E%3Cpath d='M0 90V60l45-24 38 20 52-38 60 44 40-18 70 36 55-30 40 20v20z' fill='%23d7eeea' fill-opacity='.07'/%3E%3C/svg%3E");
+  --na-live-line: #2f6a5d;
+  --na-outside-line: #3d6a94;
+
+  --handle: #46636c;
+  --sel-row: #17463f;
+  --soon-bg: #0f2a33;
+  --soon-fg: #b4c3c7;
+  --soon-line: #6f8b93;
+}
+
+/* Nedtrekkspila er ei bakgrunnsbilete med fast farge. */
+html[data-theme="dark"] .place-select,
+html[data-theme="dark"] .conn-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23d7eeea' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+}
+
+html[data-theme="dark"] .na { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+html[data-theme="dark"] .na-ferry::after { background: #000; opacity: 0.35; }
+html[data-theme="dark"] .route-bar { box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.5); }
+html[data-theme="dark"] .skyline { opacity: 0.85; }
+
+/* Temaval i toppen: same knappar som språkvalet, med ikon og tekst. */
+.theme-switch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; min-width: 0; max-width: 100%; }
+.theme-btn { gap: 0.3rem; padding-left: 0.5rem; }
+.theme-icon { flex: none; width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.theme-btn[aria-pressed="true"] .theme-icon { stroke-width: 1.8; }
+.theme-btn:focus-visible, .lang-btn:focus-visible { outline: 2px solid var(--foam); outline-offset: 2px; }

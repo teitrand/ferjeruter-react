@@ -3,19 +3,13 @@
  * Berre transform og opacity blir animert.
  */
 :root {
-  /* Merke. ok/stop er mørkna for AA (5,3:1 og 5,1:1 på bakgrunnen, var 4,3:1 og 4,5:1). */
-  --ok-fg: #186a5d;
-  --ok-bg: #d7efe8;
-  --stop-fg: #a32f27;
-  --stop-bg: #f8d4d0;
-  --info-fg: var(--info);
-  --info-bg: #dceaf5;
+  /* Merke. ok-/stop-/info-fg og -bg ligg som roller i assets/styles.css (tema). ok/stop er mørkna for AA. */
   --unknown-fg: #545e62;
   --unknown-bg: #ebe8e1;
-  --unknown-line: #8a9497;
+  --unknown-line: #7a8588;
 
   --track: #dfe6e4;
-  --track-dash: #cbbfa8; /* stipla linje: litt mørkare, så stiplane syner på papiret */
+  --track-dash: #aebcb9; /* stipla line (ikkje eksakt posisjon) */
   --fill-measured: var(--water);
   --fill-calc: #66757a;
   --quay: var(--fjord);
@@ -67,7 +61,7 @@
   padding: 0.35rem 0;
   min-height: 24px;
 }
-.about-data summary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+.about-data summary:focus-visible { outline: 2px solid var(--foam); outline-offset: 3px; border-radius: 4px; }
 .about-data dl { margin: 0.35rem 0 0; }
 .about-data dt { margin-top: 0.6rem; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
 .about-data dd { margin: 0.2rem 0 0; line-height: 1.45; }

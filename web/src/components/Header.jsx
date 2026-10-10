@@ -1,6 +1,7 @@
 import { Countdown } from "./Countdown.jsx";
 import { InstallButton } from "./InstallDialog.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
+import { ThemeSwitch } from "./ThemeSwitch.jsx";
 import { t } from "./i18n.js";
 
 function BrandMark() {
@@ -59,11 +60,12 @@ export function Lede({ lede }) {
   );
 }
 
-export function Header({ chrome, lede, ui, onLang, install = null }) {
+export function Header({ chrome, lede, ui, onLang, install = null, themeState = null }) {
   return (
     <header className={chrome ? "site-header" : "site-header is-pending-route"}>
       <div className="header-tools">
         <LangSwitch lang={ui.lang} onChange={onLang} />
+        {themeState ? <ThemeSwitch pref={themeState.pref} theme={themeState.theme} onChange={themeState.setPref} /> : null}
         <InstallButton visible={Boolean(install?.visible)} onClick={() => install?.install()} />
       </div>
       <BrandMark />
