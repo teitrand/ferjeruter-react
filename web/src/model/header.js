@@ -23,7 +23,7 @@ import {
   vesselNameForTable,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence } from "./context.js";
-import { liveStatus, nowStatus, positionFixes } from "./crossing.js";
+import { liveStatus, nowSpeed, nowStatus, positionFixes } from "./crossing.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
@@ -73,7 +73,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   const running = runningLegs(legs, now, ev);
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
   const status = nowStatus(data, ctx, legs, now, ev, running);
-  const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown });
+  const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown, speedKn: nowSpeed(data, status) });
   // Neste avgang ferja kan ta (ikkje ein signaltur der fristen er ute og ingen bestilling er sett).
   const next = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
