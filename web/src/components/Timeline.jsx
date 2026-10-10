@@ -199,7 +199,15 @@ function useDepartureAnnouncements(rows, scope) {
   }, [rows, scope, announce]);
 }
 
-function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
+/**
+ * «No» som eit utvida punkt på tidslinja: kortet (NowCard) står mellom det som er gått og det som kjem, med eigen
+ * prikk på lina. Regionen med role=status ligg i kortet sjølv; her er berre plasseringa.
+ */
+function NowRow({ slot }) {
+  return <div className="timeline-now">{slot}</div>;
+}
+
+function TimelineRows({ timeline, showPast, onTogglePast, onDetail, nowSlot = null }) {
   useDepartureAnnouncements(timeline.rows, timeline.scope);
   if (timeline.empty) {
     return (
@@ -219,7 +227,8 @@ function TimelineRows({ timeline, showPast, onTogglePast, onDetail }) {
       </div>
       <div className="timeline">
         {timeline.rows.map((row) => {
-          // «No» er ikkje ei rad: kortet (NowCard) står over lista, og hendinga ordnar berre tidlegare/komande.
+          // «No»-hendinga ordnar tidlegare/komande; kortet (nowSlot) blir sett inn der ho ligg.
+          if (row.kind === "now") return nowSlot ? <NowRow key={row.key} slot={nowSlot} /> : null;
           const Row = ROWS[row.kind];
           return Row ? <Row key={row.key} row={row} onDetail={onDetail} /> : null;
         })}
