@@ -11,11 +11,13 @@ import {
   legsForDate,
   nowInfo,
   nowMinutes,
+  onRequestTag,
   positionNoteKey,
   routeFootnotes,
   runningLegs,
   signalLogStale,
   todayIso,
+  tripStatus,
   vesselInfo,
   vesselNameForTable,
 } from "../../../packages/core/index.js";
@@ -62,7 +64,7 @@ export function routeChrome(data, ui) {
  *   live: { crossing: object|null, fixes: object[] },
  *   logWarning: { when: string }|null }}
  */
-export function ledeModel(data, ui, memory, now = nowMinutes()) {
+export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown = false } = {}) {
   const ctx = planContext(data, ui);
   const legs = legsForDate(todayIso(), ctx);
   if (!legs.length) return { noTrips: true };
@@ -70,16 +72,28 @@ export function ledeModel(data, ui, memory, now = nowMinutes()) {
   const running = runningLegs(legs, now, ev);
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
   const status = nowStatus(data, ctx, legs, now, ev, running);
+  const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown });
   const next = running.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
     noTrips: false,
     status: status ? status.short || status.text.replace(/\.$/, "") : null,
-    next: next ? { time: hhmm(next.departure), from: next.from, countdown: countdown(next.departure), departure: next.departure } : null,
+    // Éi setning om neste avgang: i dag med nedteljing og signalmerke, elles første tur neste driftsdag.
+    next: next
+      ? {
+          time: hhmm(next.departure),
+          from: next.from,
+          countdown: countdown(next.departure),
+          departure: next.departure,
+          tag: onRequestTag(next, { today: true, booked: tripStatus(next, ev, now).booked }),
+        }
+      : info.first
+        ? { text: info.first }
+        : null,
     // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
     live: liveStatus(status, legs, now, ev, data),
     // Teksten i «No»-raden: kvar ferja er, neste/fyrste tur med nedteljing, overfartstid og turen etter.
-    info: nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx) }),
+    info,
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

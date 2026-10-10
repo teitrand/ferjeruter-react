@@ -547,7 +547,14 @@ test("statuslinja: «ferdig for dagen på Standal» eller «ligg til kai på Sta
   assert.equal(fixed.short, "Ferja ligg til kai på Trandal");
   assert.equal(fixed.at, 1240, "same plass i tidslinja");
   const same = { at: 1240, text: "Ferja er ferdig for dagen på Trandal" };
-  assert.deepEqual(statusFromPosition(same, { ...ctx, fixes }), { ...same, atQuay: "Trandal" });
+  // Same kai, men «ferdig for dagen»: éi ordlyd, AIS seier «ligg til kai». Fyrste tur står i same setning (toppen).
+  const sameQuay = statusFromPosition(same, { ...ctx, fixes });
+  assert.equal(sameQuay.short, "Ferja ligg til kai på Trandal");
+  assert.equal(sameQuay.atQuay, "Trandal");
+  assert.equal(sameQuay.position, "ais");
+  // «Ligg til kai på X. Liggetid …» seier alt same ordlyd og blir ikkje rørt.
+  const layover = { at: 1240, text: "Ferja ligg til kai på Trandal. Liggetid 5 min, til 20:45." };
+  assert.deepEqual(statusFromPosition(layover, { ...ctx, fixes }), { ...layover, atQuay: "Trandal" });
   const wrongQuay = { at: 1240, short: "Ferja ligg til kai på Standal", text: "Ferja ligg til kai på Standal." };
   assert.equal(statusFromPosition(wrongQuay, { ...ctx, fixes }).text, "Ferja ligg til kai på Trandal.");
 });

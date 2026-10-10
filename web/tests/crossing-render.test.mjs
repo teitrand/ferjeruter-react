@@ -247,7 +247,7 @@ test("appen: ved kai er det statuslinja med tikkande nedteljing, og «No»-raden
     const head = statusArea(html);
     assert.match(
       head,
-      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal, <span class="countdown"><span class="countdown-text is-tabular" aria-hidden="true">om 4:00<\/span><span class="visually-hidden">om 4 min<\/span><\/span>\./
+      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal, <span class="countdown"><span class="countdown-text is-tabular" aria-hidden="true">om 4:00<\/span><span class="visually-hidden">om 4 min<\/span><\/span> · på signal, fristen er ute\./
     );
     const now = nowArea(html);
     assert.doesNotMatch(now, /class="crossing|class="ferry|role="progressbar"/, "ingen ferje og ingen ferjelinje ved kai");
@@ -408,7 +408,7 @@ test("bunnteksten: kreditering av AIS frå Kystverket (NLOD) og «Om dataa» (sa
   await setLang("nn");
 });
 
-// --- Teksten i «No»-raden: kvar ferja er, neste tur, overfartstid, turen etter ---
+// --- Teksten i «No»-raden: kvar ferja er og overfartstid. Neste avgang står berre i statuslinja (éi setning). ---
 
 const infoLines = (html) => [...nowArea(html).matchAll(/<li class="now-info-(\w+)">([^<]*)<\/li>/g)].map((m) => `${m[1]}: ${m[2]}`);
 
@@ -421,17 +421,21 @@ function atTime(ms, render) {
   }
 }
 
-test("«No»-raden om natta ved kai: kvar ferja er, fyrste tur i morgon, nedteljing, overfartstid, turen etter", () => {
+test("«No»-raden om natta ved kai: kvar ferja er og overfartstid; fyrste tur i morgon står berre i statuslinja", () => {
   const html = atTime(oslo(21, 7), () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - oslo(21, 7) + 20000, { sog: 0 })] } }));
   const now = nowArea(html);
   assert.match(now, /^<div class="now is-moored now-live" role="group" aria-label="No">/);
   assert.match(text(now), /Live frå AIS · 20 s/, "kjeldemerket står framleis");
   assert.match(now, /<ul class="now-info">/);
   const lines = infoLines(html);
-  assert.match(lines[0], /^place: Ferja (ligg til kai|er ferdig for dagen) på (Standal|Trandal)$/);
-  assert.match(lines[1], /^next: Første tur i morgon \d\d:\d\d frå \w+, om \d+ t \d+ min( · på signal)?$/);
-  assert.match(lines[2], /^trip: Overfarta tek \d+ min, framme \d\d:\d\d$/);
-  assert.match(lines[3], /^then: Deretter \d\d:\d\d frå \w+$/);
+  assert.match(lines[0], /^place: Ferja ligg til kai på (Standal|Trandal)$/, "éi ordlyd, òg om natta");
+  assert.match(lines[1], /^trip: Overfarta tek \d+ min, framme \d\d:\d\d$/, "fyrste tur i morgon står ikkje i tidslinja, så overfartstida står her");
+  assert.equal(lines.length, 2, "ingen neste avgang og ingen «Deretter» i «No»");
+  assert.match(
+    statusArea(html),
+    /^<div class="status-area"><p class="lede" id="lede-status">Ferja ligg til kai på (Standal|Trandal)\. Første tur i morgon \d\d:\d\d frå \w+, om \d+ t \d+ min( · på signal, ring innan \d\d:\d\d)?\./,
+    "same ordlyd i toppen som i «No»: ligg til kai, fyrste tur i morgon med nedteljing"
+  );
   assert.doesNotMatch(now, /class="ferry|role="progressbar"/, "ved kai: ingen ferje");
 });
 
@@ -444,13 +448,13 @@ test("«No»-raden med AIS ved Standal-kaia seier kvar ferja er frå AIS, òg n�
   assert.match(statusArea(html), /Ferja ligg til kai på Standal\./);
 });
 
-test("«No»-raden dagtid ved kai mellom turar: neste avgang med nedteljing, overfartstid og turen etter", () => {
+test("«No»-raden dagtid ved kai mellom turar: berre staden; neste avgang står i statuslinja og på avgangsrada", () => {
   const html = atTime(oslo(20, 16), () => renderApp());
   const lines = infoLines(html);
   assert.equal(lines[0], "place: Ferja ligg til kai på Trandal");
-  assert.match(lines[1], /^next: Neste avgang 20:20 frå Trandal, om 4 min/);
-  assert.equal(lines[2], "trip: Overfarta tek 15 min, framme 20:35");
-  // Same dag, nokre veker seinare i tabellen: «Neste avgang» står òg i toppen, men «No»-raden er ferdig for seg.
+  assert.equal(lines.length, 1, "ingen «Neste avgang», ingen «Deretter», og overfartstida står ikkje når ankomsttida står på avgangsrada");
+  assert.match(html, /Ankomst 20:35/);
+  assert.match(statusArea(html), /Neste avgang 20:20 frå Trandal/);
   assert.match(nowArea(html), /Berekna frå rutetabellen/);
 });
 
@@ -460,20 +464,19 @@ test("«No»-raden på overfart: ferja på linja, minutt att til framkomst og kv
   assert.match(now, /<svg class="ferry"/);
   assert.match(text(now), /Live frå AIS · 8 s/);
   assert.match(text(now), /av overfarten · Framme 20:35 · om 5 min/);
-  const lines = infoLines(html);
-  assert.equal(lines[0], "place: Ferja er på veg mot Standal");
-  assert.match(lines[1], /^then: Første tur i morgon \d\d:\d\d frå \w+( · på signal)?$/, "siste tur i dag: seier kva som kjem i morgon");
+  assert.deepEqual(infoLines(html), ["place: Ferja er på veg mot Standal"], "framdrift og minutt att står i overfartslinja; ingen «Deretter»");
 });
 
 test("«No»-raden: nn, en og de, og ingen tekst utan tabell", async () => {
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
-  for (const [lang, pattern] of [
-    ["en", /^next: First sailing tomorrow \d\d:\d\d from \w+, in \d+ h \d+ min/],
-    ["de", /^next: Erste Fahrt morgen \d\d:\d\d ab \w+, in \d+ Std\. \d+ Min\./],
+  for (const [lang, pattern, headline] of [
+    ["en", /^trip: The crossing takes \d+ min, arriving \d\d:\d\d$/, /First sailing tomorrow \d\d:\d\d from \w+, in \d+ h \d+ min/],
+    ["de", /^trip: Die Überfahrt dauert \d+ Min\., Ankunft \d\d:\d\d$/, /Erste Fahrt morgen \d\d:\d\d ab \w+, in \d+ Std\. \d+ Min\./],
   ]) {
     await setLang(lang);
     const html = atTime(oslo(21, 7), () => renderApp({ lang }));
     assert.match(infoLines(html)[1], pattern, lang);
+    assert.match(text(statusArea(html)), headline, lang);
   }
   await setLang("nn");
 });
@@ -491,7 +494,7 @@ test("natt: fersk AIS ved kai gjev «Live frå AIS» og «ligg til kai på X» f
   const fresh = atTime(night, () => renderApp({ initialSanntid: { entries: [aisEntry(1, FIXED - night + 90000, { sog: 0 })] } }));
   assert.match(text(nowArea(fresh)), /Live frå AIS · 1 min/);
   assert.equal(infoLines(fresh)[0], "place: Ferja ligg til kai på Standal");
-  assert.match(statusArea(fresh), /Ferja er ferdig for dagen på Standal\./, "overskrifta seier ikkje imot");
+  assert.match(statusArea(fresh), /Ferja ligg til kai på Standal\. Første tur i morgon/, "overskrifta og «No» har same ordlyd");
   assert.match(text(fresh), /Posisjonen kjem frå AIS i sanntid no\./);
   assert.doesNotMatch(nowArea(fresh), /class="ferry|role="progressbar"/);
   // 6 min gammal AIS ved kai: siste kjende (opptil 15 min), ikkje «live», og «No»-raden påstår ikkje meir enn tabellen.

@@ -107,7 +107,8 @@ test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, ber
   assert.equal(sanntidDue({ fetchedAt: T0 - SANNTID_MIN_INTERVAL_MS }, data, ui, T0), true);
   assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: T0 + 1 }, data, ui, T0), false, "backoff");
   // Natt (utanfor driftsvindauget): AIS sender heile døgnet, så vi spør, men berre kvart minutt, og framleis ikkje i gøymd fane eller backoff.
-  const night = Date.UTC(2026, 9, 8, 19, 10); // 21:10 Oslo, etter siste tur
+  // 03:10 Oslo: utanfor driftsvindauget uansett vekedag (rutetabellen er den for den verkelege dagen i dag, og laurdag/søndag køyrer lenger enn kl. 21:10).
+  const night = Date.UTC(2026, 9, 8, 1, 10);
   assert.equal(sanntidDue({ fetchedAt: 0 }, data, ui, night), true, "natt: fyrste kall med ein gong");
   assert.equal(sanntidDue({ fetchedAt: night - SANNTID_IDLE_INTERVAL_MS + 1000 }, data, ui, night), false, "natt: ikkje oftare enn kvart minutt");
   assert.equal(sanntidDue({ fetchedAt: night - SANNTID_IDLE_INTERVAL_MS }, data, ui, night), true);

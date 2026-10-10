@@ -278,7 +278,7 @@
 }
 .now-info li { min-width: 0; }
 .now-info-place { font-weight: 600; }
-.now-info-trip, .now-info-then { color: var(--muted); font-size: 0.86rem; }
+.now-info-trip, .now-info-scheduled { color: var(--muted); font-size: 0.86rem; }
 .now-info-cancelled { color: var(--stop-fg); font-weight: 600; }
 
 /* Smal skjerm og 200 %: merket får bryte linja i staden for å gå ut av raden. */

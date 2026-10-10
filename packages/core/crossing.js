@@ -624,9 +624,10 @@ function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (quay) {
     const text = t("status.mooredAt", { quay });
     if (!status.underway) {
-      // Alt anna enn «på veg» (ligg til kai, ferdig for dagen, startar dagen) står, så sant det nemner same kai som AIS.
-      // Elles (t.d. Entur eller rutetabellen seier «ferdig for dagen på Standal», AIS seier Trandal) vinn AIS.
-      if (String(status.short || status.text).includes(quay)) return status;
+      // «Ligg til kai på X» (òg «… Liggetid …», «… Fyrste avgang …») står som det er. Alt anna (ferdig for dagen,
+      // tomkøyring, startar dagen) seier AIS imot, så éi ordlyd: «Ferja ligg til kai på X». Dagen er då ikkje «ferdig»
+      // i teksten, men fyrste tur står i same setning (statuslinja).
+      if (String(status.short || status.text).startsWith(text)) return status;
       return { ...status, short: text, text: `${text}.`, position: "ais" };
     }
     // Ikkje avgått enno: raden «No» skal ligge føre avgangen, elles etter turen vi var på.

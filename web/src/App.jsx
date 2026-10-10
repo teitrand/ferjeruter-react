@@ -116,11 +116,12 @@ export function App({
     [chrome, lastMode, todaySelected]
   );
   const todayMode = useMemo(() => (ready ? routeChrome(data, { ...ui, date: null }).mode : null), [ready, data, ui]);
-  const lede = ready ? ledeModel(data, ui, memory, now) : null;
   const place = ready ? placeFilterModel(data, ui) : null;
+  const filters = place?.filters;
+  // Ankomsttida står på avgangsrada når ankomstar er på og ingen frå/til-filter gøymer rada: då gjentek ikkje «No» ho.
+  const lede = ready ? ledeModel(data, ui, memory, now, { arrivalShown: !ui.hideArrivals && !filters?.from && !filters?.to }) : null;
   const connection = ready ? connectionModel(data, ui) : NO_CONNECTION;
   const panel = messagesModel(data, ui, clockMs);
-  const filters = place?.filters;
   const timeline = useMemo(
     () => (ready ? buildTimeline(data, { ...ui, filters, connection: connection.value }, memory, { now }) : null),
     // memoryVersion: minnet er ein ref, så endringar der må gje ny tidslinje.
