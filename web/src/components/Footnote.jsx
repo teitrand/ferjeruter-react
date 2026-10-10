@@ -9,7 +9,7 @@ import { t } from "./i18n.js";
 export function Footnote({ notes, connection }) {
   return (
     <p className="footnote">
-      <span>{t("footnote.signal")}</span> <span id="connection-note">{connection}</span> <span>{t("footnote.pdf")}</span>:{" "}
+      {notes.signal === false ? null : <span>{t("footnote.signal")} </span>}<span id="connection-note">{connection}</span> <span>{t("footnote.pdf")}</span>:{" "}
       <a id="timetable-pdf" href={notes.pdf.href} target="_blank" rel="noreferrer">
         {notes.pdf.text}
       </a>{" "}

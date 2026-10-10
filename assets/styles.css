@@ -290,11 +290,12 @@ h1, h2, h3 {
 
 .route-switch {
   display: inline-flex;
-  flex-wrap: nowrap;
+  /* Tre samband: den lengste fana (Festøya–Hundeidvik) går på neste rad når det ikkje er plass (320 px, 200 % skrift). */
+  flex-wrap: wrap;
   gap: 0.2rem;
   margin: 0;
   padding: 0.22rem;
-  border-radius: 999px;
+  border-radius: 22px;
   background: rgba(4, 28, 36, 0.45);
   border: 1px solid rgba(215, 238, 234, 0.55);
   box-shadow: inset 0 0 0 1px rgba(4, 28, 36, 0.2);
@@ -1409,8 +1410,12 @@ h2.day-label {
   }
 
   .route-switch .chip {
-    flex: 1;
+    flex: 1 1 auto;
     text-align: center;
+    /* Ved 200 % skrift er «Festøya–Hundeidvik» breiare enn skjermen: lat teksten brytast i staden for å gå ut av sida. */
+    white-space: normal;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .lede {
