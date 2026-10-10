@@ -355,7 +355,7 @@ export function outboundConnection(index, arrival) {
 }
 
 export function tableName(mode) {
-  if (mode === "kombi" || mode === "1135" || mode === "1136") return mode;
+  if (mode === "kombi" || mode === "1135" || mode === "1136" || mode === "1049") return mode;
   return "1136";
 }
 

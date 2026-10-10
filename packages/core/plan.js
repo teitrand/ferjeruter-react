@@ -4,7 +4,7 @@
  * Alt les frå eit eksplisitt `ctx` i staden for global tilstand:
  * - `routes`, `kombirute`: rutetabellane (data/ruter.json og data/kombirute.json)
  * - `messages`: trafikkmeldingane
- * - `routeChoice`: sambandet brukaren har valt («1136» eller «1135»)
+ * - `routeChoice`: sambandet brukaren har valt («1136», «1135» eller «1049»)
  * - `override`: ?rute= på testhosten, elles null
  * - `fromQuery`: omlegging frå ?frå= på testhosten, elles null
  * - `nowMs`, `today`: klokka og datoen i dag
@@ -96,7 +96,12 @@ export function applySwitchPlan(mode, parsed, date, ctx) {
   };
 }
 
+/** 1049 Festøya–Hundeidvik er eit eige samband med eiga ferje: trafikkmeldingane styrer ikkje tabellen (ingen kombirute). */
+const INDEPENDENT_ROUTES = new Set(["1049"]);
+
 export function activePlan(date, ctx) {
+  const own = ctx?.override || chosenRoute(ctx);
+  if (INDEPENDENT_ROUTES.has(own)) return { mode: own, switch: null, notice: null, uncertain: false };
   const fromQuery = ctx?.fromQuery || null;
   const resolved = resolveRoutePlan(ctx?.messages, ctx?.nowMs ?? Date.now(), date);
   const override = ctx?.override || null;
@@ -159,6 +164,8 @@ export const LINE_QUAYS = [
   "Leknes",
   "Bjørke",
   "Urke",
+  "Hundeidvik",
+  "Festøya",
 ];
 
 export function knownQuays(ctx) {
@@ -182,6 +189,6 @@ export function firstKnownQuay(name, quays = LINE_QUAYS) {
   return text;
 }
 
-export const ALLOWED_MODES = new Set(["1136", "1135", "kombi"]);
+export const ALLOWED_MODES = new Set(["1136", "1135", "1049", "kombi"]);
 
-export const CHOOSABLE_ROUTES = new Set(["1136", "1135"]);
+export const CHOOSABLE_ROUTES = new Set(["1136", "1135", "1049"]);

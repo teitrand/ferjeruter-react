@@ -25,7 +25,7 @@ export function loadConfig(env = process.env) {
     statusPath: env.FERGERUTER_STATUS || join(stateDir, "status.json"),
     reportDir: env.FERGERUTER_REPORT_DIR || join(stateDir, "reports"),
     cacheDir: join(stateDir, "cache"),
-    lines: (env.FERGERUTER_LINES || "1136,1135").split(",").map((s) => s.trim()).filter(Boolean),
+    lines: (env.FERGERUTER_LINES || "1136,1135,1049").split(",").map((s) => s.trim()).filter(Boolean),
     retentionDays: int(env.FERGERUTER_RETENTION_DAYS, 30, 1),
     // Datafilene appen les (rutetabell, signallogg, meldingar). Berre for status og samanlikning.
     dataBase: (env.FERGERUTER_DATA_BASE || "https://teitrand.github.io/fergeruter/data/").replace(/\/?$/, "/"),

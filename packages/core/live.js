@@ -14,6 +14,9 @@ export const STOP_PLACES = {
   Leknes: "NSR:StopPlace:58766",
   Valderøya: "NSR:StopPlace:61752",
   "Store Kalvøy": "NSR:StopPlace:58525",
+  // 1049 Festøya–Hundeidvik (NSR, henta frå Entur 10. okt. 2026).
+  Hundeidvik: "NSR:StopPlace:58756",
+  Festøya: "NSR:StopPlace:38754",
 };
 
 export const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
@@ -118,13 +121,16 @@ export const QUAY_COORDS = {
   Leknes: { latitude: 62.205859, longitude: 6.5345 },
   Valderøya: { latitude: 62.495872, longitude: 6.128569 },
   "Store Kalvøy": { latitude: 62.526923, longitude: 6.20374 },
+  // 1049. Festøya har to NSR-kaier (66979, 66976) ~90 m frå kvarandre; her midtpunktet.
+  Hundeidvik: { latitude: 62.371677, longitude: 6.424135 },
+  Festøya: { latitude: 62.375, longitude: 6.331668 },
 };
 
 export function cancellationQuery(stops) {
   const fields = stops
     .map((name, index) => {
       const id = STOP_PLACES[name];
-      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135"] }) { cancellation aimedDepartureTime actualDepartureTime serviceJourney { id } } }`;
+      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135", "MOR:Line:1049"] }) { cancellation aimedDepartureTime actualDepartureTime serviceJourney { id } } }`;
     })
     .join("\n");
   return `query Cancelled($start: DateTime!) { ${fields} }`;
