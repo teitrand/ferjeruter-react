@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { telHref } from "../../../packages/core/index.js";
+import { isNoPassengerTrip, telHref } from "../../../packages/core/index.js";
 import { useAnnounce } from "./Announcer.jsx";
 import { CallLink } from "./CallLink.jsx";
 import { t } from "./i18n.js";
@@ -152,9 +152,12 @@ function TransferRow({ row }) {
       <span className="stop-time" />
       <span className="stop-body">
         <span className="stop-name">{t("transfer.moves", { to: row.to })}</span>
-        <span className="stop-note">
-          {row.crossesArea ? t("transfer.noPassengers", { from: row.from, to: row.to }) : t("transfer.empty")}
-        </span>
+        {/* «Utan passasjerar» berre til og frå Valderøya; elles ingen merknad. */}
+        {row.crossesArea || isNoPassengerTrip(row.from, row.to) ? (
+          <span className="stop-note">
+            {row.crossesArea ? t("transfer.noPassengers", { from: row.from, to: row.to }) : t("transfer.empty")}
+          </span>
+        ) : null}
       </span>
       <span className="stop-state" />
     </div>

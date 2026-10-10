@@ -50,6 +50,9 @@ import {
   headingDay,
   todayIso,
   quayPlace,
+  isNoPassengerTrip,
+  overnightStatus,
+  returnHomeStatus,
 } from "../packages/core/index.js";
 import { appVersion } from "./helpers/version.mjs";
 // Arbeidsflyta listar testfilene ein og ein. Desse køyrer difor herifrå.
@@ -2196,7 +2199,9 @@ test("utan sanntid i det heile seier status framleis Standal når turen heim er 
   // Ingen bevis for at 20:20 gjekk: avlysinga frå Entur står. Men ferja ligg over natta på Standal.
   assert.equal(signalVerdict(back, null, 21 * 60), "skipped");
   assert.equal(currentStatus(legs, 20 * 60 + 17).text, "Ferja ligg til kai på Trandal");
-  assert.match(currentStatus(legs, 20 * 60 + 25).text, /tilbake til Standal utan passasjerar/);
+  // Trandal–Standal er vanleg trafikk: ikkje «utan passasjerar» (berre Valderøya).
+  assert.match(currentStatus(legs, 20 * 60 + 25).text, /på veg mot Standal/);
+  assert.doesNotMatch(currentStatus(legs, 20 * 60 + 25).text, /utan passasjerar/);
   assert.equal(currentStatus(legs, 21 * 60).short, "Ferja er ferdig for dagen på Standal");
 });
 
@@ -2229,4 +2234,30 @@ test("ved endekaia før rutetida er ikkje bevis (Entur kan ha kopla ferja til ne
   const atStopEarly = { ...freshVm, actualArrival: "" };
   assert.equal(liveProvesSailed(atStopEarly, back, 20 * 60 + 15), false);
   assert.equal(liveProvesSailed(atStopEarly, back, 20 * 60 + 31), true);
+});
+
+
+test("«utan passasjerar» berre til og frå Valderøya (Standal–Trandal om kvelden er vanleg tur)", () => {
+  assert.equal(isNoPassengerTrip("Valderøya", "Standal"), true);
+  assert.equal(isNoPassengerTrip("Standal", "Valderøya"), true);
+  assert.equal(isNoPassengerTrip("Trandal", "Standal"), false);
+  assert.equal(isNoPassengerTrip("Store Kalvøy", "Standal"), false);
+  // Heimturen Trandal → Standal etter siste tur: på veg, aldri «utan passasjerar».
+  const last = leg("Standal", "Trandal", "19:40:00", "19:55:00");
+  const back = leg("Trandal", "Standal", "20:20:00", "20:35:00");
+  const during = returnHomeStatus(last, back, 20 * 60 + 25);
+  assert.equal(during.short, "Ferja er på veg mot Standal");
+  assert.equal(during.text, "Siste tur er framme på Trandal. Ferja er på veg mot Standal.");
+  // Heimturen frå Valderøya har framleis den tydelege ordlyden.
+  const outerLast = leg("Standal", "Valderøya", "19:00:00", "19:25:00");
+  const outerBack = leg("Valderøya", "Standal", "19:30:00", "21:30:00");
+  assert.match(returnHomeStatus(outerLast, outerBack, 20 * 60).short, /utan passasjerar/);
+  // Tomtur Store Kalvøy → Standal (utan Valderøya): på veg, ikkje «utan passasjerar».
+  const storeLast = leg("Valderøya", "Store Kalvøy", "13:00:00", "13:10:00");
+  const neutral = overnightStatus(storeLast, "Standal", 13 * 60 + 30);
+  assert.equal(neutral.short, "Ferja er på veg mot Standal");
+  assert.doesNotMatch(neutral.text, /utan passasjerar/);
+  // Valderøya → Standal om natta er tomtur utan passasjerar.
+  const valLast = leg("Standal", "Valderøya", "18:00:00", "18:25:00");
+  assert.match(overnightStatus(valLast, "Standal", 18 * 60 + 40).short, /utan passasjerar/);
 });

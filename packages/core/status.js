@@ -33,6 +33,27 @@ export const OUTER_QUAYS = new Set(["Valderøya", "Store Kalvøy"]);
  */
 export const OUTER_DEADHEAD_MINUTES = 120;
 
+/**
+ * Ferja går utan passasjerar berre til og frå Valderøya (der er det ikkje lov å gå om bord). Alle andre turar og
+ * tomturar, også mellom Standal og Trandal, skal ha vanleg ordlyd. Dette gjeld berre ordlyden; tida for tomtur
+ * ligg i outerDeadheadMinutes.
+ */
+export const NO_PASSENGER_QUAY = "Valderøya";
+
+export function isNoPassengerTrip(fromQuay, toQuay) {
+  const from = quayPlace(fromQuay);
+  const to = quayPlace(toQuay);
+  return from === NO_PASSENGER_QUAY || to === NO_PASSENGER_QUAY;
+}
+
+/** Statuslinje for ferja på veg tilbake til heimkaia etter siste tur: «utan passasjerar» berre ved Valderøya. */
+function backHomeWording(lastTo, home) {
+  if (isNoPassengerTrip(lastTo, home)) {
+    return { short: t("status.backEmpty", { home }), text: t("status.backEmptyText", { to: lastTo, home }) };
+  }
+  return { short: t("status.backHome", { home }), text: t("status.backHomeText", { to: lastTo, home }) };
+}
+
 export function isOuterQuay(quay) {
   return OUTER_QUAYS.has(quayPlace(quay));
 }
@@ -118,8 +139,7 @@ export function overnightStatus(last, home, now) {
       {
         at: start + 0.5,
         underway: true,
-        short: t("status.backEmpty", { home }),
-        text: t("status.backEmptyText", { to: last.to, home }),
+        ...backHomeWording(last.to, home),
       },
       start,
       start + deadhead,
@@ -146,8 +166,7 @@ export function returnHomeStatus(last, back, now) {
       {
         at: leaves + 0.5,
         underway: true,
-        short: t("status.backEmpty", { home }),
-        text: t("status.backEmptyText", { to: last.to, home }),
+        ...backHomeWording(last.to, home),
       },
       leaves,
       ends,
@@ -260,7 +279,9 @@ export function ferryStatus(legs, now, allLegs, view) {
           {
             at: start + 0.5,
             underway: true,
-            text: t("status.repositionTo", { quay: next.from }),
+            text: isNoPassengerTrip(leg.to, next.from)
+              ? t("status.repositionTo", { quay: next.from })
+              : t("status.underwayTo", { dest: next.from }),
           },
           start,
           sailEnd,
