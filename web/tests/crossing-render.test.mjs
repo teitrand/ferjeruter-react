@@ -655,3 +655,26 @@ test("tidslinja: midt på dagen på veg – komande turar følgjer etter kortet"
   assert.ok(seq.slice(0, at).map(minutesOf).every((m) => m <= 16 * 60 + 5));
   assert.ok(seq.slice(at + 1).map(minutesOf).every((m) => m > 16 * 60 + 5), "komande turar etter kortet");
 });
+
+// 20:20 Trandal → Standal er avlyst hos Entur, men ferja går heim likevel (8. oktober).
+const CANCELLED_BACK = { cancelledJourneys: new Set(["MOR:ServiceJourney:1136_129_9150000046366348"]) };
+
+// Feil 10. oktober: «Ferja går tilbake til Standal utan passasjerar» på Standal–Trandal. «Utan passasjerar» gjeld berre Valderøya.
+test("Standal–Trandal om kvelden: aldri «utan passasjerar» (20:20 Trandal → Standal er avlyst men ferja går)", async () => {
+  const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
+  const saved = current;
+  try {
+    for (const lang of ["nn", "en", "de"]) {
+      setLang(lang);
+      current = oslo(20, 25);
+      const html = renderApp({ lang, initialEntur: CANCELLED_BACK });
+      assert.doesNotMatch(text(html), /utan passasjerar|without passengers|ohne Passagiere/i, lang);
+    }
+    setLang("nn");
+    current = oslo(20, 25);
+    assert.match(mainLine(renderApp({ initialEntur: CANCELLED_BACK })), /på veg mot Standal/i);
+  } finally {
+    current = saved;
+    setLang("nn");
+  }
+});

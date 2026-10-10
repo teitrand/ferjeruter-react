@@ -20,6 +20,8 @@ Kaien Lekneset hos Entur blir normalisert til Leknes.
 
 Heimkai er fyrste `from` i dagen, i praksis Standal. Ferja flyttar seg ikkje utan passasjerar mellom kaiene i Hjørundfjorden. Den einaste tomturen er mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den turen står ikkje i Entur. Etter siste passasjertur på Valderøya eller Store Kalvøy går ho slik heim til Standal. Endar dagen på ein kai i fjorden, ligg ho der.
 
+Ordlyden «utan passasjerar» (statuslinja, «No»-kortet og «Flyttar seg»-rada i tidslinja) blir berre brukt for turar til og frå Valderøya (`isNoPassengerTrip`), der passasjerar ikkje har lov til å vere med. Alle andre turar og flyttingar, også heimturen Trandal → Standal om kvelden (ein avlyst retur som ferja likevel køyrer), får vanleg tekst: «Ferja er på veg mot Standal». Tida for tomturen (120 min) er uendra.
+
 Fartya som er namngjevne i meldingar og kombirute er M/F Geiranger (916 69 321) og M/F Kvernes (916 69 340, MMSI 257297400). Signaltur-telefonen i ruteheftet er 91 66 93 40.
 
 ## 2. Filer ein må ha
