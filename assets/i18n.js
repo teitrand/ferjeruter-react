@@ -1066,7 +1066,8 @@ export function detectLang({ languages, storage } = {}) {
     const matched = matchSupportedLang(raw);
     if (matched) return matched;
   }
-  return "nn";
+  // Ingen av telefonspråka er nn/nb/no/de/en: engelsk er den mest forståelege reserven.
+  return "en";
 }
 
 export function setLang(next, { persist = true, storage } = {}) {

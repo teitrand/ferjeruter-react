@@ -150,13 +150,18 @@ test("detectLang følgjer nettlesarspråk til fyrste treff", () => {
   assert.equal(detectLang({ languages: ["fr-FR", "en-GB"], storage: new MapStorage() }), "en");
   assert.equal(detectLang({ languages: ["nb-NO"], storage: new MapStorage() }), "nn");
   assert.equal(detectLang({ languages: ["no-NO"], storage: new MapStorage() }), "nn");
-  assert.equal(detectLang({ languages: ["sv-SE"], storage: new MapStorage() }), "nn");
+  assert.equal(detectLang({ languages: ["nn-NO"], storage: new MapStorage() }), "nn");
+  assert.equal(detectLang({ languages: ["sv-SE"], storage: new MapStorage() }), "en", "ukjent språk gjev engelsk");
+  assert.equal(detectLang({ languages: ["fr-FR", "sv-SE"], storage: new MapStorage() }), "en");
+  assert.equal(detectLang({ languages: ["sv-SE", "nb-NO"], storage: new MapStorage() }), "nn", "fyrste støtta språk vinn");
+  assert.equal(detectLang({ languages: [], storage: new MapStorage() }), "en");
 });
 
 test("lagra språkval overstyrer nettlesaren", () => {
   const storage = new MapStorage();
   storage.setItem(STORAGE_KEY, "de");
   assert.equal(detectLang({ languages: ["en-US"], storage }), "de");
+  assert.equal(detectLang({ languages: ["sv-SE"], storage }), "de", "lagra val slår òg reserven");
 });
 
 test("setLang lagrar berre når persist er på", () => {
