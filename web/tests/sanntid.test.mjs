@@ -29,6 +29,19 @@ const ais = (over = {}) => ({
 });
 const latest = (lines, over = {}) => ({ schema: 1, generatedAt: new Date(T0).toISOString(), collector: { lastHeartbeatAt: null, stale: false }, lines, today: { date: "2026-10-08", lines: {} }, ...over });
 
+test("parseSanntid: aisAll gjev ein posisjon per fartøy (1069), og gamal worker utan aisAll gjev ais som før", () => {
+  const vessel = (mmsi, over = {}) => ais({ mmsi, name: mmsi, latitude: 62.38, longitude: 6.33, ...over });
+  const three = [vessel("258220500", { speedKn: 0 }), vessel("257090560", { courseDeg: 28 }), vessel("257090550", { courseDeg: 203 })];
+  const parsed = parseSanntid(latest({ 1069: { lastKnown: null, ais: three[2], aisAll: three }, 1136: { ais: ais() } }));
+  assert.deepEqual(parsed.entries.map((item) => `${item.line}:${item.fix.vessel}`), ["1069:258220500", "1069:257090560", "1069:257090550", "1136:257297400"]);
+  assert.equal(parsed.entries[2].fix.course, 203);
+  // Gamal worker: berre `ais` (nyaste fartøy).
+  assert.deepEqual(parseSanntid(latest({ 1069: { ais: three[2] } })).entries.map((item) => item.fix.vessel), ["257090550"]);
+  // Tom eller ugyldig aisAll gjev ingenting, ikkje ein krasj.
+  assert.deepEqual(parseSanntid(latest({ 1069: { ais: three[2], aisAll: [] } })).entries, []);
+  assert.deepEqual(parseSanntid(latest({ 1069: { aisAll: [null, { source: "entur" }] } })).entries, []);
+});
+
 test("parseSanntid: AIS per linje blir PositionFix med AIS-tida (msgtime), ikkje når svaret kom", () => {
   const parsed = parseSanntid(latest({ 1136: { lastKnown: null, ais: ais() }, 1135: { lastKnown: null } }));
   assert.equal(parsed.entries.length, 1);

@@ -33,18 +33,21 @@ export function parseSanntid(json) {
   if (!json || json.schema !== 1 || typeof json.lines !== "object" || json.lines === null) return null;
   const entries = [];
   for (const [line, entry] of Object.entries(json.lines)) {
-    const ais = entry?.ais;
-    if (!ais || ais.source !== "ais") continue;
-    const fix = fixFromAis({
-      mmsi: ais.mmsi,
-      latitude: ais.latitude,
-      longitude: ais.longitude,
-      sog: ais.speedKn,
-      cog: ais.courseDeg,
-      navStatus: ais.navStatus,
-      timestamp: ais.msgtime,
-    });
-    if (fix) entries.push({ line: String(line), fix });
+    // `aisAll` har alle fartøy på linja (1069 har tre); ein gammal worker har berre `ais` (nyaste).
+    const all = Array.isArray(entry?.aisAll) ? entry.aisAll : entry?.ais ? [entry.ais] : [];
+    for (const ais of all) {
+      if (!ais || ais.source !== "ais") continue;
+      const fix = fixFromAis({
+        mmsi: ais.mmsi,
+        latitude: ais.latitude,
+        longitude: ais.longitude,
+        sog: ais.speedKn,
+        cog: ais.courseDeg,
+        navStatus: ais.navStatus,
+        timestamp: ais.msgtime,
+      });
+      if (fix) entries.push({ line: String(line), fix });
+    }
   }
   return { entries };
 }
@@ -139,9 +142,6 @@ export function sanntidDue({ fetchedAt = 0, blockedUntil = 0 }, data, ui, nowMs 
   return since >= SANNTID_IDLE_INTERVAL_MS;
 }
 
-/** Linjer der fleire ferjer går samtidig, så ein AIS-posisjon ikkje kan knytast til ein tur. */
-export const AIS_UNATTRIBUTED_LINES = new Set(["1069"]);
-
 /** Sambandet AIS gjeld for (same som sanntida frå Entur: i dag, ikkje vald dag). */
 export function sanntidMode(data, ui) {
   return enturMode(data, ui);
@@ -154,9 +154,8 @@ export function sanntidMode(data, ui) {
  */
 export function withSanntid(data, state, mode, { on = true } = {}) {
   if (!on) return data;
-  // Linjer med fleire ferjer samtidig (1069) har ingen AIS-kjelde i appen enno: workeren held berre éin AIS-posisjon per linje,
-  // og vi kan ikkje seie kva for ferje som tek kva tur. Då viser vi heller Entur-posisjonen (per tur) enn feil ferje.
-  const lines = new Set(modeLines(mode).filter((line) => !AIS_UNATTRIBUTED_LINES.has(line)));
+  // Alle fartøy på linja følgjer med (1069 har tre). Kva ferje som tek kva tur, avgjer core (fixBelongsTo: tid, strekning og kurs).
+  const lines = new Set(modeLines(mode));
   return {
     ...data,
     positions: state.entries.filter((item) => lines.has(item.line)).map((item) => item.fix),

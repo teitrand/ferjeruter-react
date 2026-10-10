@@ -204,6 +204,20 @@ test("POST /v1/positions lagrar siste per fartøy, GET /v1/latest viser ais per 
   assert.equal(d.collector.stale, true);
 });
 
+test("fleire fartøy på éi linje (1069): aisAll har alle, ais er uendra (nyaste)", async () => {
+  const e = env();
+  const v = (mmsi, name, ageS, over = {}) => pos({ mmsi, line: "1069", name, msgtime: new Date(T0 - ageS * 1000).toISOString(), ...over });
+  await postPos(e, [v("257090560", "FESTOYA", 30), v("257090550", "SOLAVAGEN", 12, { courseDeg: 203 }), v("258220500", "TIDEFJORD", 400, { speedKn: 0 })]);
+  const line = (await latest(e, T0)).lines["1069"];
+  assert.deepEqual(line.aisAll.map((item) => item.name), ["TIDEFJORD", "FESTOYA", "SOLAVAGEN"], "eldste fyrst, nyaste sist");
+  assert.deepEqual(line.aisAll.map((item) => item.state), ["stale", "live", "live"]);
+  assert.equal(line.ais.name, "SOLAVAGEN", "ais er som før: nyaste fartøy");
+  assert.deepEqual(line.aisAll.at(-1), line.ais);
+  assert.equal(line.aisAll[2].courseDeg, 203);
+  // Linjer utan AIS-rader får ingen aisAll.
+  assert.equal((await latest(e, T0)).lines["1136"]?.aisAll, undefined);
+});
+
 test("ais-ferskleik under fart: live ≤ 60 s, siste kjende ≤ 5 min, så ukjend", () => {
   const row = { mmsi: "1", name: null, latitude: 62, longitude: 6, speed_kn: 8, course_deg: 0, heading: 0, nav_status: 0, msgtime: "x", received_at: "y" };
   const at = (ageS, over = {}) => aisView({ ...row, msgtime_ms: T0 - ageS * 1000, ...over }, T0);
@@ -280,8 +294,9 @@ test("bakoverkompatibelt: utan AIS-rader er /v1/latest likt som før, med ais er
   assert.deepEqual(Object.keys(before.lines["1136"]).sort(), ["lastKnown", "observedAt", "stale", "staleReason"]);
   await postPos(e, [pos({ msgtime: new Date(T0 + 50_000).toISOString() })], T0 + 40_000);
   const after = await latest(e, T0 + 60_000);
-  const { ais, ...rest } = after.lines["1136"];
+  const { ais, aisAll, ...rest } = after.lines["1136"];
   assert.ok(ais);
+  assert.deepEqual(aisAll, [ais], "aisAll er tillegget: éin visning per fartøy, her berre éitt");
   assert.deepEqual(rest, before.lines["1136"]);
   assert.deepEqual({ ...after, lines: undefined }, { ...before, lines: undefined });
 });

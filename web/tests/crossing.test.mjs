@@ -27,6 +27,7 @@ import {
   crossingValueText,
   crossingView,
   fixAtQuay,
+  fixBelongsTo,
   fixFreshness,
   fixFromAis,
   fixFromLive,
@@ -55,6 +56,13 @@ const along = (f) => ({
 const leg = (from, to, departure, arrival, id = "") => ({ id, from, to, departure, arrival });
 const OUT = leg("Standal", "Trandal", "20:00:00", "20:15:00", "MOR:ServiceJourney:1136_128_x#0");
 const BACK = leg("Trandal", "Standal", "20:20:00", "20:35:00", "MOR:ServiceJourney:1136_129_x#0");
+/** Kurs (grader) frå ei kai mot ei anna. */
+const headingTo = (a, b) => {
+  const rad = (deg) => (deg * Math.PI) / 180;
+  const y = Math.sin(rad(b.longitude - a.longitude)) * Math.cos(rad(b.latitude));
+  const x = Math.cos(rad(a.latitude)) * Math.sin(rad(b.latitude)) - Math.sin(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.cos(rad(b.longitude - a.longitude));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+};
 const ais = (f, at, extra = {}) => fixFromAis({ mmsi: 257297400, ...along(f), sog: 10, cog: 90, timestamp: at, ...extra });
 
 test("framdrift: 0 ved startkai, 1 ved endekai, midt på ≈ 0,5", () => {
@@ -383,8 +391,9 @@ test("Reviewer: gammal posisjon ved endekaia gjev ikkje «ved kai» eller 100 %"
   const view = crossingView({ leg: OUT, fix: old, nowMs: oslo(20, 39) });
   assert.equal(view.atQuay, false);
   assert.equal(view.measured, false);
-  const fresh = fixFromAis({ mmsi: 1, ...along(1), sog: 0, timestamp: oslo(20, 5) });
-  const unknownAtQuay = crossingView({ leg: OUT, fix: fresh, nowMs: oslo(20, 25) });
+  // Målt 20:11 ved Trandal (ankomst 20:15), men 19 min gammal ved 20:30: ukjend.
+  const fresh = fixFromAis({ mmsi: 1, ...along(1), sog: 0, timestamp: oslo(20, 11) });
+  const unknownAtQuay = crossingView({ leg: OUT, fix: fresh, nowMs: oslo(20, 30) });
   assert.equal(unknownAtQuay.state, "unknown");
   assert.equal(unknownAtQuay.atQuay, false);
   assert.equal(unknownAtQuay.source, "computed");
@@ -393,8 +402,8 @@ test("Reviewer: gammal posisjon ved endekaia gjev ikkje «ved kai» eller 100 %"
   const stale = crossingView({ leg: OUT, fix: enturStale, nowMs: oslo(20, 10) });
   assert.equal(stale.state, "stale");
   assert.equal(stale.atQuay, false);
-  // AIS ved kai, 2 min gammal: AIS sender sjeldnare ved kai, så det gjeld.
-  assert.equal(crossingView({ leg: OUT, fix: { ...fresh, at: oslo(20, 8) }, nowMs: oslo(20, 10) }).atQuay, true);
+  // AIS ved kai, 2 min gammal: AIS sender sjeldnare ved kai, så det gjeld. (Ferja har rekt fram: ankomst 20:15, målt 20:11.)
+  assert.equal(crossingView({ leg: OUT, fix: { ...fresh, at: oslo(20, 11) }, nowMs: oslo(20, 13) }).atQuay, true);
 });
 
 test("Reviewer: ein posisjon som vart for gammal, held ikkje anslaget oppe", () => {
@@ -673,4 +682,58 @@ test("fart: AIS-knop berre på AIS som er live eller siste kjende, i fart og ikk
   setLang("de");
   assert.match(crossingValueText(at(10000)), /, 10 Knoten$/);
   setLang("nn");
+});
+
+// --- Fleire ferjer på éi strekning (1069 Festøya–Solavågen): kva ferje høyrer til kva tur ---
+
+const F = QUAY_COORDS.Festøya;
+const SOL = QUAY_COORDS.Solavågen;
+/** Punkt `f` (0..1) på linja Festøya → Solavågen. */
+const fest = (f) => ({ latitude: F.latitude + (SOL.latitude - F.latitude) * f, longitude: F.longitude + (SOL.longitude - F.longitude) * f });
+// Kurs mellom kaiene (sør og nord) og motsett.
+const SOUTH = 5;
+const NORTH = 185;
+const DOWN = leg("Festøya", "Solavågen", "10:00:00", "10:20:00", "MOR:ServiceJourney:1069_1_x#0");
+const UP = leg("Solavågen", "Festøya", "10:05:00", "10:25:00", "MOR:ServiceJourney:1069_2_x#0");
+const ferry = (mmsi, f, at, extra = {}) => fixFromAis({ mmsi, ...fest(f), sog: 8, cog: SOUTH, timestamp: at, ...extra });
+
+test("to ferjer om kvarandre: kursen avgjer kva ferje som høyrer til kva tur", () => {
+  const now = oslo(10, 12);
+  const a = ferry(257090560, 0.6, now - 10000, { cog: headingTo(F, SOL) });
+  const b = ferry(257090550, 0.4, now - 10000, { cog: headingTo(SOL, F) });
+  assert.equal(fixBelongsTo(a, DOWN, now), true);
+  assert.equal(fixBelongsTo(b, DOWN, now), false, "b går mot Festøya: ikkje 10:00-turen");
+  assert.equal(fixBelongsTo(b, UP, now), true);
+  assert.equal(fixBelongsTo(a, UP, now), false);
+  // Framdrifta for kvar tur kjem frå si eiga ferje, same kva ferje som sende sist.
+  const down = crossingView({ leg: DOWN, fixes: [b, a], nowMs: now });
+  const up = crossingView({ leg: UP, fixes: [a, b], nowMs: now });
+  assert.equal(down.source, "ais");
+  assert.ok(Math.abs(down.progress - 0.6) < 0.02, `ned ${down.progress}`);
+  assert.ok(Math.abs(up.progress - 0.6) < 0.02, `opp ${up.progress} (b er 40 % frå Festøya, altså 60 % frå Solavågen)`);
+});
+
+test("to ferjer om kvarandre: ei ferje som ventar ved endekaia før turen har rekt fram, høyrer til neste tur derifrå", () => {
+  const now = oslo(10, 8);
+  const waiting = ferry(257090550, 1, now - 5000, { sog: 0, cog: null }); // ved Solavågen, venter på 10:05-avgangen
+  assert.equal(fixBelongsTo(waiting, DOWN, now), false, "10:00-turen er ikkje framme (10:20)");
+  assert.equal(fixBelongsTo(waiting, UP, now), true, "men ho står ved startkaien til 10:05-turen");
+  const arrived = ferry(257090550, 1, oslo(10, 19), { sog: 0, cog: null });
+  assert.equal(fixBelongsTo(arrived, DOWN, oslo(10, 19, 10)), true, "ved endekaia når turen er framme");
+  // Entur-posisjon med tur-id er uendra: tur-id avgjer.
+  const entur = { source: "entur", journeyRef: "MOR:ServiceJourney:1069_1_x", latitude: fest(0.5).latitude, longitude: fest(0.5).longitude, at: now, speedKn: null };
+  assert.equal(fixBelongsTo(entur, DOWN, now), true);
+  assert.equal(fixBelongsTo(entur, UP, now), false);
+});
+
+test("ei tredje ferje langt unna (1069) gjer ikkje turen til «utanfor ruta» når ei anna ferje har turen", () => {
+  const now = oslo(10, 12);
+  const a = ferry(257090560, 0.6, now - 20000, { cog: headingTo(F, SOL) });
+  const idle = fixFromAis({ mmsi: 258220500, latitude: 62.47, longitude: 6.15, sog: 0, cog: null, timestamp: now - 5000 });
+  const view = crossingView({ leg: DOWN, fixes: [a, idle], nowMs: now });
+  assert.equal(view.source, "ais");
+  assert.ok(Math.abs(view.progress - 0.6) < 0.02);
+  assert.notEqual(view.state, "outside");
+  // Utan ferje på turen er det framleis den siste AIS-posisjonen som blir vist som utanfor ruta.
+  assert.equal(crossingView({ leg: DOWN, fixes: [idle], nowMs: now }).state, "outside");
 });

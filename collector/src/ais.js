@@ -21,11 +21,13 @@ export const AIS_SSE_URL = "https://live.ais.barentswatch.no/v1/sse/combined";
 /**
  * MMSI:linje. M/F Kvernes (1136), M/F Geiranger (1135), M/F Dryna (1049).
  * Dryna (258408000) er verifisert mot BarentsWatch (10. okt. 2026: «DRYNA», ved Hundeidvik kai).
- * 1069 Festøya–Solavågen er med vilje ikkje her: tre ferjer (Festøya 257090560, Solavågen 257090550, Tidefjord
- * 258220500, alle sett på AIS 10. okt.) går om kvarandre, og appen kan ikkje knyte ein AIS-posisjon til ein tur enno.
+ * 1069 Festøya–Solavågen har tre ferjer som går om kvarandre: Festøya 257090560, Solavågen 257090550 og Tidefjord 258220500
+ * (alle sett på AIS 10. okt.). Fleire MMSI per linje er greitt: workeren lagrar éin rad per fartøy og gjev alle i `aisAll`,
+ * og appen vel ferje per tur etter tid, strekning og kurs (core fixBelongsTo).
  * Bytt fartøy utan kodeendring med FERGERUTER_AIS_MMSI i collector.env.
  */
-export const DEFAULT_AIS_MMSI = "257297400:1136,257262400:1135,258408000:1049";
+export const DEFAULT_AIS_MMSI =
+  "257297400:1136,257262400:1135,258408000:1049,257090560:1069,257090550:1069,258220500:1069";
 
 export const AIS_RECONNECT_START_MS = 15000;
 export const AIS_RECONNECT_MAX_MS = 15 * 60 * 1000;

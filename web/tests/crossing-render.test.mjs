@@ -278,9 +278,12 @@ const S = () => core.QUAY_COORDS.Standal;
 function aisEntry(f, ageMs, { line = "1136", mmsi = 257297400, sog = 10 } = {}) {
   const a = T();
   const b = S();
+  // Kursen følgjer turen (Trandal → Standal): AIS med kurs motsett veg høyrer ikkje til turen (fixBelongsTo).
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const cog = ((Math.atan2(Math.sin(toRad(b.longitude - a.longitude)) * Math.cos(toRad(b.latitude)), Math.cos(toRad(a.latitude)) * Math.sin(toRad(b.latitude)) - Math.sin(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.cos(toRad(b.longitude - a.longitude))) * 180) / Math.PI + 360) % 360;
   const fix = core.fixFromAis({
     mmsi, latitude: a.latitude + (b.latitude - a.latitude) * f, longitude: a.longitude + (b.longitude - a.longitude) * f,
-    sog, cog: 90, navStatus: 0, timestamp: FIXED - ageMs,
+    sog, cog, navStatus: 0, timestamp: FIXED - ageMs,
   });
   return { line, fix };
 }
