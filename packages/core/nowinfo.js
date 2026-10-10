@@ -1,21 +1,21 @@
 /**
- * Teksten i «No»-raden: kvar ferja er, når neste (eller fyrste) tur går og kor lenge det er til,
- * kor lang overfarta er, og turen etter. Rein logikk utan DOM; alle tal kjem frå rutetabellen
- * (tidene på turane) og frå klokka, ingenting er funne på.
+ * Teksten i «No»-raden og «første tur»-setninga i statuslinja. Rein logikk utan DOM; alle tal kjem frå
+ * rutetabellen (tidene på turane) og frå klokka, ingenting er funne på.
  *
- * Linjene (`kind`):
+ * Éi setning om neste avgang, i statuslinja (model/header.js): «Neste avgang 12:15 frå X, om 1 t 56 min · på signal,
+ * ring innan 09:15». Når dagen er slutt er det «Første tur i morgon 07:40 frå X, om 8 t 47 min» (`first`).
+ * «No»-raden gjentek ikkje det som står i statuslinja eller i tidslinja; ho har berre:
  *   place      kvar ferja er (same utleiing som statuslinja: AIS > Entur > rutetabell)
  *   cancelled  ein komande avgang i dag er avlyst
- *   next       neste avgang (eller fyrste tur i dag/i morgon/seinare), med nedteljing
- *   trip       «Overfarta tek 10 min, framme 06:50» for turen i `next`
- *   then       turen etter
- * På overfart: `place` (på veg mot …) og `then` (turen som går etter ankomst).
+ *   scheduled  tabellen seier overfart, men ferja ligg ved kai (forseinka)
+ *   trip       «Overfarta tek 10 min, framme 06:50», berre når ankomsttida ikkje alt står på avgangsrada
  */
 import { t } from "../../assets/i18n.js?v=84";
 import { clockMs } from "./crossing.js?v=84";
 import { isVisibleDeparture } from "./status.js?v=84";
-import { clockMinutes, durationText, formatDay, fromOsloWall, hhmm, shiftIso } from "./time.js?v=84";
-import { isCancelledDeparture } from "./tripstatus.js?v=84";
+import { clockMinutes, durationText, formatDay, fromOsloWall, hhmm, minutesToClock, nowMinutes, shiftIso } from "./time.js?v=84";
+import { bookingDeadline } from "./signal.js?v=84";
+import { isCancelledDeparture, tripStatus } from "./tripstatus.js?v=84";
 
 /** Lenger fram enn dette (timar) seier vi ikkje «om N t». */
 const COUNTDOWN_MAX_HOURS = 36;
@@ -56,15 +56,42 @@ function tripLine(leg) {
   return { kind: "trip", text: t("now.tripTakes", { duration: durationText(minutes), time: hhmm(leg.arrival) }) };
 }
 
-function thenLine(leg) {
-  return leg ? { kind: "then", text: t("now.then", { time: hhmm(leg.departure), from: leg.from }) } : null;
+/**
+ * «på signal»-merket til ei avgang: med fristen når han gjeld («ring innan 09:15»), «fristen er ute» etter han,
+ * og «bestilt» når Entur viser at turen er tinga. Same reglar som signalnotatet på avgangsrada.
+ * @param {{ today?: boolean, booked?: boolean, now?: number }} [opts] `today`: avgangen går i dag (fristen kan vere ute); `now`: minutt sidan midnatt
+ */
+export function onRequestTag(leg, { today = false, booked = false, now = nowMinutes() } = {}) {
+  if (!leg?.signal) return "";
+  if (booked) return t("now.onRequestBooked");
+  const deadline = bookingDeadline(leg);
+  if (!Number.isFinite(deadline)) return t("now.onRequest");
+  const time = minutesToClock(deadline);
+  if (today && now >= deadline && now < clockMinutes(leg.departure)) return t("now.onRequestLate");
+  return t("now.onRequestBy", { time });
 }
 
-function nextLine(leg, headKey, params, ms, nowMs) {
+/**
+ * Neste avgang ferja faktisk kan ta. Ein signaltur der fristen er ute og ingen bestilling er sett (`tripStatus` «unknown»)
+ * går truleg ikkje, og ferja skal ikkje «flytte seg» til han (t.d. frå Standal til Valderøya for ein tur som ikkje er
+ * bestilt). Då er neste avgang neste tur som går etter tabellen, t.d. 16:05 frå Standal. Finst ingen slik tur att i dag,
+ * blir den første av dei utgåtte signalturane stå (med «fristen er ute»), så vi ikkje seier «første tur i morgon» om det
+ * ikkje er sant. Open eller bestilt signaltur, og vanlege turar, gjeld som før.
+ * @param {object[]} upcoming  komande turar i dag (framleis i `running`), sorterte
+ * @param {number} now  minutt sidan midnatt (Oslo)
+ */
+export function pickNextDeparture(upcoming, ev, now) {
+  const list = upcoming || [];
+  const expired = (leg) => Boolean(leg.signal) && tripStatus(leg, ev, now).kind === "unknown";
+  return list.find((leg) => !expired(leg)) || list[0] || null;
+}
+
+/** «Første tur i morgon 07:40 frå X, om 8 t 47 min · på signal, ring innan 05:40» */
+function firstLine(leg, headKey, params, ms, nowMs) {
   const base = t(headKey, { ...params, time: hhmm(leg.departure), from: leg.from });
   const left = countdownText(ms, nowMs);
-  const tag = leg.signal ? t("now.onRequest") : "";
-  return { kind: "next", text: [base, left].filter(Boolean).join(", ") + (tag ? ` · ${tag}` : "") };
+  const tag = onRequestTag(leg);
+  return [base, left].filter(Boolean).join(", ") + (tag ? ` · ${tag}` : "");
 }
 
 /**
@@ -76,39 +103,34 @@ function nextLine(leg, headKey, params, ms, nowMs) {
  * @param {number} p.nowMs
  * @param {string} p.today        ISO-dato i dag (Oslo)
  * @param {(iso: string) => object[]} p.legsOn  turane ein annan dag (legsForDate)
- * @returns {{ lines: {kind: string, text: string}[] }}
+ * @param {boolean} [p.arrivalShown]  ankomsttida står på avgangsrada i tidslinja (ankomstar på, ingen frå/til-filter)
+ * @returns {{ lines: {kind: string, text: string}[], first: string|null }}
+ *   `first`: setninga om første tur når dagen er slutt (til statuslinja), elles null
  */
-export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn }) {
+export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arrivalShown = false }) {
   const lines = [];
   let place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
   // status.atQuay: fersk AIS ved kai (statusFromPosition). Då seier raden «ligg til kai på X» òg når tabellen seier «ferdig for dagen».
   if (status?.atQuay && !status.underway) place = t("status.mooredAt", { quay: status.atQuay });
   if (place) lines.push({ kind: "place", text: place });
-  // Utanfor ruta (AIS): ingen neste avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
-  if (status?.outside) return { lines };
+  // Utanfor ruta (AIS): ingen avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
+  if (status?.outside) return { lines, first: null };
   const ran = visible(running);
   const current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;
-  const after = (leg) => ran.find((item) => item !== leg && clockMs(item.departure, nowMs) >= clockMs(leg.arrival || leg.departure, nowMs) - 1000) || null;
-
-  if (current && status?.underway) {
-    // På overfart: kor ferja skal, og turen som går etter ankomst. Framdrift og «framme om N min» står i overfartslinja.
-    const then = thenLine(after(current));
-    // Siste tur i dag: seg kva som kjem etterpå (fyrste tur neste driftsdag), utan nedteljing.
-    if (then) lines.push(then);
-    else lines.push(...nextDayLines(legsOn, today, nowMs, false));
-    return { lines };
-  }
+  // På overfart står framdrift og «framme om N min» i overfartslinja, og neste avgang i statuslinja.
+  if (current && status?.underway) return { lines, first: null };
+  const trip = (leg) => {
+    const line = arrivalShown ? null : tripLine(leg);
+    if (line) lines.push(line);
+  };
   if (current) {
     // Rutetabellen seier overfart, men ferja ligg ved kai (AIS): turen er forseinka, ikkje vist som overfart.
-    lines.push({ kind: "next", text: t("now.scheduled", { time: hhmm(current.departure), from: current.from }) });
-    const trip = tripLine(current);
-    if (trip) lines.push(trip);
-    const then = thenLine(after(current));
-    if (then) lines.push(then);
-    return { lines };
+    lines.push({ kind: "scheduled", text: t("now.scheduled", { time: hhmm(current.departure), from: current.from }) });
+    trip(current);
+    return { lines, first: null };
   }
 
-  const upcoming = ran.find((leg) => clockMs(leg.departure, nowMs) > nowMs) || null;
+  const upcoming = pickNextDeparture(ran.filter((leg) => clockMs(leg.departure, nowMs) > nowMs), ev, nowMinutes(nowMs));
   const cancelled = visible(legs).find(
     (leg) => clockMs(leg.departure, nowMs) > nowMs && !ran.includes(leg) && isCancelledDeparture(leg, ev)
   );
@@ -116,37 +138,22 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn }) {
     lines.push({ kind: "cancelled", text: t("now.cancelled", { time: hhmm(cancelled.departure), from: cancelled.from }) });
   }
   if (upcoming) {
-    const earlier = ran.some((leg) => clockMs(leg.departure, nowMs) <= nowMs);
-    lines.push(nextLine(upcoming, earlier ? "now.nextToday" : "now.firstToday", {}, clockMs(upcoming.departure, nowMs), nowMs));
-    const trip = tripLine(upcoming);
-    if (trip) lines.push(trip);
-    const then = thenLine(after(upcoming));
-    if (then) lines.push(then);
-    return { lines };
+    trip(upcoming);
+    return { lines, first: null };
   }
 
-  // Dagen er slutt: fyrste tur neste driftsdag (i morgon, elles dagen det går tur).
-  lines.push(...nextDayLines(legsOn, today, nowMs, true));
-  return { lines };
-}
-
-/** Fyrste tur ein seinare dag: avgang med nedteljing, overfartstid og turen etter (`full` av: berre avgangen utan nedteljing). */
-function nextDayLines(legsOn, today, nowMs, full) {
+  // Dagen er slutt: fyrste tur neste driftsdag (i morgon, elles dagen det går tur). Han står ikkje i tidslinja, så
+  // overfartstida står her.
   for (let ahead = 1; ahead <= LOOKAHEAD_DAYS; ahead += 1) {
     const iso = shiftIso(today, ahead);
     const day = visible(legsOn(iso));
     if (!day.length) continue;
     const first = day[0];
-    const ms = departureMs(iso, first.departure);
     const head = ahead === 1 ? "now.firstTomorrow" : "now.firstDay";
-    const line = nextLine(first, head, { day: ahead === 1 ? "" : formatDay(iso) }, full ? ms : null, nowMs);
-    if (!full) return [{ ...line, kind: "then" }];
-    const lines = [line];
-    const trip = tripLine(first);
-    if (trip) lines.push(trip);
-    const then = thenLine(day.find((leg) => leg !== first && clockMinutes(leg.departure) >= clockMinutes(first.arrival || first.departure)));
-    if (then) lines.push(then);
-    return lines;
+    const sentence = firstLine(first, head, { day: ahead === 1 ? "" : formatDay(iso) }, departureMs(iso, first.departure), nowMs);
+    const line = tripLine(first);
+    if (line) lines.push(line);
+    return { lines, first: sentence };
   }
-  return [];
+  return { lines, first: null };
 }

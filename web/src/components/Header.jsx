@@ -44,13 +44,14 @@ const MARK = "\u0000";
 
 /** «Neste avgang 09:45 frå Trandal, om 4:05» med nedteljinga tikkande inne i setninga. */
 function NextDeparture({ next }) {
-  if (!next.departure) return t("lede.nextDeparture", next);
+  if (!next.departure) return next.text || t("lede.nextDeparture", next);
   const [before, after = ""] = t("lede.nextDeparture", { ...next, countdown: MARK }).split(MARK);
   return (
     <>
       {before}
       <Countdown time={next.departure} />
       {after}
+      {next.tag ? ` · ${next.tag}` : null}
     </>
   );
 }
