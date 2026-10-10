@@ -212,9 +212,11 @@ function toRow(event, past, status, { ctx, ev, now, today, showArrivals, index, 
         key: "now",
         past: false,
         text: event.now.text,
-        layover: Boolean(event.now.layover),
+        // Fersk AIS ved kai (atQuay): den vanlege grøne «live»-stilen, utan liggetid-oransje og utan framdriftsfyll. Liggetida
+        // og framdrifta i ho kjem frå rutetabellen (ofte ei anna kai), så dei høyrer ikkje til når AIS har ordet.
+        layover: Boolean(event.now.layover) && !event.now.atQuay,
         underway: Boolean(event.now.underway),
-        progress: statusProgress(event.now.from, event.now.until, now),
+        progress: event.now.atQuay ? null : statusProgress(event.now.from, event.now.until, now),
       };
     default:
       throw new Error(`ukjend hending ${event.kind}`);
