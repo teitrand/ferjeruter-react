@@ -169,8 +169,7 @@ test("tysk: språkknapp, dato og status på tysk", () => {
   const plain = text(html);
   assert.match(plain, /Donnerstag, 8\. Oktober|Donnerstag 8\. Oktober/);
   assert.match(plain, /Unbekannt/);
-  assert.match(html, /<input type="radio" name="lang" checked="" value="de"\/>/, "Deutsch er valt i innstillingane");
-  assert.match(html, /aria-label="Einstellungen"/);
+  assert.match(html, /class="lang-btn is-active" lang="de"[^>]*aria-pressed="true"/);
   assert.doesNotMatch(plain, /Torsdag|Ukjent/);
 });
 
