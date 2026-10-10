@@ -13,7 +13,7 @@
 import { t } from "../../assets/i18n.js?v=84";
 import { clockMinutes, durationText, hhmm, nowMinutes, osloHm } from "./time.js?v=84";
 import { quayPlace, serviceJourneyId } from "./legs.js?v=84";
-import { QUAY_COORDS, QUAY_RADIUS_M, distanceMeters } from "./live.js?v=84";
+import { QUAY_COORDS, QUAY_RADIUS_M, distanceMeters, nearLeg } from "./live.js?v=84";
 
 /** Yngre enn dette: «Live». */
 export const FIX_FRESH_MS = 60 * 1000;
@@ -336,7 +336,8 @@ export function fixBelongsTo(fix, leg, nowMs) {
   if (fix.at < clockMs(leg.departure, nowMs) - FIX_BEFORE_DEPARTURE_MS) return false;
   if (fix.at > clockMs(leg.arrival, nowMs) + FIX_AFTER_ARRIVAL_MS) return false;
   if (fix.at > nowMs + FIX_BEFORE_DEPARTURE_MS) return false;
-  if (fix.journeyRef) return fix.journeyRef === serviceJourneyId(leg.id);
+  // Rett tur-id er ikkje nok: Entur koplar ferja til turen før ho er ved startkaien, så posisjonen må òg liggje på strekninga.
+  if (fix.journeyRef) return fix.journeyRef === serviceJourneyId(leg.id) && nearLeg(fix, leg) !== false;
   return nearRoute(fix, leg);
 }
 

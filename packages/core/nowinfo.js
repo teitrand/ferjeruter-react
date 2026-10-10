@@ -15,6 +15,7 @@ import { clockMs } from "./crossing.js?v=84";
 import { isVisibleDeparture } from "./status.js?v=84";
 import { clockMinutes, durationText, formatDay, fromOsloWall, hhmm, minutesToClock, nowMinutes, shiftIso } from "./time.js?v=84";
 import { bookingDeadline } from "./signal.js?v=84";
+import { quayPlace } from "./legs.js?v=84";
 import { isCancelledDeparture, tripStatus } from "./tripstatus.js?v=84";
 
 /** Lenger fram enn dette (timar) seier vi ikkje «om N t». */
@@ -116,7 +117,10 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
   // Utanfor ruta (AIS): ingen avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
   if (status?.outside) return { lines, first: null };
   const ran = visible(running);
-  const current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;
+  let current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;
+  // AIS seier ferja ligg ved ei anna kai enn turen startar frå (t.d. Standal medan turen går frå Valderøya): ho er på veg
+  // til turen, så «Planlagd avgang» frå ei kai ho ikkje ligg ved vil villeie. Då gjeld det neste turen ho kan ta.
+  if (current && status?.atQuay && quayPlace(current.from) !== quayPlace(status.atQuay)) current = null;
   // På overfart står framdrift og «framme om N min» i overfartslinja, og neste avgang i statuslinja.
   if (current && status?.underway) return { lines, first: null };
   const trip = (leg) => {

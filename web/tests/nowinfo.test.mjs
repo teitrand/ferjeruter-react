@@ -211,3 +211,14 @@ test("forseinka avgang frå kaia ferja ligg ved: «Planlagd avgang» med tida ho
   const result = info(oslo(10, 20, 6), { status: atQuay, legs: day, running: day, today: "2026-10-10", event: fullEv(day) });
   assert.deepEqual(texts(result), ["place: Ferja ligg til kai på Standal", "scheduled: Planlagd avgang 20:00 frå Standal", "trip: Overfarta tek 20 min, framme 20:20"]);
 });
+
+test("AIS ved ei anna kai enn turen startar frå: ingen «Planlagd avgang» frå ei kai ferja ikkje ligg ved", () => {
+  setLang("nn");
+  const day = [sig("Valderøya", "Store Kalvøy", "12:15", "12:35", 180), leg("Standal", "Trandal", "16:05", "16:20")];
+  const atStandal = { short: "Ferja ligg til kai på Standal", atQuay: "Standal" };
+  const result = info(oslo(10, 12, 20), { status: atStandal, legs: day, running: day, today: "2026-10-10", event: fullEv(day) });
+  assert.deepEqual(texts(result), ["place: Ferja ligg til kai på Standal", "trip: Overfarta tek 15 min, framme 16:20"]);
+  // Same kai som turen startar frå: «Planlagd avgang» står som før.
+  const atValderoya = { short: "Ferja ligg til kai på Valderøya", atQuay: "Valderøya" };
+  assert.equal(texts(info(oslo(10, 12, 20), { status: atValderoya, legs: day, running: day, today: "2026-10-10", event: fullEv(day) }))[1], "scheduled: Planlagd avgang 12:15 frå Valderøya");
+});

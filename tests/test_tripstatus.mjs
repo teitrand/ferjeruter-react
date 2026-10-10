@@ -304,3 +304,32 @@ test("tripStatus endrar ikkje bevisa", () => {
   assert.equal(ev.confirmedBooked.size, 0);
   assert.equal(ev.sailedJourneys.size, 0);
 });
+
+// Laurdag 10. okt: Entur koplar ferja til 12:15 Valderøya → Store Kalvøy medan ho ligg ved Standal (flyttar seg til
+// Valderøya). Posisjonen er langt frå startkaien Valderøya, men ikkje på strekninga: turen er ikkje «gått».
+const STANDAL = { latitude: 62.266468, longitude: 6.423213 };
+const VALDEROYA = { latitude: 62.495872, longitude: 6.128569 };
+const KALVOY = { latitude: 62.526923, longitude: 6.20374 };
+const kalvoy = leg("Valderøya", "Store Kalvøy", "12:15:00", "12:35:00", 5);
+
+test("tripStatus: Entur-posisjon ved Standal på 12:15 Valderøya → Store Kalvøy er ikkje «gått» (ferja er på veg til turen)", () => {
+  const live = { validUntil: "2099-01-01T00:00:00Z", recordedAt: "2026-10-08T12:30:00Z", journeyRef: J(5), ...STANDAL };
+  const legs = [kalvoy];
+  for (const at of ["12:04", "12:14", "12:16", "12:20"]) {
+    const status = tripStatus(kalvoy, evidence({ live, dayLegs: legs, dateLegs: legs, clockNow: min(at) }), min(at));
+    assert.equal(status.kind, "unknown", at);
+    assert.equal(status.sailed, false, at);
+    assert.notEqual(departureStateKey(status, { today: true }), "gone", at);
+  }
+});
+
+test("tripStatus: Entur-posisjon på strekninga eller ved startkaien: lagt frå kai berre når ho er på vegen", () => {
+  const legs = [kalvoy];
+  const mid = { latitude: (VALDEROYA.latitude + KALVOY.latitude) / 2, longitude: (VALDEROYA.longitude + KALVOY.longitude) / 2 };
+  const base = { validUntil: "2099-01-01T00:00:00Z", recordedAt: "2026-10-08T12:30:00Z", journeyRef: J(5) };
+  const underway = tripStatus(kalvoy, evidence({ live: { ...base, ...mid }, dayLegs: legs, dateLegs: legs, clockNow: min("12:20") }), min("12:20"));
+  assert.notEqual(underway.kind, "unknown", "midt på strekninga: lagt frå kai");
+  const atQuay = tripStatus(kalvoy, evidence({ live: { ...base, ...VALDEROYA }, dayLegs: legs, dateLegs: legs, clockNow: min("12:20") }), min("12:20"));
+  assert.equal(atQuay.sailed, false, "ved startkaien: ikkje lagt frå");
+  assert.equal(atQuay.kind, "unknown");
+});

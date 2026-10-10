@@ -226,6 +226,21 @@ export function legForLive(legs, live) {
  * Har ferja lagt frå kaien turen startar på?
  * true = lagt frå, false = ligg framleis der, null = veit ikkje.
  */
+/**
+ * Er posisjonen på eller nær strekninga til turen (korridoren mellom kaiene)? true/false, null når vi ikkje har koordinatar.
+ * Ei ferje som ligg langt unna strekninga (t.d. ved Standal medan turen går Valderøya → Store Kalvøy) er på veg til
+ * turen eller på ein annan tur; ho har ikkje lagt frå kai på denne.
+ */
+export function nearLeg(live, leg) {
+  const from = QUAY_COORDS[quayPlace(leg?.from)];
+  const to = QUAY_COORDS[quayPlace(leg?.to)];
+  const a = distanceToQuay(live, leg?.from);
+  const b = distanceToQuay(live, leg?.to);
+  if (!from || !to || a == null || b == null) return null;
+  const span = distanceMeters(from.latitude, from.longitude, to.latitude, to.longitude);
+  return a + b <= span * 1.6 + 500;
+}
+
 export function leftOrigin(live, leg) {
   if (!live || !leg) return null;
   if (live.actualDeparture) return true;
@@ -234,7 +249,12 @@ export function leftOrigin(live, leg) {
   if (live.atStop === true && stop === origin) return false;
   if (live.atStop === true && stop && stop !== origin) return true;
   const dist = distanceToQuay(live, origin);
-  if (dist != null) return dist > QUAY_RADIUS_M;
+  if (dist != null) {
+    if (dist <= QUAY_RADIUS_M) return false;
+    // Langt frå startkaien er berre «har lagt frå» når posisjonen ligg på strekninga. Elles er ferja på veg til turen
+    // (Entur koplar ho til turen før ho er ved startkaien), og vi veit ikkje.
+    return nearLeg(live, leg) === false ? null : true;
+  }
   if (live.atStop === false && stop && stop !== origin) return true;
   if (live.atStop === true) return false;
   return null;
