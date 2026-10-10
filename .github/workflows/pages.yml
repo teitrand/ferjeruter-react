@@ -1,17 +1,24 @@
 name: Publiser React-skalet til GitHub Pages
 
 # Byggjer web/dist og publiserer via GitHub Pages (kjelde: GitHub Actions).
-# Berre ved push til main og manuelt. Ingen cron.
+# Ved push til main, manuelt og kvar 6. time (frisk rutetabell, ingen commit).
 #
-# Data: produksjonsfilene til fergeruter på teitrand.github.io (CORS: *).
-# ruter.trandal.org/data/ sender 301 utan CORS-hovud, så nettlesaren stoppar det.
+# Data:
+# - Rutetabell (ruter.json) og korrespondanse blir hesta frå Entur kvar bygging med scripts/fetch_*.py, og følgjer med i
+#   byggjet (./data/). Feilar henta, brukar byggjet kopien som ligg i repoet (data/). Dette er det som gjev 1049
+#   (Festøya–Hundeidvik) og seinare samband: produksjonsfilene til fergeruter har berre 1136 og 1135.
+# - Trafikkmeldingar og signallogg kjem framleis frå produksjonsfilene til fergeruter på teitrand.github.io (CORS: *),
+#   i tillegg til signalloggen frå sanntid-workeren. Produksjon og det gamle repoet er uendra.
 #
 # Overstyr utan kodeendring med repo-variablar (Settings → Variables → Actions):
 # - WEB_BASE: «/» når sida skal liggje i rota av eige domene
-# - DATA_BASE: anna adresse for data/*.json
+# - DATA_BASE: anna adresse for rutetabell/kombirute/korrespondanse (standard: ./data/, altså denne repoen)
+# - LIVE_DATA_BASE: anna adresse for trafikkmeldingar og signallogg
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +35,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Frisk data frå Entur. Feil her stoppar ikkje byggjet: kopien i repoet blir brukt.
+      - name: Hent rutetabell frå Entur
+        continue-on-error: true
+        run: python scripts/fetch_ruter.py
+      - name: Hent korrespondanse frå Entur
+        continue-on-error: true
+        run: python scripts/fetch_korrespondanse.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -38,7 +55,8 @@ jobs:
         run: npm run build:web
         env:
           WEB_BASE: ${{ vars.WEB_BASE || '/ferjeruter-react/' }}
-          VITE_DATA_BASE: ${{ vars.DATA_BASE || 'https://teitrand.github.io/fergeruter/data/' }}
+          VITE_DATA_BASE: ${{ vars.DATA_BASE || './data/' }}
+          VITE_LIVE_DATA_BASE: ${{ vars.LIVE_DATA_BASE || 'https://teitrand.github.io/fergeruter/data/' }}
       - name: Last opp
         uses: actions/upload-pages-artifact@v3
         with:
