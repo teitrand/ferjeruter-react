@@ -14,7 +14,8 @@ const json = (path) => JSON.parse(readFileSync(new URL(path, repo), "utf8"));
 const ROUTES = json("tests/fixtures/ruter.json");
 const CONNECTIONS = json("data/korrespondanse.json");
 // Måndag 12. oktober 2026 kl. 10:20 i Oslo (UTC+2): to ferjer går om kvarandre.
-const FIXED = Date.UTC(2026, 9, 12, 8, 20);
+let FIXED = Date.UTC(2026, 9, 12, 8, 20);
+const MONDAY_1020 = FIXED;
 const RealDate = Date;
 
 let server;
@@ -57,7 +58,7 @@ const text = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 test("1069: tittel, overtittel, kortet viser 1069 som valt, ?rute=1069", () => {
   const html = render();
   assert.match(html, /id="route-title">Festøya–Solavågen</);
-  assert.match(html, /class="eyebrow">Rute 1069 · Norled \/ FRAM</);
+  assert.match(html, /class="eyebrow">Rute 1069 · Norled\/Fram</);
   assert.match(text(html.slice(html.indexOf('id="route-card"'), html.indexOf("</button>", html.indexOf('id="route-card"')))), /Valt samband Festøya– ?Solavågen Byt samband/);
   assert.match(html, /role="radio" class="route-row is-selected" aria-checked="true"[^>]*data-route="1069"/);
   assert.doesNotMatch(html, /role="radio" class="route-row is-soon"/, "ingen «Kjem snart» når alle samband har data");
@@ -69,7 +70,7 @@ test("1069: avgangar Festøya↔Solavågen, ingen Hjørundfjord-rader, ingen sig
   const plain = text(html);
   assert.match(plain, /10:40\s+Festøya → Solavågen/);
   assert.match(plain, /10:30\s+Solavågen → Festøya/);
-  assert.match(plain, /Neste avgang 10:30 frå Solavågen/, "statuslinja: neste avgang");
+  assert.match(plain, /Neste avgang 10:30 frå Solavågen · om 10 min/, "statuslinja: neste avgang");
   assert.doesNotMatch(plain, /Ferja er |Ferja ligg|Overfart ca\./, "ingen eiga-ferje-status: «ei ferje», ikkje «ferja»");
   assert.doesNotMatch(html, /Liggetid|Tomtur/i);
   assert.match(plain, /Ankomst 11:00/);
@@ -100,11 +101,11 @@ test("1069: fotnote og botn utan ferjetelefon og utan éi namngjeven ferje (tre 
 
 test("1069: engelsk og tysk (tittel, overtittel, botn)", () => {
   const en = render({ lang: "en" });
-  assert.match(en, /class="eyebrow">Route 1069 · Norled \/ FRAM</);
+  assert.match(en, /class="eyebrow">Route 1069 · Norled\/Fram</);
   assert.match(en, /id="route-title">Festøya–Solavågen</);
   assert.match(text(en), /Operator Norled\. Route owner FRAM\./);
   const de = render({ lang: "de" });
-  assert.match(de, /class="eyebrow">Linie 1069 · Norled \/ FRAM</);
+  assert.match(de, /class="eyebrow">Linie 1069 · Norled\/Fram</);
   assert.match(text(de), /Betreiber Norled\. Auftraggeber FRAM\./);
 });
 
@@ -128,9 +129,13 @@ test("1069: meldingspanelet viser 1069-meldinga, og ho flyttar ikkje sambandet",
   assert.match(html, /id="route-title">Festøya–Solavågen</);
 });
 
-// --- «No»-kortet med fleire ferjer: AIS per fartøy (aisAll), ferje vald per tur ---
+// --- Ferjelista (ei tekstrad per ferje, ingen teikning): AIS per fartøy ---
 
-const nowArea = (html) => html.match(/<section class="na [^>]*>.*?<\/section>/s)?.[0] || "";
+const lede = (html) => text((html.match(/id="lede-status">(.*?)<\/p>/s)?.[1] || "").replace(/<span class="visually-hidden">.*?<\/span>/g, "")).replace(/ \./g, ".");
+const ferryList = (html) => html.match(/<ul class="ferries-list"[^>]*>.*?<\/ul>/s)?.[0] || "";
+const rowsOf = (html) => [...ferryList(html).matchAll(/<li class="ferry-row[^>]*>(.*?)<\/li>/gs)].map((m) => m[1]);
+const sr = (row) => row.match(/<span class="visually-hidden">(.*?)<\/span>/s)?.[1] || "";
+const visible = (row) => text(row.match(/<span class="ferry-body"[^>]*>(.*)<\/span>$/s)?.[1] || "").trim();
 const F = QUAY_COORDS.Festøya;
 const S = QUAY_COORDS.Solavågen;
 const bearing = (a, b) => {
@@ -140,10 +145,11 @@ const bearing = (a, b) => {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 };
 /** AIS-posisjon `f` (0..1) frå `a` mot `b`, kurs mot `b`, `ageMs` gammal. */
-const ais = (mmsi, a, b, f, { ageMs = 8000, sog = 9 } = {}) => ({
+const ais = (mmsi, name, a, b, f, { ageMs = 8000, sog = 9 } = {}) => ({
   line: "1069",
   fix: fixFromAis({
     mmsi,
+    name,
     latitude: a.latitude + (b.latitude - a.latitude) * f,
     longitude: a.longitude + (b.longitude - a.longitude) * f,
     sog,
@@ -155,52 +161,100 @@ const ais = (mmsi, a, b, f, { ageMs = 8000, sog = 9 } = {}) => ({
 const TIDEFJORD = 258220500;
 const FESTOYA = 257090560;
 const SOLAVAGEN = 257090550;
+const THREE = () => [
+  ais(SOLAVAGEN, "SOLAVAGEN", F, S, 0.5), // på veg mot Solavågen, neste avgang derifrå 10:30
+  ais(FESTOYA, "FESTOYA", F, F, 0, { sog: 0, ageMs: 20000 }), // ligg ved Festøya, neste avgang derifrå 10:20
+  ais(TIDEFJORD, "TIDEFJORD", F, F, 0, { sog: 0, ageMs: 20 * 60000 }), // ingen melding på 20 min
+];
 
-test("1069 «No»-kort utan AIS: «Ei ferje … Truleg på veg», berekna frå rutetabellen, aldri «Ferja»", () => {
+test("1069 ferjelista utan AIS: éi rad «Truleg på veg», berekna frå rutetabellen, ingen teikning eller «No»-kort", () => {
   const html = render();
-  const card = text(nowArea(html));
-  assert.match(card, /Truleg på veg mot (Festøya|Solavågen)/);
-  assert.match(card, /Berekna frå rutetabellen/);
-  assert.doesNotMatch(card, /Utanfor ruta|Ferja er |Ferja ligg/);
-  assert.match(text(html.match(/id="lede-status">.*?<\/p>/s)[0]), /Ei ferje er på veg mot (Festøya|Solavågen)\. Neste avgang/);
-  assert.match(html, /<div class="timeline-now"><section class="na /, "kortet står som punkt på tidslinja, ved turen som går");
+  const rows = rowsOf(html);
+  assert.equal(rows.length, 1);
+  assert.match(visible(rows[0]), /Truleg på veg mot (Festøya|Solavågen)/);
+  assert.match(visible(rows[0]), /Berekna frå rutetabellen/);
+  assert.match(html, /<ul class="ferries-list" aria-label="Ferjer">/);
+  assert.doesNotMatch(html, /<section class="na |class="timeline-now"|class="na-ferry|<svg class="na-/, "ingen ferjeteikning eller linje");
+  assert.doesNotMatch(lede(html), /Ferja |Ei ferje/);
 });
 
-test("1069 «No»-kort med AIS: ferja som går mot Solavågen vert vald per tur (kurs), med fart og «Live frå AIS»", () => {
-  // Solavågen→Festøya (10:10) står først i lista, men det er ferja mot Solavågen vi har måling for.
-  const html = render({ initialSanntid: { entries: [ais(SOLAVAGEN, F, S, 0.5), ais(TIDEFJORD, F, F, 0, { sog: 0 })] } });
-  const card = text(nowArea(html));
-  assert.match(card, /På veg mot Solavågen/);
-  assert.match(card, /9 knop/);
-  assert.match(card, /Live frå AIS · 8 s/);
-  assert.doesNotMatch(card, /Berekna frå rutetabellen|Utanfor ruta/);
-  assert.match(text(html.match(/id="lede-status">.*?<\/p>/s)[0]), /Ei ferje er på veg mot Solavågen/);
+test("1069 ferjelista: éi rad per ferje, namn frå AIS, fart og kjeldemerke, ferja med neste avgang fyrst", () => {
+  const html = render({ initialSanntid: { entries: THREE() } });
+  const rows = rowsOf(html);
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows.map((row) => visible(row).split(" · ")[0]), ["Festøya", "Solavågen", "Tidefjord"], "10:20 frå Festøya, 10:30 frå Solavågen, ukjend sist");
+  assert.match(visible(rows[0]), /^Festøya · ligg til kai på Festøya Live frå AIS · 20 s$/);
+  assert.match(visible(rows[1]), /^Solavågen · Festøya mot Solavågen · 9 knop Live frå AIS · 8 s$/);
+  assert.match(visible(rows[2]), /^Tidefjord · Ukjent · ingen sanntid sidan 10:00 Siste kjende · 20 min sidan$/);
+  assert.match(rows[2], /data-state="unknown"/);
+  // Éi kort setning per rad til skjermlesar; synleg tekst er aria-hidden; ingen aria-live på radene.
+  assert.equal(sr(rows[1]), "Solavågen: Festøya mot Solavågen, 9 knop. Målt med AIS for under eitt minutt sidan.");
+  assert.equal(sr(rows[0]), "Festøya: ligg til kai på Festøya. Målt med AIS for under eitt minutt sidan.");
+  assert.doesNotMatch(ferryList(html), /aria-live|role="status"/);
+  assert.match(rows[1], /<span class="ferry-body" aria-hidden="true">/);
+  assert.doesNotMatch(html, /<section class="na |class="timeline-now"/);
 });
 
-test("1069 «No»-kort: ferja mot Festøya vert vald når berre ho er målt, og ei tredje ferje langt unna gjer ikkje «Utanfor ruta»", () => {
-  const far = { latitude: 62.55, longitude: 6.1 };
-  const html = render({
-    initialSanntid: { entries: [ais(FESTOYA, S, F, 0.4, { sog: 8 }), { line: "1069", fix: fixFromAis({ mmsi: TIDEFJORD, ...far, sog: 0, cog: null, navStatus: 5, timestamp: FIXED - 5000 }) }] },
-  });
-  const card = text(nowArea(html));
-  assert.match(card, /På veg mot Festøya/);
-  assert.match(card, /8 knop/);
-  assert.doesNotMatch(card, /Utanfor ruta/);
-  // Berre ei ferje langt unna og ingen på turen: berekna frå rutetabellen, ikkje «utanfor ruta».
-  const lone = render({ initialSanntid: { entries: [{ line: "1069", fix: fixFromAis({ mmsi: TIDEFJORD, ...far, sog: 0, cog: null, navStatus: 5, timestamp: FIXED - 5000 }) }] } });
-  assert.doesNotMatch(text(nowArea(lone)), /Utanfor ruta/);
-  assert.match(text(nowArea(lone)), /Truleg på veg/);
+test("1069 ferjelista: ei ferje langt unna er «utanfor ruta», ikkje del av ein tur", () => {
+  const far = { line: "1069", fix: fixFromAis({ mmsi: TIDEFJORD, name: "TIDEFJORD", latitude: 62.55, longitude: 6.1, sog: 0, cog: null, navStatus: 5, timestamp: FIXED - 5000 }) };
+  const rows = rowsOf(render({ initialSanntid: { entries: [ais(FESTOYA, "FESTOYA", S, F, 0.4, { sog: 8 }), far] } }));
+  assert.match(visible(rows[0]), /^Festøya · Solavågen mot Festøya · 8 knop/);
+  assert.match(visible(rows[1]), /^Tidefjord · utanfor ruta/);
 });
 
-test("1069 «No»-kort: engelsk og tysk", () => {
-  const entries = [ais(SOLAVAGEN, F, S, 0.5)];
-  const en = text(nowArea(render({ lang: "en", initialSanntid: { entries } })));
-  assert.match(en, /Heading to Solavågen/);
-  assert.match(en, /9 knots/);
-  assert.match(en, /Live from AIS · 8 s/);
-  assert.match(text(render({ lang: "en", initialSanntid: { entries } }).match(/id="lede-status">.*?<\/p>/s)[0]), /A ferry is heading to Solavågen/);
-  const de = text(nowArea(render({ lang: "de", initialSanntid: { entries } })));
-  assert.match(de, /Unterwegs nach Solavågen/);
-  assert.match(de, /9 Knoten/);
-  assert.match(text(render({ lang: "de", initialSanntid: { entries } }).match(/id="lede-status">.*?<\/p>/s)[0]), /Eine Fähre ist unterwegs nach Solavågen/);
+test("1069 ferjelista: engelsk og tysk", () => {
+  const entries = THREE();
+  const en = rowsOf(render({ lang: "en", initialSanntid: { entries } }));
+  assert.match(visible(en[0]), /^Festøya · at the quay at Festøya Live from AIS · 20 s$/);
+  assert.match(visible(en[1]), /^Solavågen · Festøya towards Solavågen · 9 knots Live from AIS · 8 s$/);
+  assert.match(sr(en[1]), /^Solavågen: Festøya towards Solavågen, 9 knots\. Measured with AIS under one minute ago\.$/);
+  assert.match(render({ lang: "en", initialSanntid: { entries } }), /<ul class="ferries-list" aria-label="Ferries">/);
+  const de = rowsOf(render({ lang: "de", initialSanntid: { entries } }));
+  assert.match(visible(de[0]), /^Festøya · liegt am Kai in Festøya /);
+  assert.match(visible(de[1]), /^Solavågen · Festøya Richtung Solavågen · 9 Knoten /);
+  assert.match(sr(de[1]), /Mit AIS gemessen vor unter einer Minute\.$/);
+  assert.match(render({ lang: "de", initialSanntid: { entries } }), /aria-label="Fähren"/);
+});
+
+// --- 1069 går heile døgnet: aldri «ferdig for dagen» / «Første tur i morgon», lista held fram over midnatt ---
+
+function atOslo(hour, minute, fn) {
+  const before = FIXED;
+  FIXED = Date.UTC(2026, 9, 10, hour - 2, minute); // laurdag 10. oktober 2026 (UTC+2)
+  try {
+    return fn();
+  } finally {
+    FIXED = before;
+  }
+}
+
+test("1069 kl. 23:44: «Neste avgang 00:10 frå Festøya · om 26 min», aldri «Første tur i morgon», og lista held fram etter midnatt", () => {
+  const html = atOslo(23, 44, () => render());
+  const status = lede(html);
+  assert.match(status, /^Neste avgang 00:10 frå Festøya · om 26 min\./);
+  assert.doesNotMatch(status, /Første tur|ferdig for dagen|i morgon/i);
+  assert.match(html, /<span class="visually-hidden">om 26 minutt<\/span>/);
+  const plain = text(html.slice(html.indexOf('class="timeline"')));
+  assert.match(plain, /søndag 11\. oktober/);
+  assert.match(plain, /00:10\s+Festøya → Solavågen/);
+  assert.match(plain, /00:40\s+Solavågen → Festøya/);
+  assert.equal([...html.matchAll(/class="timeline-dayhead"/g)].length, 1);
+  assert.equal([...html.matchAll(/class="stop stop-dep(?! is-past)/g)].length, 6, "dei seks første avgangane i morgon");
+  assert.doesNotMatch(text(html), /Ingen turar/);
+});
+
+test("1069 kl. 23:55 og kl. 00:05: neste avgang er alltid med, òg over midnatt (engelsk og tysk)", () => {
+  assert.match(lede(atOslo(23, 55, () => render())), /^Neste avgang 00:10 frå Festøya · om 15 min\./);
+  assert.match(lede(atOslo(23, 55, () => render({ lang: "en" }))), /^Next departure 00:10 from Festøya · in 15 min\./);
+  assert.match(lede(atOslo(23, 55, () => render({ lang: "de" }))), /^Nächste Abfahrt 00:10 von Festøya · in 15 Min\./);
+  assert.match(lede(atOslo(0, 5, () => render())), /^Neste avgang 00:10 frå Festøya · om 5 min\./);
+  // Ved kl. 20:00 er det nok avgangar att i dag: ingen skjøyting til i morgon.
+  const early = atOslo(20, 0, () => render());
+  assert.doesNotMatch(early, /class="timeline-dayhead"/);
+});
+
+test("andre samband enn 1069 held på «Første tur i morgon» om natta (dei sluttar om kvelden)", () => {
+  const html = atOslo(23, 44, () => render({ routeChoice: "1136" }));
+  assert.match(lede(html), /Første tur i morgon \d\d:\d\d frå Standal/);
+  assert.doesNotMatch(html, /class="timeline-dayhead"/);
 });

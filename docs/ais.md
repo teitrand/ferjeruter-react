@@ -18,10 +18,11 @@ alle i `lines["1069"].aisAll` (éin visning per fartøy, eldste fyrst); `ais` er
 gammal worker) og tek alle fartøy med. Kva ferje som høyrer til kva tur, avgjer core `fixBelongsTo`: tid rundt rutetida, på strekninga,
 og for AIS utan tur-id òg kurs (`headingTowards`: kurs mot startkaien er motsett tur) og kai (ei ferje som står stille ved endekaia før
 turen har rekt fram, ventar på neste avgang derifrå). Ei ferje langt unna gjer ikkje ein tur til «utanfor ruta» når ei anna ferje har turen.
-«No»-kortet for 1069 (`multiFerryNow` i `web/src/model/crossing.js`): ingen «ferja ligg ved kai»-status, berre «Ei ferje er på veg mot X» for turen som går
-no. Går fleire turar samtidig, tek vi turen med målt AIS (ferja i fart på strekninga går føre ei som ligg parkert ved kaia), så den som kjem
-fyrst fram. Utan måling er det «Truleg på veg», berekna frå rutetabellen. Posisjonen blir aldri «utanfor ruta» for 1069.
-Ingen tur i gang gjev ikkje noko kort, berre neste avgang.
+Ferjelista for 1069 (`web/src/model/ferries.js`, `FerryList`): éi tekstrad per ferje (ikkje «No»-kort, ingen teikning), `<ul aria-label="Ferjer">`.
+Kvar rad kjem frå AIS-posisjonen til ferja: «Tidefjord · Festøya mot Solavågen · 9 knop» (retning frå kurs, `headingTowards`), «ligg til kai på
+Festøya» (`fixAtQuay`), «utanfor ruta», «står stille» eller «Ukjent · ingen sanntid sidan hh:mm» (grå, stipla). Kjeldemerke som elles: Live frå AIS /
+Siste kjende / Berekna. Namna kjem frå MMSI (Festøya, Solavågen, Tidefjord). Ferja med neste avgang kjem fyrst (avgang frå kaia ho ligg ved eller
+er på veg til). Utan ei einaste måling er det éi rad «Truleg på veg mot X», berekna frå rutetabellen. Éi setning per rad til skjermlesar, ingen live-region.
 
 ## Kjelder vi har sett på (9. okt. 2026)
 

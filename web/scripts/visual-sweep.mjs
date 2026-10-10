@@ -154,12 +154,17 @@ async function sweep(combo, { quick = false } = {}) {
     await shot(page, `na-${name}`);
     await ctx.close();
   }
-  // Sida: topp (språk- og temarad), heile, meldingar, ark, dialogar, botn
+  // Sida: topp (tannhjul), innstillingar, heile, meldingar, ark, dialogar, botn
   const { page, ctx } = await load(PAGE_STATE, combo);
   await check(`${tag} sida`, await audit(page), combo);
   await shot(page, "topp");
   await shot(page, "heile", { fullPage: true });
-  for (const sel of [".lang-switch", ".theme-switch"]) await check(`${tag} ${sel}`, await audit(page, sel), combo);
+  await check(`${tag} toppen`, await audit(page, ".site-header"), combo);
+  // Innstillingar: tannhjulet øvst til høgre opnar språk og tema
+  await page.click(".settings-btn"); await page.waitForTimeout(250);
+  await check(`${tag} innstillingar`, await audit(page, "#settings-dialog"), combo);
+  await shot(page, "innstillingar");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
   const bar = page.locator(".messages-bar");
   if (await bar.count()) {
     await bar.first().click(); await page.waitForTimeout(250);

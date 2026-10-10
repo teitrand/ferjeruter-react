@@ -18,6 +18,10 @@ To samband, éi ferje om gongen:
 
 Kaien Lekneset hos Entur blir normalisert til Leknes.
 
+**Nedteljinga** («Neste avgang 21:50 frå Standal · om 12 min») er éi setning, aldri m:ss: frå ein time «om 3 t 18 min» (heile timar «om 2 t»), 1–59 min «om 12 min», under eitt minutt «om under 1 min». Minutta er rundt ned, med hardt mellomrom mellom tal og eining; skjermlesaren får fulle ord («om 3 timar og 18 minutt»), som endrar seg berre kvart minutt (`countdownParts`).
+
+**1069 går heile døgnet.** Statuslinja seier alltid «Neste avgang hh:mm frå X · om N», òg om natta og over midnatt («Neste avgang 00:10 frå Festøya · om 25 min», aldri «Første tur i morgon» eller «ferdig for dagen»); avgangen i morgon blir rekna med `dayAhead`. Turlista for i dag held fram med dei seks første avgangane i morgon (under overskrifta «Søndag 11. oktober») når det er færre enn seks att i dag. Rutetabellen (Entur) har 00:10–23:40 kvar dag, så dataa sluttar ikkje ved midnatt. Dei andre sambanda sluttar om kvelden, og held på «Første tur i morgon …» om natta.
+
 Heimkai er fyrste `from` i dagen, i praksis Standal. Ferja flyttar seg ikkje utan passasjerar mellom kaiene i Hjørundfjorden. Den einaste tomturen er mellom Valderøya/Store Kalvøy og Hjørundfjorden, 120 minutt (AIS, om lag 110–125), deretter ligg ho til kai. Den turen står ikkje i Entur. Etter siste passasjertur på Valderøya eller Store Kalvøy går ho slik heim til Standal. Endar dagen på ein kai i fjorden, ligg ho der.
 
 Ordlyden «utan passasjerar» (statuslinja, «No»-kortet og «Flyttar seg»-rada i tidslinja) blir berre brukt for turar til og frå Valderøya (`isNoPassengerTrip`), der passasjerar ikkje har lov til å vere med. Alle andre turar og flyttingar, også heimturen Trandal → Standal om kvelden (ein avlyst retur som ferja likevel køyrer), får vanleg tekst: «Ferja er på veg mot Standal». Tida for tomturen (120 min) er uendra.

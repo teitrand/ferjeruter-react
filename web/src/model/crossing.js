@@ -6,9 +6,7 @@
 import {
   aisSpeed,
   bestFix,
-  clockMinutes,
   clockMs,
-  crossingView,
   currentStatus,
   fixAtQuay,
   fixBelongsTo,
@@ -17,9 +15,7 @@ import {
   matchCrossingLeg,
   runningLegs,
   statusFromPosition,
-  withSpan,
 } from "../../../packages/core/index.js";
-import { t } from "../components/i18n.js";
 import { statusView } from "./context.js";
 
 function within(leg, nowMs, slackMs) {
@@ -73,26 +69,4 @@ export function liveStatus(status, legs, now, ev, data) {
 export function nowSpeed(data, status, nowMs = Date.now()) {
   if (!status?.underway || status.atQuay || status.outside) return null;
   return aisSpeed(bestFix(positionFixes(data), nowMs), nowMs);
-}
-
-/**
- * Fleire ferjer om kvarandre (1069): ingen «ferja er her»-status, men «ei ferje er på veg mot X» for ein tur som går no.
- * Går fleire turar samtidig, viser vi den ferja vi har måling for (AIS per fartøy, vald per tur i core fixBelongsTo), så den
- * som kjem fyrst fram. Ingen tur i gang → null (då står berre neste avgang). Posisjonen blir aldri «utanfor ruta»: ei ferje
- * som ligg ein annan stad (reserveferja) seier ingenting om denne turen (`multi` i crossing → usePositionState).
- * @returns {{ status: object, live: { crossing: { leg: object, fixes: object[], multi: true }, fixes: object[], pending: boolean } }|null}
- */
-export function multiFerryNow(legs, now, ev, data, nowMs = Date.now()) {
-  const fixes = positionFixes(data);
-  const going = runningLegs(legs, now, ev)
-    .filter((leg) => within(leg, nowMs, 0))
-    .map((leg) => ({ leg, view: crossingView({ leg, fixes, nowMs, allowOutside: false }) }))
-    .filter((item) => !item.view.atQuay)
-    .sort((a, b) => Number(b.view.measured) - Number(a.view.measured) || clockMinutes(a.leg.arrival) - clockMinutes(b.leg.arrival));
-  const leg = going[0]?.leg;
-  if (!leg) return null;
-  const start = clockMinutes(leg.departure);
-  const text = t("status.underwayToOne", { dest: leg.to });
-  const status = withSpan({ at: start + 0.5, underway: true, multi: true, text, short: text }, start, clockMinutes(leg.arrival), now);
-  return { status, live: { crossing: { leg, fixes, multi: true }, fixes, pending: Boolean(data.sanntidPending) } };
 }

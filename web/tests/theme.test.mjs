@@ -19,7 +19,7 @@ const text = (html) => html.replace(/<wbr\/>/g, "").replace(/<[^>]+>/g, " ").rep
 
 let server;
 let App;
-let ThemeSwitch;
+let SettingsDialog;
 let memoryOnly;
 let setLang;
 
@@ -32,7 +32,7 @@ before(async () => {
     appType: "custom",
   });
   ({ App } = await server.ssrLoadModule("/src/App.jsx"));
-  ({ ThemeSwitch } = await server.ssrLoadModule("/src/components/ThemeSwitch.jsx"));
+  ({ SettingsDialog } = await server.ssrLoadModule("/src/components/SettingsDialog.jsx"));
   ({ memoryOnly } = await server.ssrLoadModule("/src/model/context.js"));
   ({ setLang } = await server.ssrLoadModule("/src/components/i18n.js"));
 });
@@ -172,31 +172,52 @@ test("CSS: color-scheme følgjer temaet (skjemafelt, rullefelt), og main.jsx las
   assert.match(read("web/src/main.jsx"), /import "\.\/styles\/theme\.css";/);
 });
 
-test("knappane: merkt gruppe, tre knappar med aria-pressed og synleg tekst (nn/en/de)", () => {
-  const labels = { nn: ["Utsjånad", "Enhet", "Lys", "Mørk"], en: ["Appearance", "Device", "Light", "Dark"], de: ["Darstellung", "Gerät", "Hell", "Dunkel"] };
-  for (const [lang, [group, system, light, dark]] of Object.entries(labels)) {
+const dialogHtml = (pref, lang = "nn") =>
+  renderToString(createElement(SettingsDialog, { open: false, onClose() {}, lang, onLang() {}, themeState: { pref, theme: "dark", setPref() {} } })).replace(/<!-- -->/g, "");
+
+test("innstillingar: språk og tema som ekte radiogrupper, valt val har hake, tekst på nn/en/de", () => {
+  const labels = {
+    nn: ["Innstillingar", "Språk", "Tema", "Enhet", "Lys", "Mørk", "Ferdig"],
+    en: ["Settings", "Language", "Theme", "Device", "Light", "Dark", "Done"],
+    de: ["Einstellungen", "Sprache", "Design", "Gerät", "Hell", "Dunkel", "Fertig"],
+  };
+  for (const [lang, [title, langLegend, themeLegend, system, light, dark, done]] of Object.entries(labels)) {
     setLang(lang);
-    for (const [pref, pressed] of [["system", [true, false, false]], ["light", [false, true, false]], ["dark", [false, false, true]]]) {
-      const html = renderToString(createElement(ThemeSwitch, { pref, theme: "dark", onChange() {} }));
-      assert.match(html, new RegExp(`role="group" aria-label="${group}"`), lang);
-      const buttons = [...html.matchAll(/<button[^>]*>/g)].map((m) => m[0]);
-      assert.equal(buttons.length, 3);
-      assert.deepEqual(buttons.map((b) => /aria-pressed="true"/.test(b)), pressed, `${lang}/${pref}`);
-      assert.ok(buttons.every((b) => /type="button"/.test(b) && /aria-pressed=/.test(b)));
-      assert.equal(text(html).trim(), `${system} ${light} ${dark}`, lang);
+    for (const [pref, checked] of [["system", [true, false, false]], ["light", [false, true, false]], ["dark", [false, false, true]]]) {
+      const html = dialogHtml(pref, lang);
+      assert.match(html, /<dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">/);
+      assert.match(html, new RegExp(`<h2 id="settings-title">${title}</h2>`));
+      assert.match(html, new RegExp(`<legend>${langLegend}</legend>`));
+      assert.match(html, new RegExp(`<legend>${themeLegend}</legend>`));
+      const themeInputs = [...html.matchAll(/<input type="radio" name="theme"[^>]*>/g)].map((m) => m[0]);
+      assert.equal(themeInputs.length, 3);
+      assert.deepEqual(themeInputs.map((input) => /checked=""/.test(input)), checked, `${lang}/${pref}`);
+      const langInputs = [...html.matchAll(/<input type="radio" name="lang"[^>]*>/g)].map((m) => m[0]);
+      assert.deepEqual(langInputs.map((input) => /checked=""/.test(input)), [lang === "nn", lang === "en", lang === "de"]);
+      // Valt val: fylt bakgrunn (is-selected) og hake (ikon), ikkje berre farge.
+      assert.equal((html.match(/class="seg-opt is-selected"/g) || []).length, 2, "eitt valt val per gruppe");
+      assert.equal((html.match(/<svg class="seg-check"/g) || []).length, 2);
+      const plain = text(html);
+      for (const word of [system, light, dark, done]) assert.ok(plain.includes(word), `${lang}: ${word}`);
+      assert.ok(plain.includes("Nynorsk") && plain.includes("English") && plain.includes("Deutsch"));
     }
   }
   setLang("nn");
-  const html = renderToString(createElement(ThemeSwitch, { pref: "system", theme: "dark", onChange() {} }));
-  assert.match(html, /title="Følg eininga \(no: Mørk\)"/, "Enhet viser kva eininga vil ha no");
+  assert.match(dialogHtml("system"), /«Enhet» følgjer innstillinga på telefonen\./);
 });
 
-test("appen: temavalet står i toppen, ved sida av språkvalet, éin gong", () => {
+test("appen: eitt tannhjul (44 px, «Innstillingar», aria-haspopup=dialog), ingen seks knappar, ingen merkeikon eller stripe", () => {
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog: null, connections: null };
   const initialState = { routeChoice: "1136", lang: "nn", override: null, date: null, showPast: true };
   const html = renderToString(createElement(App, { initialData, initialState, memory: memoryOnly() })).replace(/<!-- -->/g, "");
-  assert.equal((html.match(/class="theme-switch"/g) || []).length, 1);
-  const tools = html.slice(html.indexOf('class="header-tools"'), html.indexOf("</header>"));
-  assert.ok(tools.indexOf("lang-switch") < tools.indexOf("theme-switch"), "språk først, så tema");
-  assert.match(tools, /data-theme-pref="system" aria-pressed="true"/, "Enhet er valt som standard");
+  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+  assert.match(header, /<button type="button" class="settings-btn" aria-label="Innstillingar" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-dialog"/);
+  assert.equal((header.match(/class="settings-btn"/g) || []).length, 1);
+  assert.doesNotMatch(html, /lang-switch|theme-switch|class="lang-btn|brand-mark|class="skyline"/i);
+  assert.doesNotMatch(text(header), /FERGEORAKELET/i, "ingen appnamn-linje i toppen");
+  assert.match(header, /<h1 id="route-title">[^<]+<\/h1><\/div><p class="eyebrow">Rute 1136<\/p>/, "1136: berre «Rute 1136»");
+  // CSS: tannhjulet er 44 px, tittelen 24 px.
+  const css = read("web/src/styles/header.css");
+  assert.match(css, /\.settings-btn \{[^}]*width: 44px;[^}]*height: 44px;/s);
+  assert.match(css, /\.header-title h1 \{\s*font-size: 1\.5rem; \/\* 24 px \*\//);
 });

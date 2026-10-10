@@ -43,8 +43,6 @@ export function nowCardBase({ status, info, live, data, quays, nowMs = Date.now(
     cancelled: line("cancelled"),
     lastQuay,
     pending: Boolean(live?.pending),
-    // Fleire ferjer (1069): «ei ferje», ikkje «ferja».
-    multi: Boolean(status.multi),
   };
 }
 
@@ -61,7 +59,7 @@ function sailMinutes(leg) {
 }
 
 /** Kjeldemerket nederst: ikon + tekst (aldri berre farge), utan dobbelt «≈»: ikonet er teiknet, teksten har ikkje teiknet. */
-function badgeFor(state, view) {
+export function badgeFor(state, view) {
   switch (state) {
     case "live":
       return { icon: "live", text: crossingBadgeText(view, "live") };
@@ -111,7 +109,7 @@ export function composeNowCard(base, view) {
     support.push({ kind: "note", text: t("na.unknownWhere") });
   } else if (underway && leg) {
     main = t(measured ? "na.underway" : "na.underwayCalc", { dest: leg.to });
-    head = t(measured ? (base.multi ? "status.underwayToOne" : "status.underwayTo") : "na.underwayCalc", { dest: leg.to });
+    head = t(measured ? "status.underwayTo" : "na.underwayCalc", { dest: leg.to });
     const arrival = view?.arrival || leg.arrival;
     if (measured) {
       const parts = [];

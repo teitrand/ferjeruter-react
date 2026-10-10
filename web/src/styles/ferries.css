@@ -1,0 +1,31 @@
+/* Ferjelista (1069): éi tekstrad per ferje, ingen teikning. Rad ≥ 48 px, tekst 15–16 px, bryt ved stor tekst. */
+.ferries { margin: 0.55rem 0 0.2rem; }
+.ferries-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ferry-row {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ferry-row[data-state="live"] { border-color: var(--na-live-line); }
+.ferry-row[data-state="unknown"], .ferry-row[data-state="calc"] { background: transparent; border-style: dashed; border-color: var(--unknown-line); color: var(--unknown-fg); }
+.ferry-row.is-outside { border-color: var(--na-outside-line); }
+.ferry-body { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; width: 100%; }
+.ferry-main { flex: 1 1 12rem; min-width: 0; font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
+.ferry-name { font-weight: 700; }
+.ferry-badge { flex: none; }
+
+/* «Søndag 11. oktober»: 1069 går heile døgnet, lista held fram over midnatt. */
+.timeline-dayhead {
+  margin: 0.9rem 0 0.4rem;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.timeline-dayhead::first-letter { text-transform: uppercase; }

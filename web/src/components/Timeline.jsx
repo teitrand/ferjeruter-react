@@ -164,7 +164,12 @@ function TransferRow({ row }) {
   );
 }
 
-const ROWS = { dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow };
+/** «Søndag 11. oktober»: 1069 går heile døgnet, så lista held fram over midnatt. */
+function DayHeadRow({ row }) {
+  return <h3 className="timeline-dayhead">{row.label}</h3>;
+}
+
+const ROWS = { dayhead: DayHeadRow, dep: DepartureRow, layover: LayoverRow, wait: WaitRow, split: SplitRow, transfer: TransferRow };
 
 /** Berre dårlege nyhende blir lesne opp. «Gått» o.l. kjem ikkje i live-regionen. */
 const BAD_NEWS = new Set(["cancelled", "notRunning", "unknown"]);

@@ -66,8 +66,8 @@ test("nedteljing: synleg tekst aria-hidden, skjermlesartekst per minutt utan liv
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
   setLang("nn");
   const html = clean(renderToString(createElement(Countdown, { time: "20:34:05", nowMs: FIXED })));
-  assert.match(html, /<span class="countdown-text is-tabular" aria-hidden="true">om 4:05<\/span>/);
-  assert.match(html, /<span class="visually-hidden">om 5 min<\/span>/);
+  assert.match(html, /<span class="countdown-text" aria-hidden="true">om 4\u00a0min<\/span>/);
+  assert.match(html, /<span class="visually-hidden">om 4 minutt<\/span>/);
   assert.doesNotMatch(html, /aria-live/);
 });
 
@@ -258,7 +258,7 @@ test("appen: ved kai (rutetabell): statuslinja har tikkande nedteljing, kortet s
     const html = renderApp();
     assert.match(
       statusArea(html),
-      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal, <span class="countdown"><span class="countdown-text is-tabular" aria-hidden="true">om 4:00<\/span><span class="visually-hidden">om 4 min<\/span><\/span> · på signal, fristen er ute\./
+      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal · <span class="countdown"><span class="countdown-text" aria-hidden="true">om 4\u00a0min<\/span><span class="visually-hidden">om 4 minutt<\/span><\/span> · på signal, fristen er ute\./
     );
     assert.equal(mainLine(html), "Ferja ligg til kai på Trandal");
     assert.deepEqual(supportLines(html), ["plan: Planlagd avgang 20:20 til Standal", "trip: Overfart ca. 15 min · framme 20:35"]);

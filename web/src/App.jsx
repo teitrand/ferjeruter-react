@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { appMode, chosenRoute, nowMinutes, osloIsoFromMs } from "../../packages/core/index.js";
+import { activeMode, appMode, chosenRoute, isMultiFerryRoute, legsForDate, nowMinutes, osloIsoFromMs, shiftIso, todayIso } from "../../packages/core/index.js";
 import { DayNav } from "./components/DayNav.jsx";
 import { DepartureDialog } from "./components/DepartureDialog.jsx";
 import { FeedbackDialog } from "./components/FeedbackDialog.jsx";
@@ -23,13 +23,15 @@ import { useSignalLog } from "./hooks/useSignalLog.js";
 import { signalLogUrls } from "./model/signallog.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { useWake } from "./hooks/useWake.js";
-import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
+import { hasTimetable, isTodaySelected, memoryOnly, planContext, rememberBookings, selectedDate, statusEvidence } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
+import { ferryRows } from "./model/ferries.js";
 import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
 import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
 import { routePicker } from "./model/routes.js";
 import { RoutePicker } from "./components/RoutePicker.jsx";
+import { FerryList } from "./components/FerryList.jsx";
 import { NowCard } from "./components/NowCard.jsx";
 import { markPwaFirstOpen, syncRouteQuery, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
@@ -139,6 +141,22 @@ export function App({
   const nowCard =
     ready && todaySelected && lede && !lede.noTrips && lede.card ? <NowCard base={lede.card} live={lede.live} /> : null;
   const nowInTimeline = Boolean(nowCard && timeline?.rows?.some((row) => row.kind === "now"));
+  // Samband med fleire ferjer (1069): ei tekstrad per ferje i staden for «No»-kortet.
+  const ferries = useMemo(() => {
+    if (!ready || !todaySelected || !isMultiFerryRoute(activeMode(planContext(data, ui)))) return null;
+    const ctx = planContext(data, { ...ui, date: null });
+    const today = legsForDate(todayIso(), ctx);
+    return ferryRows({
+      data,
+      quays: [...new Set(today.flatMap((leg) => [leg.from, leg.to]))],
+      today,
+      tomorrow: legsForDate(shiftIso(todayIso(), 1), ctx),
+      now,
+      ev: statusEvidence(data, ui, memory, ctx),
+      nowMs: Date.now(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, todaySelected, data, ui, memory, memoryVersion, now, clockMs]);
   const detail = ui.detail && ready ? detailModel(data, ui, memory, ui.detail, now) : null;
   const notes = footnoteModel(data, ui, chrome);
 
@@ -214,7 +232,6 @@ export function App({
       <a className="skip-link" href="#innhald">
         {t("skip")}
       </a>
-      <div className="skyline" aria-hidden="true" />
       <Header chrome={headerChrome} lede={lede} ui={ui} onLang={onLang} install={install} themeState={themeState} />
       <main id="innhald">
         <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">
@@ -244,6 +261,7 @@ export function App({
               />
             ) : null}
             {nowCard && !nowInTimeline ? nowCard : null}
+            {ferries ? <FerryList model={ferries} /> : null}
             {ready ? <h2 className="trips-heading">{t("trips.heading")}</h2> : null}
             {status === "error" && !ready ? (
               <div className="timeline">

@@ -21,7 +21,7 @@ function Pier({ side }) {
   );
 }
 
-function BadgeIcon({ icon }) {
+export function BadgeIcon({ icon }) {
   const common = { viewBox: "0 0 16 16", className: "na-badge-icon", focusable: "false", "aria-hidden": "true" };
   if (icon === "live")
     return (
