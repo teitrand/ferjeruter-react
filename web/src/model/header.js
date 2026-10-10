@@ -12,6 +12,7 @@ import {
   nowInfo,
   nowMinutes,
   onRequestTag,
+  pickNextDeparture,
   positionNoteKey,
   routeFootnotes,
   runningLegs,
@@ -73,7 +74,8 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
   const status = nowStatus(data, ctx, legs, now, ev, running);
   const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown });
-  const next = running.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure));
+  // Neste avgang ferja kan ta (ikkje ein signaltur der fristen er ute og ingen bestilling er sett).
+  const next = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
     noTrips: false,
@@ -85,7 +87,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
           from: next.from,
           countdown: countdown(next.departure),
           departure: next.departure,
-          tag: onRequestTag(next, { today: true, booked: tripStatus(next, ev, now).booked }),
+          tag: onRequestTag(next, { today: true, booked: tripStatus(next, ev, now).booked, now }),
         }
       : info.first
         ? { text: info.first }

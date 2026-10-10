@@ -13,9 +13,9 @@
 import { t } from "../../assets/i18n.js?v=84";
 import { clockMs } from "./crossing.js?v=84";
 import { isVisibleDeparture } from "./status.js?v=84";
-import { clockMinutes, durationText, formatDay, fromOsloWall, hasPassed, hhmm, minutesToClock, shiftIso } from "./time.js?v=84";
+import { clockMinutes, durationText, formatDay, fromOsloWall, hhmm, minutesToClock, nowMinutes, shiftIso } from "./time.js?v=84";
 import { bookingDeadline } from "./signal.js?v=84";
-import { isCancelledDeparture } from "./tripstatus.js?v=84";
+import { isCancelledDeparture, tripStatus } from "./tripstatus.js?v=84";
 
 /** Lenger fram enn dette (timar) seier vi ikkje «om N t». */
 const COUNTDOWN_MAX_HOURS = 36;
@@ -59,16 +59,31 @@ function tripLine(leg) {
 /**
  * «på signal»-merket til ei avgang: med fristen når han gjeld («ring innan 09:15»), «fristen er ute» etter han,
  * og «bestilt» når Entur viser at turen er tinga. Same reglar som signalnotatet på avgangsrada.
- * @param {{ today?: boolean, booked?: boolean }} [opts] `today`: avgangen går i dag (fristen kan vere ute)
+ * @param {{ today?: boolean, booked?: boolean, now?: number }} [opts] `today`: avgangen går i dag (fristen kan vere ute); `now`: minutt sidan midnatt
  */
-export function onRequestTag(leg, { today = false, booked = false } = {}) {
+export function onRequestTag(leg, { today = false, booked = false, now = nowMinutes() } = {}) {
   if (!leg?.signal) return "";
   if (booked) return t("now.onRequestBooked");
   const deadline = bookingDeadline(leg);
   if (!Number.isFinite(deadline)) return t("now.onRequest");
   const time = minutesToClock(deadline);
-  if (today && hasPassed(`${time}:00`) && !hasPassed(leg.departure)) return t("now.onRequestLate");
+  if (today && now >= deadline && now < clockMinutes(leg.departure)) return t("now.onRequestLate");
   return t("now.onRequestBy", { time });
+}
+
+/**
+ * Neste avgang ferja faktisk kan ta. Ein signaltur der fristen er ute og ingen bestilling er sett (`tripStatus` «unknown»)
+ * går truleg ikkje, og ferja skal ikkje «flytte seg» til han (t.d. frå Standal til Valderøya for ein tur som ikkje er
+ * bestilt). Då er neste avgang neste tur som går etter tabellen, t.d. 16:05 frå Standal. Finst ingen slik tur att i dag,
+ * blir den første av dei utgåtte signalturane stå (med «fristen er ute»), så vi ikkje seier «første tur i morgon» om det
+ * ikkje er sant. Open eller bestilt signaltur, og vanlege turar, gjeld som før.
+ * @param {object[]} upcoming  komande turar i dag (framleis i `running`), sorterte
+ * @param {number} now  minutt sidan midnatt (Oslo)
+ */
+export function pickNextDeparture(upcoming, ev, now) {
+  const list = upcoming || [];
+  const expired = (leg) => Boolean(leg.signal) && tripStatus(leg, ev, now).kind === "unknown";
+  return list.find((leg) => !expired(leg)) || list[0] || null;
 }
 
 /** «Første tur i morgon 07:40 frå X, om 8 t 47 min · på signal, ring innan 05:40» */
@@ -115,7 +130,7 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
     return { lines, first: null };
   }
 
-  const upcoming = ran.find((leg) => clockMs(leg.departure, nowMs) > nowMs) || null;
+  const upcoming = pickNextDeparture(ran.filter((leg) => clockMs(leg.departure, nowMs) > nowMs), ev, nowMinutes(nowMs));
   const cancelled = visible(legs).find(
     (leg) => clockMs(leg.departure, nowMs) > nowMs && !ran.includes(leg) && isCancelledDeparture(leg, ev)
   );

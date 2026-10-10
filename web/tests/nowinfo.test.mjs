@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { appVersion } from "../../tests/helpers/version.mjs";
-import { nowInfo, onRequestTag } from "../../packages/core/index.js";
+import { nowInfo, onRequestTag, pickNextDeparture } from "../../packages/core/index.js";
 
 const { setLang } = await import(`../../assets/i18n.js?v=${appVersion()}`);
 
@@ -145,4 +145,69 @@ test("fersk AIS ved kai om natta: «ligg til kai på X» frå AIS, og første tu
   assert.equal(info(oslo(9, 21, 10), { status: done, atQuay: "Trandal" }).lines[0].text, "Ferja ligg til kai på Trandal");
   // På overfart etter tabellen og ikkje overstyrt: AIS-kaia blir ikkje brukt.
   assert.equal(info(oslo(9, 20, 5), { status: { underway: true, text: "Ferja er på veg mot Standal" }, atQuay: "Standal" }).lines[0].text, "Ferja er på veg mot Standal");
+});
+
+// --- «Neste avgang» er den ferja faktisk kan ta frå der ho er ---
+
+const sig = (from, to, departure, arrival, minutesBefore) => leg(from, to, departure, arrival, { signal: { minutesBefore } });
+// Laurdag: ferja ligg ved Standal-kaia (AIS); tabellen har to signalturar frå Valderøya og så 16:05 frå Standal.
+const SAT = [
+  leg("Trandal", "Standal", "09:45", "10:00"),
+  sig("Valderøya", "Store Kalvøy", "12:15", "12:35", 180),
+  sig("Store Kalvøy", "Valderøya", "13:15", "13:35", 180),
+  leg("Standal", "Trandal", "16:05", "16:20"),
+  leg("Trandal", "Standal", "16:25", "16:45"),
+];
+const minutes = (h, m) => h * 60 + m;
+/** Fullt bevis som appen byggjer det (statusEvidence), men utan sanntid, logg og avlysingar. */
+const fullEv = (legs, extra = {}) => ({
+  date: "2026-10-10", today: "2026-10-10", live: null, log: undefined, cancelledJourneys: new Set(), actualDepartures: new Map(),
+  confirmedBooked: new Set(), sailedJourneys: new Set(), messageCancelled: new Set(), clockNow: 0, dayLegs: legs, dateLegs: legs, ...extra,
+});
+
+test("ferja ved Standal, signalturane frå Valderøya har utgått frist: neste avgang er 16:05 frå Standal", () => {
+  setLang("nn");
+  const upcoming = SAT.slice(1);
+  const next = pickNextDeparture(upcoming, fullEv(SAT), minutes(10, 20));
+  assert.equal(next.id, "Standal-16:05");
+  // Statuslinja og «No» ser same tur: overfartstida for 16:05 (ikkje 12:15), når ankomst ikkje står på avgangsrada.
+  const status = { short: "Ferja ligg til kai på Standal", atQuay: "Standal" };
+  const result = info(oslo(10, 10, 20), { status, legs: SAT, running: SAT, today: "2026-10-10", event: fullEv(SAT) });
+  assert.deepEqual(texts(result), ["place: Ferja ligg til kai på Standal", "trip: Overfarta tek 15 min, framme 16:20"]);
+});
+
+test("signalturen er framleis open (før fristen): han er neste avgang, med frist; ferja flyttar seg etter tabellen", () => {
+  setLang("nn");
+  const next = pickNextDeparture(SAT.slice(1), fullEv(SAT), minutes(8, 0));
+  assert.equal(next.id, "Valderøya-12:15");
+  assert.equal(onRequestTag(next, { today: true, now: minutes(8, 0) }), "på signal, ring innan 09:15");
+  // Fristen for 12:15 går ut kl. 09:15: då er 13:15 (frist 10:15) neste, og først etter 10:15 er det 16:05 frå Standal.
+  assert.equal(pickNextDeparture(SAT.slice(1), fullEv(SAT), minutes(9, 16)).id, "Store Kalvøy-13:15");
+  assert.equal(pickNextDeparture(SAT.slice(1), fullEv(SAT), minutes(10, 16)).id, "Standal-16:05");
+  assert.equal(onRequestTag(SAT[1], { today: true, now: minutes(9, 16) }), "på signal, fristen er ute");
+});
+
+test("bestilt signaltur er neste avgang, òg etter fristen", () => {
+  // Bevis (sett bestilt tidlegare i dag): turen er ikkje «unknown» og blir stå.
+  const booked = { ...SAT[1], id: "MOR:ServiceJourney:1136_1" };
+  const evWith = fullEv([booked, SAT[3]], { confirmedBooked: new Set(["MOR:ServiceJourney:1136_1"]) });
+  assert.equal(pickNextDeparture([booked, SAT[3]], evWith, minutes(10, 20)).id, booked.id);
+});
+
+test("berre utgåtte signalturar att i dag: han står (med «fristen er ute»), vi seier ikkje «første tur i morgon»", () => {
+  setLang("nn");
+  const only = [sig("Standal", "Trandal", "20:00", "20:20", 60)];
+  const next = pickNextDeparture(only, fullEv(only), minutes(19, 30));
+  assert.equal(next.id, "Standal-20:00");
+  assert.equal(onRequestTag(next, { today: true, now: minutes(19, 30) }), "på signal, fristen er ute");
+  const result = info(oslo(10, 19, 30), { status: { short: "x" }, legs: only, running: only, today: "2026-10-10", event: fullEv(only) });
+  assert.equal(result.first, null);
+});
+
+test("forseinka avgang frå kaia ferja ligg ved: «Planlagd avgang» med tida ho skulle gått", () => {
+  setLang("nn");
+  const day = [sig("Standal", "Trandal", "20:00", "20:20", 60)];
+  const atQuay = { short: "Ferja ligg til kai på Standal", atQuay: "Standal" };
+  const result = info(oslo(10, 20, 6), { status: atQuay, legs: day, running: day, today: "2026-10-10", event: fullEv(day) });
+  assert.deepEqual(texts(result), ["place: Ferja ligg til kai på Standal", "scheduled: Planlagd avgang 20:00 frå Standal", "trip: Overfarta tek 20 min, framme 20:20"]);
 });
