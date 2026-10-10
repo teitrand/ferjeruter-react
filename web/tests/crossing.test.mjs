@@ -633,3 +633,16 @@ test("utanfor ruta og ekstraturar: statuslinja tek AIS framfor rutetabellen", ()
   // Berre «fart» når AIS er fersk.
   assert.equal(statusFromPosition(moored, { running: [], fixes: [ais(0.5, nowMs - 120000, { sog: 9 })], quays, now: 20 * 60 + 8, nowMs }), moored);
 });
+
+test("Entur-posisjon med rett tur-id men langt frå strekninga (ferja på veg til turen) høyrer ikkje til overfarten", () => {
+  const kalvoy = leg("Valderøya", "Store Kalvøy", "12:15:00", "12:35:00", "MOR:ServiceJourney:1136_615_x#0");
+  const standal = { source: "entur", latitude: 62.266468, longitude: 6.423213, at: oslo(12, 14), speedKn: null, course: null, journeyRef: "MOR:ServiceJourney:1136_615_x" };
+  const view = crossingView({ leg: kalvoy, fix: standal, nowMs: oslo(12, 14, 30) });
+  assert.equal(view.source, "computed", "ingen måling: berre rutetabellen");
+  assert.equal(view.measured, false);
+  // Same tur-id på strekninga: posisjonen gjeld.
+  const V = QUAY_COORDS["Valderøya"];
+  const K = QUAY_COORDS["Store Kalvøy"];
+  const mid = { ...standal, latitude: (V.latitude + K.latitude) / 2, longitude: (V.longitude + K.longitude) / 2, at: oslo(12, 20) };
+  assert.equal(crossingView({ leg: kalvoy, fix: mid, nowMs: oslo(12, 20, 10) }).source, "entur");
+});
