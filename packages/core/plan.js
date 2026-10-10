@@ -22,9 +22,25 @@ import { quayPlace } from "./legs.js?v=84";
 import { driftNeedsOperationalTable, resolveRoutePlan } from "./messages.js?v=84";
 import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=84";
 
-/** 1049 kjem berre frå Entur-tabellen. Før den er publisert (eller utan 1049 i fila) finst sambandet ikkje å velje. */
+/**
+ * Sambanda i samband-veljaren, i den rekkjefølgja dei står. Éin stad å leggje til ei linje:
+ * - `needsData`: kan berre veljast når rutetabellen har linja (elles «Kjem snart»)
+ * - `independent`: eigen tabell som trafikkmeldingane ikkje styrer (ingen kombirute)
+ * - `placeholder`: berre ei rad i veljaren («Kjem snart»), ingen data og ikkje valbar
+ * Namnet på sambandet ligg i i18n (`route.<id>`).
+ */
+export const ROUTE_CATALOG = Object.freeze([
+  Object.freeze({ id: "1136", line: "1136" }),
+  Object.freeze({ id: "1135", line: "1135" }),
+  Object.freeze({ id: "1049", line: "1049", needsData: true, independent: true }),
+  Object.freeze({ id: "1069", line: "1069", placeholder: true }),
+]);
+
+/** Kan sambandet veljast no? Ikkje plassholdarar, og med `needsData` først når tabellen har linja (eller medan han lastar). */
 export function routeHasData(route, ctx) {
-  return route !== "1049" || !ctx?.routes || Boolean(ctx.routes.lines?.["1049"]);
+  const entry = ROUTE_CATALOG.find((item) => item.id === route);
+  if (!entry || entry.placeholder) return false;
+  return !entry.needsData || !ctx?.routes || Boolean(ctx.routes.lines?.[entry.line]);
 }
 
 export function chosenRoute(ctx) {
@@ -103,7 +119,7 @@ export function applySwitchPlan(mode, parsed, date, ctx) {
 }
 
 /** 1049 Festøya–Hundeidvik er eit eige samband med eiga ferje: trafikkmeldingane styrer ikkje tabellen (ingen kombirute). */
-const INDEPENDENT_ROUTES = new Set(["1049"]);
+const INDEPENDENT_ROUTES = new Set(ROUTE_CATALOG.filter((route) => route.independent).map((route) => route.id));
 
 export function activePlan(date, ctx) {
   const own = ctx?.override || chosenRoute(ctx);
@@ -195,6 +211,6 @@ export function firstKnownQuay(name, quays = LINE_QUAYS) {
   return text;
 }
 
-export const ALLOWED_MODES = new Set(["1136", "1135", "1049", "kombi"]);
+export const CHOOSABLE_ROUTES = new Set(ROUTE_CATALOG.filter((route) => !route.placeholder).map((route) => route.id));
 
-export const CHOOSABLE_ROUTES = new Set(["1136", "1135", "1049"]);
+export const ALLOWED_MODES = new Set([...CHOOSABLE_ROUTES, "kombi"]);

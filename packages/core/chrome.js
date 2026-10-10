@@ -3,7 +3,7 @@
  * NAIS, posisjon), tilbakemelding på e-post, og kvar data skal lesast frå på /dev/.
  */
 import { t } from "../../assets/i18n.js?v=84";
-import { ALLOWED_MODES } from "./plan.js?v=84";
+import { ALLOWED_MODES, CHOOSABLE_ROUTES } from "./plan.js?v=84";
 import { liveStatus } from "./status.js?v=84";
 import { bestFix, fixFreshness } from "./crossing.js?v=84";
 
@@ -77,6 +77,16 @@ export function isPreview(loc) {
     path === "/ferjeruter-react" ||
     path.startsWith("/ferjeruter-react/")
   );
+}
+
+/** ?samband=1136|1135|1049, på alle vertar. Eit samband som ikkje finst (eller er «Kjem snart») gjev null. */
+export function routeFromQuery(loc) {
+  try {
+    const raw = new URL(loc.href, "https://teitrand.github.io").searchParams.get("samband");
+    return CHOOSABLE_ROUTES.has(raw) ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 /** ?rute=1136|1135|1049|kombi, berre i førehandsvising. */

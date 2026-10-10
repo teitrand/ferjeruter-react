@@ -118,3 +118,16 @@ export function writeLastMode(mode, storage, today = todayIso()) {
     // kvote / privat modus
   }
 }
+
+/** Held ?samband= i adresselinja i takt med valet (berre når parameteren er der), så ei omlasting gjev same samband. */
+export function syncRouteQuery(route, loc = typeof location !== "undefined" ? location : null, hist = typeof history !== "undefined" ? history : null) {
+  try {
+    if (!loc || !hist) return;
+    const url = new URL(loc.href);
+    if (!url.searchParams.has("samband")) return;
+    url.searchParams.set("samband", route);
+    hist.replaceState(hist.state, "", url);
+  } catch {
+    // adresselinja kan ikkje endrast (sandkasse)
+  }
+}

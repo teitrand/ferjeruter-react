@@ -8,7 +8,6 @@ import {
   hhmm,
   isVisibleDeparture,
   knownQuays,
-  routeHasData,
   legsForDate,
   nowInfo,
   nowMinutes,
@@ -32,14 +31,6 @@ const CHROME = {
   1049: { title: "route.title1049", eyebrow: "eyebrow.1049", meta: "meta.title1049" },
   kombi: { title: "route.titleKombi", eyebrow: "eyebrow.kombi", meta: "meta.titleKombi" },
 };
-
-const ROUTE_TABS = ["1136", "1135", "1049"];
-
-/** Sambanda i veljaren. 1049 er med når rutetabellen har linja (eller medan han lastar), så ingen får ein tom fane. */
-export function routeTabs(data) {
-  const ctx = { routes: data?.routes || null };
-  return ROUTE_TABS.filter((route) => routeHasData(route, ctx));
-}
 
 /**
  * Tittel og overtittel for eit samband før data er lasta (siste samband i dag frå
