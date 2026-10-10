@@ -293,3 +293,64 @@ test("manglar ais_latest (gammal D1) er /v1/latest framleis OK", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual((await res.json()).lines, {});
 });
+
+// --- Signalloggen frå heimeserveren: GET /v1/signalturar (offentleg), POST med nøkkel ---
+
+const LOG = (over = {}) => ({
+  keptDays: 7,
+  updatedAt: "2026-10-09T11:20:00+02:00",
+  days: { "2026-10-09": [{ id: "MOR:ServiceJourney:1136_101", from: "Trandal", to: "Standal", departure: "11:05", status: "booked" }] },
+  ...over,
+});
+const postLog = (e, log, now, key = KEY) => handle(req("/v1/signalturar", { method: "POST", key, body: { schema: 1, log } }), e, now);
+
+test("signalturar: 404 før noko er skrive, så same form som signalturar.json med receivedAt", async () => {
+  const e = env();
+  const none = await handle(req("/v1/signalturar", { key: null }), e, T0);
+  assert.equal(none.status, 404);
+  assert.equal(none.headers.get("access-control-allow-origin"), "*");
+  assert.equal((await postLog(e, LOG(), T0)).status, 204);
+  const res = await handle(req("/v1/signalturar", { key: null }), e, T0 + 5000);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.equal(res.headers.get("cache-control"), "no-cache");
+  const body = await res.json();
+  assert.deepEqual({ ...body, receivedAt: undefined }, { ...LOG(), receivedAt: undefined });
+  assert.equal(body.receivedAt, new Date(T0).toISOString());
+});
+
+test("signalturar: POST krev nøkkel; feil nøkkel 401; GET treng ingen", async () => {
+  const e = env();
+  assert.equal((await postLog(e, LOG(), T0, "feil-nokkel-som-er-lang-nok-xx")).status, 401);
+  assert.equal((await handle(req("/v1/signalturar", { method: "POST", key: null, body: { schema: 1, log: LOG() } }), e, T0)).status, 401);
+  assert.equal((await handle(req("/v1/signalturar", { key: null }), e, T0)).status, 404, "ingenting lagra etter avvist POST");
+  assert.equal((await handle(req("/v1/signalturar", { method: "PUT" }), e, T0)).status, 405);
+  assert.equal((await handle(req("/v1/signalturar", { method: "OPTIONS", key: null }), e, T0)).status, 204);
+});
+
+test("signalturar: validering, rate limit og at eldre logg ikkje skriv over ny", async () => {
+  const e = env();
+  for (const bad of [null, [], {}, LOG({ updatedAt: "ikkje-dato" }), LOG({ days: [] }), LOG({ days: { "i går": [] } }), LOG({ days: { "2026-10-09": {} } }), LOG({ keptDays: 0 }), LOG({ updatedAt: new Date(T0 + 3600e3).toISOString() })]) {
+    assert.equal((await postLog(e, bad, T0)).status, 400, JSON.stringify(bad));
+  }
+  assert.equal((await handle(req("/v1/signalturar", { method: "POST", body: { log: LOG() } }), e, T0)).status, 400, "manglar schema");
+  assert.equal((await handle(req("/v1/signalturar", { method: "POST", body: "{" }), e, T0)).status, 400);
+  assert.equal((await postLog(e, LOG(), T0)).status, 204);
+  const early = await postLog(e, LOG({ updatedAt: "2026-10-09T11:22:00+02:00" }), T0 + 1000);
+  assert.equal(early.status, 429);
+  assert.ok(Number(early.headers.get("retry-after")) > 0);
+  const later = T0 + MIN_INTERVAL_MS.signalturar;
+  assert.equal((await postLog(e, LOG({ updatedAt: "2026-10-09T11:10:00+02:00" }), later)).status, 409, "eldre logg vinn ikkje");
+  assert.equal((await handle(req("/v1/signalturar", { key: null }), e, later)).status, 200);
+  assert.equal((await (await handle(req("/v1/signalturar", { key: null }), e, later)).json()).updatedAt, "2026-10-09T11:20:00+02:00");
+  assert.equal((await postLog(e, LOG({ updatedAt: "2026-10-09T11:21:00+02:00" }), later + MIN_INTERVAL_MS.signalturar)).status, 204);
+});
+
+test("signalturar: dei gamle endepunkta og /v1/latest er uendra (bakoverkompatibelt)", async () => {
+  const e = env();
+  assert.equal((await postLog(e, LOG(), T0)).status, 204);
+  const latest = await (await handle(req("/v1/latest", { key: null }), e, T0 + 1000)).json();
+  assert.deepEqual(Object.keys(latest).sort(), ["collector", "generatedAt", "lines", "schema", "today"]);
+  assert.equal((await handle(req("/v1/events", { key: null, method: "POST", body: {} }), e, T0)).status, 401);
+  assert.equal((await handle(req("/nope", { key: null }), e, T0)).status, 404);
+});

@@ -1,0 +1,12 @@
+[Unit]
+Description=Signaltur-sjekken (Fergeruter), kvart 10. minutt
+
+[Timer]
+# Kvart 10. minutt heile døgnet, som GitHub-jobben (som køyrer kvar halvtime). Tidlegare sjekk gjev raskare «Bestilt».
+OnCalendar=*:0/10
+AccuracySec=15s
+RandomizedDelaySec=20s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

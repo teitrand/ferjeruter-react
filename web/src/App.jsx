@@ -20,6 +20,7 @@ import { useMessages } from "./hooks/useMessages.js";
 import { useOnline } from "./hooks/useOnline.js";
 import { useSanntid } from "./hooks/useSanntid.js";
 import { useSignalLog } from "./hooks/useSignalLog.js";
+import { signalLogUrls } from "./model/signallog.js";
 import { useTheme } from "./hooks/useTheme.js";
 import { useWake } from "./hooks/useWake.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
@@ -89,8 +90,8 @@ export function App({
     cache: messageCache,
     refresh: woke.wake + woke.messages,
   });
-  // Signalloggen blir henta på nytt medan sida står open (kvart 5. minutt og når ho vaknar), ikkje berre ved oppstart.
-  const signalLog = useSignalLog(liveDataBase, loaded.signalLog, { live, ready: status !== "loading", refresh: woke.wake + woke.timetable });
+  // Signalloggen: workeren (heimeserveren) og fila på Pages, nyaste vinn. Blir henta på nytt medan sida står open (kvart 5. minutt og når ho vaknar).
+  const signalLog = useSignalLog(signalLogUrls(liveDataBase, sanntidEndpoint), loaded.signalLog, { live, ready: status !== "loading", refresh: woke.wake + woke.timetable });
   const base = useMemo(() => ({ ...loaded, messages, signalLog }), [loaded, messages, signalLog]);
   const clockMs = useClock(woke.wake);
   const entur = useEntur(base, ui, clockMs, initialEntur);

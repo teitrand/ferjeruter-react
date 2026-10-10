@@ -10,7 +10,7 @@ export const MAX_EVENTS = 50;
 export const MAX_BODY_BYTES = 64 * 1024;
 export const KINDS = new Set(["sailed", "departed", "arrived", "cancelled"]);
 /** Minste tid mellom godtekne kall per endepunkt (innsamlaren: hendingar kvart 30. s, puls kvart 2. min). */
-export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000, positions: 10_000 };
+export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000, positions: 10_000, signalturar: 60_000 };
 export const MAX_POSITIONS = 10;
 /** AIS-ferskleik, same tersklar som packages/core/crossing.js (docs/ais.md). Testen held dei like. */
 export const AIS_FRESH_MS = 60_000;
@@ -36,6 +36,10 @@ export const SCHEMA = [
      longitude REAL NOT NULL, speed_kn REAL, course_deg REAL, heading INTEGER, nav_status INTEGER,
      msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL)`,
 ];
+
+/** Signalloggen (same form som data/signalturar.json) frå signaljobben på heimeserveren. Lagra i meta (ingen ny tabell). */
+export const SIGNAL_LOG_META = "signalturar";
+export const SIGNAL_LOG_MAX_FUTURE_MS = 5 * 60_000;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -182,6 +186,53 @@ async function postPositions(request, env, nowMs) {
   return empty(204);
 }
 
+/** @returns {string|null} feilmelding, eller null om loggen er gyldig */
+export function validateSignalLog(log, nowMs) {
+  if (!log || typeof log !== "object" || Array.isArray(log)) return "ikkje objekt";
+  if (!isIso(log.updatedAt)) return "updatedAt";
+  if (Date.parse(log.updatedAt) > nowMs + SIGNAL_LOG_MAX_FUTURE_MS) return "updatedAt-framtid";
+  const days = log.days;
+  if (!days || typeof days !== "object" || Array.isArray(days)) return "days";
+  for (const [day, trips] of Object.entries(days)) if (!isDate(day) || !Array.isArray(trips)) return "days";
+  if (log.keptDays != null && !(Number.isInteger(log.keptDays) && log.keptDays > 0 && log.keptDays < 60)) return "keptDays";
+  return null;
+}
+
+async function postSignalLog(request, env, nowMs) {
+  const read = await readBody(request);
+  if (read.status) return empty(read.status);
+  const { body } = read;
+  if (!body || body.schema !== 1) return json({ error: "form" }, 400);
+  const err = validateSignalLog(body.log, nowMs);
+  if (err) return json({ error: err }, 400);
+  const wait = await rateLimited(env.DB, "signalturar", nowMs);
+  if (wait) return empty(429, { "Retry-After": String(wait) });
+  // Berre ein nyare logg enn den som ligg der, så ein forseinka jobb ikkje skriv over.
+  const row = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(SIGNAL_LOG_META).first();
+  try {
+    const stored = row ? JSON.parse(row.v) : null;
+    if (stored && Date.parse(stored.log?.updatedAt) > Date.parse(body.log.updatedAt)) return empty(409);
+  } catch {
+    // Øydelagd rad: skriv over.
+  }
+  const value = JSON.stringify({ log: body.log, receivedAt: new Date(nowMs).toISOString() });
+  await env.DB.prepare("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(SIGNAL_LOG_META, value).run();
+  return empty(204);
+}
+
+/** Svaret har same form som data/signalturar.json (`updatedAt`, `keptDays`, `days`) pluss `receivedAt`. 404 når jobben aldri har skrive. */
+async function getSignalLog(env) {
+  const row = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(SIGNAL_LOG_META).first();
+  if (!row) return json({ error: "no data" }, 404, CORS);
+  let stored;
+  try {
+    stored = JSON.parse(row.v);
+  } catch {
+    return json({ error: "no data" }, 404, CORS);
+  }
+  return json({ ...stored.log, receivedAt: stored.receivedAt }, 200, { ...CORS, "Cache-Control": "no-cache" });
+}
+
 async function postHeartbeat(request, env, nowMs) {
   const read = await readBody(request);
   if (read.status) return empty(read.status);
@@ -297,6 +348,13 @@ export async function handle(request, env, nowMs = Date.now()) {
     if (request.method === "OPTIONS") return empty(204, CORS);
     if (request.method !== "GET" && request.method !== "HEAD") return empty(405, { Allow: "GET, OPTIONS", ...CORS });
     return json(await buildLatest(env.DB, nowMs), 200, { ...CORS, "Cache-Control": "public, max-age=15" });
+  }
+  if (pathname === "/v1/signalturar") {
+    if (request.method === "OPTIONS") return empty(204, { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" });
+    if (request.method === "GET" || request.method === "HEAD") return getSignalLog(env);
+    if (request.method !== "POST") return empty(405, { Allow: "GET, POST, OPTIONS", ...CORS });
+    if (!(await keyMatches(request.headers.get(KEY_HEADER), env.COLLECTOR_KEY))) return empty(401);
+    return postSignalLog(request, env, nowMs);
   }
   if (pathname === "/v1/events" || pathname === "/v1/heartbeat" || pathname === "/v1/positions") {
     if (request.method !== "POST") return empty(405, { Allow: "POST" });

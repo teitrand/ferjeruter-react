@@ -39,13 +39,14 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 install -d -o fergeruter -g fergeruter -m 0750 /var/lib/fergeruter
 
-for unit in fergeruter-collector.service fergeruter-compare.service fergeruter-compare.timer; do
+for unit in fergeruter-collector.service fergeruter-compare.service fergeruter-compare.timer fergeruter-signaltur.service fergeruter-signaltur.timer; do
   install -o root -g root -m 0644 "$APP/collector/systemd/$unit" "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
-systemctl enable --quiet fergeruter-collector.service fergeruter-compare.timer
+systemctl enable --quiet fergeruter-collector.service fergeruter-compare.timer fergeruter-signaltur.timer
 systemctl restart fergeruter-collector.service
 systemctl start fergeruter-compare.timer
+systemctl start fergeruter-signaltur.timer
 sleep 5
 systemctl --no-pager --lines=0 status fergeruter-collector.service || true
 echo "versjon: $(cat "$APP/VERSION")"
