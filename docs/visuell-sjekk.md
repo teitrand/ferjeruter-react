@@ -32,7 +32,7 @@ Utdata: `<breidd>-<tema>-<tekst>-<tilstand>.png` og `rapport.json`; exit 1 viss 
 
 ## Kva sjekkane tek
 
-Automatisk, per kombinasjon: sida breiare enn skjermen, element som stikk ut, klipt tekst, dialog/ark/meldingspanel/språk- og temarad som ikkje får plass, «Nå»-kortet dekt av det faste sambandskortet, og at botnteksten («Om dataa», fotnotar) kan nåast.
+Automatisk, per kombinasjon: sida breiare enn skjermen, element som stikk ut, klipt tekst, dialog/ark/meldingspanel/språkflagg og temaknapp som ikkje får plass, «Nå»-kortet dekt av det faste sambandskortet, og at botnteksten («Om dataa», fotnotar) kan nåast.
 
 Sjå sjølv (bileta): 
 

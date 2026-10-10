@@ -1,3 +1,4 @@
+import { useAnnounce } from "./Announcer.jsx";
 import { t } from "./i18n.js";
 
 const FLAGS = {
@@ -29,16 +30,17 @@ const FLAGS = {
 };
 
 const LANGS = [
-  { code: "nn", label: "Nynorsk" },
-  { code: "en", label: "English" },
-  { code: "de", label: "Deutsch" },
+  { code: "nn", label: "Nynorsk", said: "Språk: Nynorsk" },
+  { code: "en", label: "English", said: "Language: English" },
+  { code: "de", label: "Deutsch", said: "Sprache: Deutsch" },
 ];
 
-/** Språkval: nynorsk, engelsk og tysk, som i vanilla-appen. */
+/** Språkval med flagg: nynorsk, engelsk og tysk. Språkbyte blir sagt frå om i den felles live-regionen. */
 export function LangSwitch({ lang, onChange }) {
+  const announce = useAnnounce();
   return (
     <div className="lang-switch" role="group" aria-label={t("lang.label")}>
-      {LANGS.map(({ code, label }) => (
+      {LANGS.map(({ code, label, said }) => (
         <button
           key={code}
           type="button"
@@ -47,7 +49,10 @@ export function LangSwitch({ lang, onChange }) {
           aria-label={label}
           title={label}
           aria-pressed={lang === code}
-          onClick={() => onChange(code)}
+          onClick={() => {
+            onChange(code);
+            announce(said);
+          }}
         >
           <span className="lang-flag" aria-hidden="true">
             {FLAGS[code]}

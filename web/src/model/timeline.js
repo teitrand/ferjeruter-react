@@ -17,6 +17,7 @@ import {
   durationText,
   emptyPlaceMessage,
   eventIsPast,
+  formatDay,
   hasPassed,
   hhmm,
   isMultiFerryRoute,
@@ -29,6 +30,7 @@ import {
   minutesToClock,
   nowMinutes,
   pastDepartureCount,
+  shiftIso,
   signalObservedAtQuay,
   signalPhone,
   statusProgress,
@@ -110,6 +112,10 @@ function departureRow(event, status, ctx, ev, now, { today, showArrivals, index 
   };
 }
 
+/** Færre komande avgangar i dag enn dette: 1069-lista held fram med dei første i morgon (CONTINUE_COUNT). */
+const CONTINUE_BELOW = 6;
+const CONTINUE_COUNT = 6;
+
 const NONE = { empty: null, rows: [], pastCount: 0, remember: [], emptyPlace: null };
 
 /**
@@ -153,6 +159,15 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     if (!keepEvent(event, events, now, { ...opts, showPast: ui.showPast, status })) continue;
     const past = eventIsPast(event, events, now, opts);
     rows.push(toRow(event, past, statuses.get(event.leg), { ctx, ev, now, today, showArrivals, index, filters }));
+  }
+  // 1069 går heile døgnet: lista sluttar ikkje ved midnatt. Er det få avgangar att i dag, held ho fram med dei første i morgon.
+  if (today && isMultiFerryRoute(activeMode(ctx)) && rows.filter((row) => row.kind === "dep" && !row.past).length < CONTINUE_BELOW) {
+    const tomorrow = shiftIso(ctx.date, 1);
+    const next = buildTimeline(data, { ...ui, date: tomorrow }, memory, { now, showArrivals }).rows.filter((row) => row.kind === "dep").slice(0, CONTINUE_COUNT);
+    if (next.length) {
+      rows.push({ kind: "dayhead", key: `dayhead|${tomorrow}`, past: false, label: formatDay(tomorrow) });
+      for (const row of next) rows.push({ ...row, key: `next|${row.key}` });
+    }
   }
   const anyDep = events.some((event) => event.kind === "dep");
   return {

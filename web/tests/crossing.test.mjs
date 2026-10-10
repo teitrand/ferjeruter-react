@@ -431,22 +431,40 @@ test("kjeldemerket utan overfart: live, siste kjende, ukjent eller berekna", () 
   assert.equal(crossingBadge(positionSourceView([], oslo(20, 7))), "Berekna frå rutetabellen");
 });
 
-test("nedteljing: t + 0-fylte min over 60 min, min frå 10, m:ss under 10", () => {
+test("nedteljing: minutt rundt ned, «om 3 t 18 min», «om 12 min», «om under 1 min», aldri m:ss, fulle ord for skjermlesar", () => {
   setLang("nn");
   const now = oslo(19, 0);
-  assert.equal(countdownParts("19:04:05", now).phrase, "om 4:05");
-  assert.equal(countdownParts("19:04:05", now).srPhrase, "om 5 min");
-  assert.equal(countdownParts("20:05:00", now).text, "Neste avgang om 1 t 05 min");
-  assert.equal(countdownParts("19:23:00", now).text, "Neste avgang om 23 min");
-  const close = countdownParts("19:04:05", now);
-  assert.equal(close.text, "Neste avgang om 4:05");
-  assert.equal(close.tabular, true);
-  assert.equal(close.sr, "Neste avgang om 5 minutt");
+  const at = (time, extra = {}) => countdownParts(time, now, extra);
+  const nb = (text) => text.replace(/\u00a0/g, " ");
+  assert.equal(nb(at("22:18:30").phrase), "om 3 t 18 min", "minutt rundt ned");
+  assert.equal(nb(at("21:00:00").phrase), "om 2 t", "heile timar");
+  assert.equal(nb(at("20:05:00").phrase), "om 1 t 5 min");
+  assert.equal(nb(at("19:12:59").phrase), "om 12 min");
+  assert.equal(nb(at("19:01:00").phrase), "om 1 min");
+  assert.equal(nb(at("19:00:40").phrase), "om under 1 min");
+  assert.equal(at("19:04:05").phrase.includes(":"), false, "aldri 3:18 eller 4:05");
+  assert.equal(at("19:00:00").phrase, "no");
+  assert.ok(at("22:18:30").phrase.includes("\u00a0"), "hardt mellomrom mellom tal og eining");
+  assert.equal(at("22:18:30").srPhrase, "om 3 timar og 18 minutt");
+  assert.equal(at("21:00:00").srPhrase, "om 2 timar");
+  assert.equal(at("20:01:00").srPhrase, "om 1 time og 1 minutt");
+  assert.equal(at("19:12:59").srPhrase, "om 12 minutt");
+  assert.equal(at("19:00:40").srPhrase, "om under eitt minutt");
+  assert.equal(at("19:12:59").sr, "Neste avgang om 12 minutt");
+  assert.equal(at("19:00:40").text.includes("under 1 min"), true);
+  assert.equal(at("19:00:00").text, "Neste avgang no");
   // Skjermlesarteksten endrar seg berre ved minuttskifte.
-  assert.equal(countdownParts("19:04:05", now + 4000).sr, close.sr);
-  assert.equal(countdownParts("19:00:00", now).text, "Neste avgang no");
+  assert.equal(countdownParts("19:04:05", now + 4000).srPhrase, at("19:04:05").srPhrase);
+  // Avgang i morgon (dayAhead): 23:44 → 00:10 er 26 min.
+  assert.equal(nb(countdownParts("00:10:00", oslo(23, 44), { dayAhead: 1 }).phrase), "om 26 min");
   setLang("en");
-  assert.equal(countdownParts("20:05:00", now).text, "Next departure in 1 h 05 min");
+  assert.equal(nb(at("22:18:30").phrase), "in 3 h 18 min");
+  assert.equal(at("22:18:30").srPhrase, "in 3 hours and 18 minutes");
+  assert.equal(at("19:00:40").srPhrase, "in under one minute");
+  setLang("de");
+  assert.equal(nb(at("22:18:30").phrase), "in 3 Std. 18 Min.");
+  assert.equal(at("22:18:30").srPhrase, "in 3 Stunden und 18 Minuten");
+  assert.equal(nb(at("19:00:40").phrase), "in unter 1 Min.");
   setLang("nn");
 });
 
@@ -736,4 +754,19 @@ test("ei tredje ferje langt unna (1069) gjer ikkje turen til «utanfor ruta» n�
   assert.notEqual(view.state, "outside");
   // Utan ferje på turen er det framleis den siste AIS-posisjonen som blir vist som utanfor ruta.
   assert.equal(crossingView({ leg: DOWN, fixes: [idle], nowMs: now }).state, "outside");
+});
+
+test("turen er i gang: ferja i fart på strekninga har turen, ikkje reserveferja som ligg parkert ved startkaia", () => {
+  const now = oslo(10, 12);
+  const moving = ferry(257090560, 0.5, now - 20000, { cog: headingTo(F, SOL) });
+  // Parkert ved Festøya (startkaia), nyare melding enn ferja i fart.
+  const parked = fixFromAis({ mmsi: 258220500, ...fest(0), sog: 0, cog: null, navStatus: 5, timestamp: now - 2000 });
+  assert.equal(fixBelongsTo(parked, DOWN, now), true, "ho ligg ved startkaia, så ho kan høyre til turen før han går");
+  const view = crossingView({ leg: DOWN, fixes: [moving, parked], nowMs: now });
+  assert.equal(view.atQuay, false);
+  assert.ok(Math.abs(view.progress - 0.5) < 0.02);
+  // Før avgang er det den parkerte ferja ved kaia som er posisjonen.
+  const parkedEarly = { ...parked, at: oslo(9, 59, 50) };
+  const before = crossingView({ leg: DOWN, fixes: [parkedEarly], nowMs: oslo(9, 59, 55) });
+  assert.equal(before.atQuay, true);
 });

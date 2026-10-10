@@ -59,7 +59,7 @@ function sailMinutes(leg) {
 }
 
 /** Kjeldemerket nederst: ikon + tekst (aldri berre farge), utan dobbelt «≈»: ikonet er teiknet, teksten har ikkje teiknet. */
-function badgeFor(state, view) {
+export function badgeFor(state, view) {
   switch (state) {
     case "live":
       return { icon: "live", text: crossingBadgeText(view, "live") };

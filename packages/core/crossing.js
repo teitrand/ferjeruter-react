@@ -115,6 +115,7 @@ export function fixFromAis(msg) {
     journeyRef: "",
     expectedArrival: "",
     vessel: msg.mmsi ?? "",
+    ...(msg.name ? { name: String(msg.name) } : {}),
   };
 }
 
@@ -378,7 +379,10 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   const trip = tripKey(leg);
   // Ferja ligg utanfor ruta: ingen framdrift, og vi påstår ikkje at ho følgjer rutetabellen.
   // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
-  const own = bestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)), nowMs);
+  const owned = (fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs));
+  // Når turen er i gang, er det ferja i fart på strekninga som har turen, ikkje ei som ligg parkert ved kaia (reserveferja på 1069).
+  const underway = nowMs >= clockMs(leg.departure, nowMs) ? owned.filter((item) => item.source === "ais" && !isMoored(item) && fixFreshness(item, nowMs) === "live") : [];
+  const own = bestFix(underway.length ? underway : owned, nowMs);
   // Har ei ferje turen, er det ikkje «utanfor ruta» fordi ei anna ferje på linja (1069) ligg ein annan stad.
   const away = own ? null : outsideFix(fixes || [fix], nowMs, leg);
   if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);
@@ -590,32 +594,48 @@ export function crossingAnnouncement(before, after) {
   return "";
 }
 
+const NBSP = "\u00a0";
+
+/** «3 timar og 18 minutt» med fulle ord, til skjermlesar. */
+export function spokenDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const parts = [];
+  if (hours) parts.push(t(hours === 1 ? "countdown.srHour" : "countdown.srHours", { n: hours }));
+  if (rest) parts.push(t(rest === 1 ? "countdown.srMinute" : "countdown.srMinutes", { n: rest }));
+  return parts.join(t("countdown.srAnd"));
+}
+
 /**
- * Nedteljing til ei rutetid. Over 60 min «om 1 t 05 min», 10–60 min «om 23 min»,
- * under 10 min «om 4:05». `sr` er per minutt, for skjermlesar.
+ * Nedteljing til ei rutetid (Designer): minutt rundt ned, éi setning, aldri «3:18».
+ * Frå ein time «om 3 t 18 min» (heile timar «om 2 t»), 1–59 min «om 12 min», under 1 min «om under 1 min».
+ * Hardt mellomrom mellom tal og eining. `srPhrase` har fulle ord («om 3 timar og 18 minutt») og endrar seg berre kvart minutt.
+ * `dayAhead`: avgangen er i morgon (tida gjeld neste døgn, t.d. 1069 som går heile natta).
  */
-export function countdownParts(time, nowMs) {
-  const seconds = Math.max(0, Math.round((clockMs(time, nowMs) - nowMs) / 1000));
+export function countdownParts(time, nowMs, { dayAhead = 0 } = {}) {
+  const target = clockMs(time, nowMs + dayAhead * 86400000);
+  const seconds = Math.max(0, Math.round((target - nowMs) / 1000));
   const minutes = Math.floor(seconds / 60);
   let duration;
-  if (seconds <= 0) duration = null;
-  else if (minutes >= 60) {
-    duration = t("countdown.hm", { h: Math.floor(minutes / 60), mm: String(minutes % 60).padStart(2, "0") });
-  } else if (minutes >= 10) {
-    duration = t("duration.minutes", { n: minutes });
+  let spoken;
+  if (seconds <= 0) {
+    duration = null;
+  } else if (minutes < 1) {
+    duration = t("countdown.under");
+    spoken = t("countdown.srUnder");
   } else {
-    duration = `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+    duration = durationText(minutes).replace(/(\d) /g, `$1${NBSP}`);
+    spoken = spokenDuration(minutes);
   }
   const countdown = duration ? t("countdown.in", { duration }) : t("duration.now");
-  const srMinutes = Math.ceil(seconds / 60);
   return {
     seconds,
-    tabular: minutes < 10 && seconds > 0,
+    tabular: false,
     text: t("countdown.next", { countdown }),
-    sr: srMinutes > 0 ? t("countdown.sr", { n: srMinutes }) : t("countdown.srNow"),
-    // Berre «om 4:05» / «om 5 min», til bruk inne i statuslinja.
+    sr: duration ? t("countdown.srNext", { spoken: t("countdown.in", { duration: spoken }) }) : t("countdown.srNow"),
+    // Berre «om 12 min», til bruk inne i statuslinja.
     phrase: countdown,
-    srPhrase: srMinutes > 0 ? t("countdown.in", { duration: durationText(srMinutes) }) : t("duration.now"),
+    srPhrase: duration ? t("countdown.in", { duration: spoken }) : t("duration.now"),
   };
 }
 
