@@ -608,6 +608,22 @@ def require_recent(previous):
     return 0
 
 
+def run_check(routes, existing, moment, fetch_cancelled_fn=None, fetch_vm_fn=None):
+    """Éin sjekk: hent avlysingar og sanntid frå Entur og gje den oppdaterte loggen.
+
+    Same logikk uansett kvar jobben køyrer (GitHub Actions eller heimeserveren, scripts/signaltur_server.py).
+    `fetch_*_fn` finst for testar; standard er dei ekte Entur-kalla.
+    """
+    today = moment.date().isoformat()
+    legs = signal_legs(routes, today)
+    names = {leg.get("from") for leg in legs}
+    stop_ids = [STOPS[name] for name in names if name in STOPS]
+    cancelled, seen, actual = (fetch_cancelled_fn or fetch_cancelled)(moment, stop_ids)
+    for journey, when in (fetch_vm_fn or fetch_vm_sailed)(routes, today, legs).items():
+        actual.setdefault(journey, when)
+    return update_log(existing, routes, moment, cancelled, seen, actual_departures=actual)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "--require-recent":
@@ -617,14 +633,7 @@ def main(argv=None):
     existing = {}
     if LOG_PATH.exists():
         existing = json.loads(LOG_PATH.read_text(encoding="utf-8"))
-    moment = datetime.now(OSLO)
-    today = moment.date().isoformat()
-    names = {leg.get("from") for leg in signal_legs(routes, today)}
-    stop_ids = [STOPS[name] for name in names if name in STOPS]
-    cancelled, seen, actual = fetch_cancelled(moment, stop_ids)
-    for journey, when in fetch_vm_sailed(routes, today, signal_legs(routes, today)).items():
-        actual.setdefault(journey, when)
-    payload = update_log(existing, routes, moment, cancelled, seen, actual_departures=actual)
+    payload = run_check(routes, existing, datetime.now(OSLO))
     LOG_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0
 

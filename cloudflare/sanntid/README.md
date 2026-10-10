@@ -10,6 +10,7 @@ Han er eigen worker, så `fergeruter-trafikkmeldinger` og `fergeruter-signaltur-
   - Hendingar: høgst 50 og 64 KB per kall, idempotent på `serviceDate|line|kind|journeyRef|stop|slot`.
   - 429 med `Retry-After` om hendingar kjem oftare enn kvart 10. s, eller puls oftare enn kvart 30. s.
 - `POST /v1/positions`: header `X-Fergeruter-Key`. Siste AIS-melding per fartøy (høgst 10 per kall, 429 oftare enn kvart 10. s). Lagra i `ais_latest`.
+- `POST /v1/signalturar`: header `X-Fergeruter-Key`. Signalloggen frå heimeserveren (høgst 64 KB, 429 oftare enn kvart minutt, 409 om ein eldre logg). `GET /v1/signalturar` er offentleg (CORS `*`, `no-cache`, 404 før noko er skrive). Sjå `docs/signaltur-heimeserver.md`.
 - `GET /v1/latest`: offentleg, CORS `*`, `Cache-Control: public, max-age=15`.
 
 Hendingar blir sletta etter 30 dagar, pulsar etter 2 dagar (ved kvar puls).

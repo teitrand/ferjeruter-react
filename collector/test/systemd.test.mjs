@@ -41,3 +41,22 @@ test("timaren køyrer samanlikninga om natta, og avsendaren er av i eksempelopps
   assert.match(unit("collector.env.example"), /^FERGERUTER_SENDER_ENABLED=0$/m);
   assert.doesNotMatch(unit("collector.env.example"), /^FERGERUTER_SENDER_(URL|KEY)=\S/m);
 });
+
+test("signaltur-sjekken: oneshot som eigen brukar, same herding, timer kvart 10. minutt, installert av install.sh", () => {
+  const text = unit("fergeruter-signaltur.service");
+  assert.deepEqual(values(text, "Type"), ["oneshot"]);
+  assert.deepEqual(values(text, "User"), ["fergeruter"]);
+  assert.deepEqual(values(text, "EnvironmentFile"), ["/etc/fergeruter/collector.env"]);
+  assert.deepEqual(values(text, "WorkingDirectory"), ["/opt/fergeruter/app"]);
+  assert.deepEqual(values(text, "ExecStart"), ["/usr/bin/python3 scripts/signaltur_server.py"]);
+  assert.deepEqual(values(text, "ReadWritePaths"), ["/var/lib/fergeruter"]);
+  for (const [key, want] of Object.entries({ NoNewPrivileges: "yes", ProtectSystem: "strict", ProtectHome: "yes", PrivateTmp: "yes", RestrictAddressFamilies: "AF_INET AF_INET6 AF_UNIX" })) {
+    assert.deepEqual(values(text, key), [want], key);
+  }
+  assert.doesNotMatch(text, /SENDER_KEY\s*=\s*\S/, "nøkkelen står aldri i eininga");
+  assert.match(unit("fergeruter-signaltur.timer"), /^OnCalendar=\*:0\/10$/m);
+  assert.match(unit("fergeruter-signaltur.timer"), /^Persistent=true$/m);
+  const install = readFileSync(new URL("../deploy/install.sh", import.meta.url), "utf8");
+  assert.match(install, /fergeruter-signaltur\.service fergeruter-signaltur\.timer/);
+  assert.match(install, /systemctl enable [^\n]*fergeruter-signaltur\.timer/);
+});
