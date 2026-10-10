@@ -6,6 +6,7 @@
  */
 import {
   NO_FILTERS,
+  activeMode,
   bookingDeadline,
   compareTimelineEvents,
   connectionIndex,
@@ -18,6 +19,7 @@ import {
   eventIsPast,
   hasPassed,
   hhmm,
+  isMultiFerryRoute,
   journeyNote,
   keepEvent,
   legsForDate,
@@ -139,7 +141,8 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     statuses.set(event.leg, status);
   }
   // Same status som statuslinja: AIS er sanninga når ho seier noko anna enn rutetabellen.
-  const status = today ? nowStatus(data, ctx, dayLegs, now, ev) : null;
+  // Fleire ferjer om kvarandre (1069): ingen «ei ferje er her»-status, så ingen «No»-punkt på lista.
+  const status = today && !isMultiFerryRoute(activeMode(ctx)) ? nowStatus(data, ctx, dayLegs, now, ev) : null;
   if (status) events.push({ at: status.at, kind: "status", now: status });
   events.sort(compareTimelineEvents);
 

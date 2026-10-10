@@ -6,6 +6,7 @@ import {
   formatDateTime,
   hasPassed,
   hhmm,
+  isMultiFerryRoute,
   isVisibleDeparture,
   knownQuays,
   legsForDate,
@@ -30,6 +31,7 @@ const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
   1135: { title: "route.title1135", eyebrow: "eyebrow.1135", meta: "meta.title1135" },
   1049: { title: "route.title1049", eyebrow: "eyebrow.1049", meta: "meta.title1049" },
+  1069: { title: "route.title1069", eyebrow: "eyebrow.1069", meta: "meta.title1069" },
   kombi: { title: "route.titleKombi", eyebrow: "eyebrow.kombi", meta: "meta.titleKombi" },
 };
 
@@ -73,6 +75,24 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   if (!legs.length) return { noTrips: true };
   const ev = statusEvidence(data, ui, memory, ctx);
   const running = runningLegs(legs, now, ev);
+  // Fleire ferjer om kvarandre (1069): vi kan ikkje seie kvar «ferja» er. Berre neste avgang, utan «No»-kort og framdrift.
+  if (isMultiFerryRoute(activeMode(ctx))) {
+    const upcoming = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
+    const first = upcoming ? null : nowInfo({ status: null, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown: true, speedKn: null }).first;
+    return {
+      noTrips: false,
+      status: null,
+      next: upcoming
+        ? { time: hhmm(upcoming.departure), from: upcoming.from, countdown: countdown(upcoming.departure), departure: upcoming.departure, tag: null }
+        : first
+          ? { text: first }
+          : null,
+      live: null,
+      info: null,
+      card: null,
+      logWarning: null,
+    };
+  }
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
   const status = nowStatus(data, ctx, legs, now, ev, running);
   const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown, speedKn: nowSpeed(data, status) });
@@ -119,7 +139,7 @@ export function footnoteModel(data, ui, chrome) {
     position: positionNoteKey(data.live, data.liveFailed, quays, data.sanntidOn ? positionFixes(data) : null),
     updated: data.routes?.fetchedAt ? formatDateOnly(data.routes.fetchedAt) : null,
     ...routeFootnotes(chrome?.mode, { kombirute: data.kombirute, vessel: chrome?.vessel }),
-    // 1049 har ingen signalturar: ingen forklaring om bestilling på telefon.
-    signal: chrome?.mode !== "1049",
+    // 1049 og 1069 har ingen signalturar: ingen forklaring om bestilling på telefon.
+    signal: chrome?.mode !== "1049" && chrome?.mode !== "1069",
   };
 }

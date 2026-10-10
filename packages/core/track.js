@@ -42,6 +42,7 @@ export function markPwaFirstOpen(storage, mode) {
 export function plausibleRoute(choice) {
   if (choice === "1135") return "saebo-leknes";
   if (choice === "1049") return "festoya-hundeidvik";
+  if (choice === "1069") return "festoya-solavagen";
   return "standal-trandal";
 }
 

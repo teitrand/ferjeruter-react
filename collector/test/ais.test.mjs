@@ -337,14 +337,15 @@ test("eldre database utan AIS-kolonnar blir oppgradert", async () => {
   db.close();
 });
 
-test("standardkartet har Dryna (uverifisert) på 1049, og FERGERUTER_AIS_MMSI kan overstyre", () => {
+test("standardkartet har Dryna (verifisert) på 1049; 1069 har ingen AIS enno, og FERGERUTER_AIS_MMSI kan overstyre", () => {
   const map = parseMmsiMap();
   assert.equal(map.get(257297400), "1136");
   assert.equal(map.get(257262400), "1135");
   assert.equal(map.get(258408000), "1049");
   assert.equal(map.size, 3);
   assert.deepEqual([...parseMmsiMap("258408000:1049")], [[258408000, "1049"]]);
-  assert.deepEqual(loadConfig({}).lines, ["1136", "1135", "1049"]);
+  assert.deepEqual(loadConfig({}).lines, ["1136", "1135", "1049", "1069"]);
+  assert.ok(![...map.values()].includes("1069"), "tre ferjer samtidig: ingen AIS-kopling før appen kan knyte posisjon til tur");
   assert.equal(loadConfig({ FERGERUTER_LINES: "1136" }).lines.length, 1);
   assert.equal(loadConfig({ FERGERUTER_AIS_MMSI: "258408000:1049" }).ais.mmsi, "258408000:1049");
 });
