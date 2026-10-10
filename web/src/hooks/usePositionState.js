@@ -15,7 +15,7 @@ import { useTicker } from "./useTicker.js";
  * Live-regionen seier frå berre ved dei skifta core crossingAnnouncement godtek.
  * @param {{ crossing: { leg: object, fixes: object[] }|null, fixes: object[] }} live
  */
-export function usePositionState(live, { nowMs: fixedNow = null } = {}) {
+export function usePositionState(live, { nowMs: fixedNow = null, announce: speak = true } = {}) {
   const ticking = useTicker(1000);
   const nowMs = fixedNow ?? ticking;
   const previous = useRef(null);
@@ -32,7 +32,7 @@ export function usePositionState(live, { nowMs: fixedNow = null } = {}) {
   const announce = useAnnounce();
   useEffect(() => {
     const message = crossingAnnouncement(previous.current, view);
-    if (message) announce(message);
+    if (message && speak) announce(message);
     previous.current = view;
   }, [view, announce]);
   return view;

@@ -27,6 +27,7 @@ import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
 import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
 import { routePicker } from "./model/routes.js";
 import { RoutePicker } from "./components/RoutePicker.jsx";
+import { NowCard } from "./components/NowCard.jsx";
 import { markPwaFirstOpen, syncRouteQuery, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
 import { actionEvent, track as sendEvent, visitEvents } from "./model/track.js";
@@ -232,6 +233,8 @@ export function App({
                 onConnection={(id) => act({ type: "connection", id })}
               />
             ) : null}
+            {ready && todaySelected && lede && !lede.noTrips && lede.card ? <NowCard base={lede.card} live={lede.live} /> : null}
+            {ready ? <h2 className="trips-heading">{t("trips.heading")}</h2> : null}
             {status === "error" && !ready ? (
               <div className="timeline">
                 <p className="empty">{t("timetable.notLoaded")}</p>
@@ -242,8 +245,6 @@ export function App({
                 showPast={ui.showPast}
                 onTogglePast={() => act({ type: "togglePast" })}
                 onDetail={(leg) => act({ type: "detail", leg })}
-                live={lede && !lede.noTrips ? lede.live : null}
-            info={lede && !lede.noTrips ? lede.info : null}
               />
             ) : null}
             <Footnote notes={notes} connection={connection.footnote} />

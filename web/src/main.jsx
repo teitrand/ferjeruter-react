@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../../assets/styles.css";
 import "./styles/crossing.css";
+import "./styles/nowcard.css";
 import "./styles/picker.css";
 import { App } from "./App.jsx";
 import { AnnouncerProvider } from "./components/Announcer.jsx";

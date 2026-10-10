@@ -104,7 +104,7 @@ const BACK_2020 = "MOR:ServiceJourney:1136_129_9150000046366348";
 
 /** Statusen i rada for 20:20-avgangen frå Trandal (siste ordet før neste rad). */
 function state2020(html) {
-  return text(html).match(/20:20 Trandal → Standal .*? (Ukjent|Gått|Ikkje utført|Avlyst|Bestilt|På signal) No /)?.[1];
+  return text(html).match(/20:20 Trandal → Standal .*? (Ukjent|Gått|Ikkje utført|Avlyst|Bestilt|På signal) (?=\d\d:\d\d |[A-ZÅÆØ])/)?.[1];
 }
 
 test("Entur-bevis: avlyst utan sanntid gjev «Ikkje utført», sanntid som viser turen gjev «Gått»", async () => {
