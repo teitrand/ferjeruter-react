@@ -23,6 +23,10 @@ import {
   legsForMode,
   liveFetchUrls,
   nearLeg,
+  plausibleRoute,
+  routeFootnotes,
+  routeOverride,
+  visibleConnectionLines,
   otherFerryMode,
   signalPhone,
   tableName,
@@ -106,4 +110,13 @@ test("1049: kaier, stoppestader, Entur-adresse og AIS-kaikoordinatar", () => {
   assert.equal(nearLeg(mid, leg), true);
   // Ei Hjørundfjord-posisjon er ikkje på 1049-strekninga.
   assert.equal(nearLeg({ latitude: 62.2662, longitude: 6.4232 }, leg), false);
+});
+
+test("1049: Plausible-namn, ?rute=1049, fotnote og ingen korrespondanse", () => {
+  assert.equal(plausibleRoute("1049"), "festoya-hundeidvik");
+  assert.equal(plausibleRoute("1135"), "saebo-leknes");
+  assert.equal(plausibleRoute("1136"), "standal-trandal");
+  assert.equal(routeOverride({ href: "https://teitrand.github.io/ferjeruter-react/?rute=1049", pathname: "/ferjeruter-react/", hostname: "teitrand.github.io" }), "1049");
+  assert.match(routeFootnotes("1049").pdf.href, /festoeya-hundeidvika/);
+  assert.deepEqual(visibleConnectionLines(legsForDate(MON, ctx()), { lines: [{ id: "x", label: "X", roadTo: "Hundeidvik" }] }, MON, ctx()), []);
 });

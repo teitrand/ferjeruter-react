@@ -14,6 +14,7 @@ export const KOMBI_PDF =
 export const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 export const FJORD1_PDF_1135 = "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
+export const FJORD1_PDF_1049 = "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/festoeya-hundeidvika/(page)/pdf";
 export const FRAMMR_URL = "https://frammr.no/";
 export const NAIS_URL = "https://nais.kystverket.no/";
 export const FJORD1_SMS_URL = "https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken";
@@ -28,13 +29,14 @@ export function feedbackMailto(rating, comment) {
 
 /**
  * Papirruteplan og NAIS-lenkja for sambandet som gjeld. `vessel` er ferja som går
- * kombiruta eller 1135 ({ name }), null på 1136.
+ * kombiruta, 1135 eller 1049 ({ name }), null på 1136.
  * @returns {{ pdf: { href: string, text: string }, nais: string }}
  */
 export function routeFootnotes(mode, { kombirute = null, vessel = null } = {}) {
   let pdf = { href: FJORD1_PDF, text: "fjord1.no" };
   if (mode === "kombi") pdf = { href: kombirute?.source || KOMBI_PDF, text: t("footnote.kombiPdf") };
   else if (mode === "1135") pdf = { href: FJORD1_PDF_1135, text: "fjord1.no" };
+  else if (mode === "1049") pdf = { href: FJORD1_PDF_1049, text: "fjord1.no" };
   return {
     pdf,
     nais: vessel ? t("footnote.naisVessel", { name: vessel.name }) : t("footnote.nais"),
@@ -77,7 +79,7 @@ export function isPreview(loc) {
   );
 }
 
-/** ?rute=1136|1135|kombi, berre i førehandsvising. */
+/** ?rute=1136|1135|1049|kombi, berre i førehandsvising. */
 export function routeOverride(loc) {
   if (!isPreview(loc)) return null;
   try {

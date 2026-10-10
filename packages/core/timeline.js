@@ -283,6 +283,8 @@ export function transferDestinationsFor(date, ctx) {
 
 /** Korrespondanse-vala: overgang til den andre ferja, så bussar/ferjer frå korrespondanse.json. */
 export function visibleConnectionLines(legs, connections, date, ctx) {
+  // 1049 Festøya–Hundeidvik har ingen korrespondanse (Hjørundfjord-bussar og overgang på Sæbø gjeld ikkje der).
+  if (activeMode(ctx) === "1049") return [];
   const quays = quaysInDay(legs);
   const lines = [];
   const other = otherFerryMode(ctx);

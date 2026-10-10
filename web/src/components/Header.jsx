@@ -3,7 +3,7 @@ import { InstallButton } from "./InstallDialog.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
 import { t } from "./i18n.js";
 
-const ROUTES = ["1136", "1135"];
+const ROUTES = ["1136", "1135", "1049"];
 
 function BrandMark() {
   return (
@@ -16,20 +16,22 @@ function BrandMark() {
   );
 }
 
-/** Samband: Standal–Trandal (1136) eller Sæbø–Leknes (1135). Kombirute kjem frå meldingane. */
-function RouteSwitch({ routeChoice, onChange }) {
+/** Samband: Standal–Trandal (1136), Sæbø–Leknes (1135) eller Festøya–Hundeidvik (1049). Kombirute kjem frå meldingane. */
+function RouteSwitch({ routeChoice, routes, onChange }) {
+  // Eit lagra val som ikkje finst (1049 før tabellen har linja) viser 1136 som valt, som resten av appen.
+  const active = routes.includes(routeChoice) ? routeChoice : "1136";
   return (
     <div className="header-routes">
       <span id="route-switch-label" className="route-switch-label">
         {t("route.label")}
       </span>
       <div className="filters route-switch" role="group" aria-labelledby="route-switch-label">
-        {ROUTES.map((value) => (
+        {routes.map((value) => (
           <button
             key={value}
             type="button"
-            className={routeChoice === value ? "chip is-active" : "chip"}
-            aria-pressed={routeChoice === value}
+            className={active === value ? "chip is-active" : "chip"}
+            aria-pressed={active === value}
             onClick={() => onChange(value)}
           >
             {t(`route.${value}`)}
@@ -85,7 +87,7 @@ export function Lede({ lede }) {
   );
 }
 
-export function Header({ chrome, lede, ui, onRoute, onLang, install = null }) {
+export function Header({ chrome, lede, ui, routes = ROUTES, onRoute, onLang, install = null }) {
   return (
     <header className={chrome ? "site-header" : "site-header is-pending-route"}>
       <div className="header-tools">
@@ -102,7 +104,7 @@ export function Header({ chrome, lede, ui, onRoute, onLang, install = null }) {
           </span>
         ) : null}
       </div>
-      <RouteSwitch routeChoice={ui.routeChoice} onChange={onRoute} />
+      <RouteSwitch routeChoice={ui.routeChoice} routes={routes} onChange={onRoute} />
       <Lede lede={lede} />
     </header>
   );

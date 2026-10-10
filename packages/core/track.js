@@ -40,7 +40,9 @@ export function markPwaFirstOpen(storage, mode) {
 }
 
 export function plausibleRoute(choice) {
-  return choice === "1135" ? "saebo-leknes" : "standal-trandal";
+  if (choice === "1135") return "saebo-leknes";
+  if (choice === "1049") return "festoya-hundeidvik";
+  return "standal-trandal";
 }
 
 /** Eigenskapane kvar hending får: språk, web/pwa og valt samband. */
@@ -50,7 +52,7 @@ export function plausibleContext({ lang, app, route }, extra) {
 
 /**
  * Sender éi hending til window.plausible om skriptet er lasta.
- * `context` = { lang, app, route } der route er valt samband («1136»/«1135»).
+ * `context` = { lang, app, route } der route er valt samband («1136»/«1135»/«1049»).
  */
 export function trackEvent(win, name, props, context, { interactive = true } = {}) {
   try {

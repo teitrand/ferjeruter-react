@@ -22,8 +22,14 @@ import { quayPlace } from "./legs.js?v=84";
 import { driftNeedsOperationalTable, resolveRoutePlan } from "./messages.js?v=84";
 import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=84";
 
+/** 1049 kjem berre frå Entur-tabellen. Før den er publisert (eller utan 1049 i fila) finst sambandet ikkje å velje. */
+export function routeHasData(route, ctx) {
+  return route !== "1049" || !ctx?.routes || Boolean(ctx.routes.lines?.["1049"]);
+}
+
 export function chosenRoute(ctx) {
-  return CHOOSABLE_ROUTES.has(ctx?.routeChoice) ? ctx.routeChoice : "1136";
+  const choice = ctx?.routeChoice;
+  return CHOOSABLE_ROUTES.has(choice) && routeHasData(choice, ctx) ? choice : "1136";
 }
 
 export function lineLegs(mode, ctx) {

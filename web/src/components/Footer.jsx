@@ -53,8 +53,10 @@ function AboutData({ notes }) {
 /** Heilt nede: operatør og ferjetelefon, kjeldekreditering (AIS frå Kystverket, NLOD), «Om dataa», høgtidsmerknad og tilbakemelding. */
 export function Footer({ chrome, notes, onFeedback }) {
   const vessel = chrome?.vessel;
-  const phone = vessel ? vessel.phone : "916 69 340";
-  const text = vessel ? t("footer.operatorVessel", { name: vessel.name, phone }) : t("footer.operator");
+  // 1049: ferjetelefon er ikkje kjend (ingen signalturar), så berre operatør og ruteeigar.
+  const noPhone = chrome?.mode === "1049";
+  const phone = noPhone ? "" : vessel ? vessel.phone : "916 69 340";
+  const text = noPhone ? t("footer.operator1049", { name: vessel?.name || "" }) : vessel ? t("footer.operatorVessel", { name: vessel.name, phone }) : t("footer.operator");
   return (
     <footer className="site-footer">
       <p>
@@ -72,7 +74,7 @@ export function Footer({ chrome, notes, onFeedback }) {
           {t("footer.licence")}
         </a>
       </p>
-      <p>{t("footer.holidays")}</p>
+      <p>{t(chrome?.mode === "1049" ? "footer.holidays1049" : "footer.holidays")}</p>
       {notes ? <AboutData notes={notes} /> : null}
       <p>
         <button type="button" id="feedback-open" className="feedback-link" onClick={onFeedback}>

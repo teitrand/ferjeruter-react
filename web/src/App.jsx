@@ -24,7 +24,7 @@ import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDa
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
 import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
-import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
+import { chromeForMode, footnoteModel, ledeModel, routeChrome, routeTabs } from "./model/header.js";
 import { markPwaFirstOpen, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
 import { actionEvent, track as sendEvent, visitEvents } from "./model/track.js";
@@ -201,7 +201,7 @@ export function App({
         {t("skip")}
       </a>
       <div className="skyline" aria-hidden="true" />
-      <Header chrome={headerChrome} lede={lede} ui={ui} onRoute={onRoute} onLang={onLang} install={install} />
+      <Header chrome={headerChrome} lede={lede} ui={ui} routes={routeTabs(data)} onRoute={onRoute} onLang={onLang} install={install} />
       <main id="innhald">
         <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">
           <MessagesPanel

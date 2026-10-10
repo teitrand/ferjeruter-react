@@ -8,6 +8,7 @@ import {
   hhmm,
   isVisibleDeparture,
   knownQuays,
+  routeHasData,
   legsForDate,
   nowInfo,
   nowMinutes,
@@ -28,8 +29,17 @@ import { liveStatus, nowSpeed, nowStatus, positionFixes } from "./crossing.js";
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
   1135: { title: "route.title1135", eyebrow: "eyebrow.1135", meta: "meta.title1135" },
+  1049: { title: "route.title1049", eyebrow: "eyebrow.1049", meta: "meta.title1049" },
   kombi: { title: "route.titleKombi", eyebrow: "eyebrow.kombi", meta: "meta.titleKombi" },
 };
+
+const ROUTE_TABS = ["1136", "1135", "1049"];
+
+/** Sambanda i veljaren. 1049 er med når rutetabellen har linja (eller medan han lastar), så ingen får ein tom fane. */
+export function routeTabs(data) {
+  const ctx = { routes: data?.routes || null };
+  return ROUTE_TABS.filter((route) => routeHasData(route, ctx));
+}
 
 /**
  * Tittel og overtittel for eit samband før data er lasta (siste samband i dag frå
@@ -46,7 +56,7 @@ export function routeChrome(data, ui) {
   const ctx = planContext(data, ui);
   const mode = activeMode(ctx);
   const keys = CHROME[mode] || CHROME[1136];
-  const vesselName = mode === "kombi" ? vesselNameForTable(mode, ctx) : mode === "1135" ? "Geiranger" : null;
+  const vesselName = mode === "kombi" ? vesselNameForTable(mode, ctx) : mode === "1135" ? "Geiranger" : mode === "1049" ? "Dryna" : null;
   const vessel = vesselName ? vesselInfo(vesselName, ctx) : null;
   return {
     mode,
@@ -114,5 +124,7 @@ export function footnoteModel(data, ui, chrome) {
     position: positionNoteKey(data.live, data.liveFailed, quays, data.sanntidOn ? positionFixes(data) : null),
     updated: data.routes?.fetchedAt ? formatDateOnly(data.routes.fetchedAt) : null,
     ...routeFootnotes(chrome?.mode, { kombirute: data.kombirute, vessel: chrome?.vessel }),
+    // 1049 har ingen signalturar: ingen forklaring om bestilling på telefon.
+    signal: chrome?.mode !== "1049",
   };
 }
