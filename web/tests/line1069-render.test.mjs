@@ -58,7 +58,7 @@ const text = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 test("1069: tittel, overtittel, kortet viser 1069 som valt, ?rute=1069", () => {
   const html = render();
   assert.match(html, /id="route-title">Festøya–Solavågen</);
-  assert.match(html, /class="eyebrow">Rute 1069 · Norled\/Fram</);
+  assert.match(html, /class="eyebrow">Rute 1069 · Norled \/ FRAM</);
   assert.match(text(html.slice(html.indexOf('id="route-card"'), html.indexOf("</button>", html.indexOf('id="route-card"')))), /Valt samband Festøya– ?Solavågen Byt samband/);
   assert.match(html, /role="radio" class="route-row is-selected" aria-checked="true"[^>]*data-route="1069"/);
   assert.doesNotMatch(html, /role="radio" class="route-row is-soon"/, "ingen «Kjem snart» når alle samband har data");
@@ -101,11 +101,11 @@ test("1069: fotnote og botn utan ferjetelefon og utan éi namngjeven ferje (tre 
 
 test("1069: engelsk og tysk (tittel, overtittel, botn)", () => {
   const en = render({ lang: "en" });
-  assert.match(en, /class="eyebrow">Route 1069 · Norled\/Fram</);
+  assert.match(en, /class="eyebrow">Route 1069 · Norled \/ FRAM</);
   assert.match(en, /id="route-title">Festøya–Solavågen</);
   assert.match(text(en), /Operator Norled\. Route owner FRAM\./);
   const de = render({ lang: "de" });
-  assert.match(de, /class="eyebrow">Linie 1069 · Norled\/Fram</);
+  assert.match(de, /class="eyebrow">Linie 1069 · Norled \/ FRAM</);
   assert.match(text(de), /Betreiber Norled\. Auftraggeber FRAM\./);
 });
 

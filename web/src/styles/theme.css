@@ -79,4 +79,11 @@ html[data-theme="dark"] .conn-select {
 html[data-theme="dark"] .na { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
 html[data-theme="dark"] .na-ferry::after { background: #000; opacity: 0.35; }
 html[data-theme="dark"] .route-bar { box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.5); }
+html[data-theme="dark"] .skyline { opacity: 0.85; }
 
+/* Temaval i toppen: same knappar som språkvalet, med ikon og tekst. */
+.theme-switch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; min-width: 0; max-width: 100%; }
+.theme-btn { gap: 0.3rem; padding-left: 0.5rem; }
+.theme-icon { flex: none; width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.theme-btn[aria-pressed="true"] .theme-icon { stroke-width: 1.8; }
+.theme-btn:focus-visible, .lang-btn:focus-visible { outline: 2px solid var(--foam); outline-offset: 2px; }

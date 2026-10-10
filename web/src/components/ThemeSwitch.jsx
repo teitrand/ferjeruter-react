@@ -1,4 +1,3 @@
-import { useAnnounce } from "./Announcer.jsx";
 import { t } from "./i18n.js";
 
 const ICONS = {
@@ -17,33 +16,34 @@ const ICONS = {
   dark: <path d="M16.2 11.6A6.6 6.6 0 0 1 8.4 3.8a6.6 6.6 0 1 0 7.8 7.8z" />,
 };
 
-/** Rekkjefølgje: følg eininga → lys → mørk → følg eininga. */
-export const THEME_CYCLE = ["system", "light", "dark"];
-export const nextThemePref = (pref) => THEME_CYCLE[(THEME_CYCLE.indexOf(pref) + 1) % THEME_CYCLE.length];
+const OPTIONS = ["system", "light", "dark"];
 
 /**
- * Éin liten knapp (44 px, berre ikon) som bladar Enhet → Lys → Mørk. Ikonet viser valet no (skjerm = følg eininga, sol = lys,
- * måne = mørk). Namnet seier kva som er valt og kva trykket gjev: «Tema: Enhet. Byt til Lys». Valet blir husket (useTheme) og sagt frå om.
+ * Tre val: Enhet (følg eininga) / Lys / Mørk. Knappar med aria-pressed i ei merkt gruppe (Tab og Enter/mellomrom).
+ * Teksten står alltid synleg ved sida av ikonet, så valet er forståeleg utan å gjette på symbol.
  */
-export function ThemeSwitch({ pref, onChange }) {
-  const announce = useAnnounce();
-  const next = nextThemePref(pref);
-  const name = (value) => t(`theme.${value}`);
+export function ThemeSwitch({ pref, theme, onChange }) {
   return (
-    <button
-      type="button"
-      className="theme-btn"
-      data-theme-pref={pref}
-      aria-label={t("theme.cycle", { current: name(pref), next: name(next) })}
-      title={t("theme.cycle", { current: name(pref), next: name(next) })}
-      onClick={() => {
-        onChange(next);
-        announce(`${t("theme.label")}: ${name(next)}`);
-      }}
-    >
-      <svg className="theme-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-        {ICONS[pref] || ICONS.system}
-      </svg>
-    </button>
+    <div className="theme-switch" role="group" aria-label={t("theme.label")}>
+      {OPTIONS.map((value) => {
+        const title = value === "system" ? t("theme.systemTitle", { theme: t(`theme.${theme}`) }) : t(`theme.${value}Title`);
+        return (
+          <button
+            key={value}
+            type="button"
+            className={pref === value ? "lang-btn theme-btn is-active" : "lang-btn theme-btn"}
+            data-theme-pref={value}
+            aria-pressed={pref === value}
+            title={title}
+            onClick={() => onChange(value)}
+          >
+            <svg className="theme-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              {ICONS[value]}
+            </svg>
+            <span>{t(`theme.${value}`)}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

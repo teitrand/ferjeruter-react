@@ -20,8 +20,6 @@ const text = (html) => html.replace(/<wbr\/>/g, "").replace(/<[^>]+>/g, " ").rep
 let server;
 let App;
 let ThemeSwitch;
-let LangSwitch;
-let nextThemePref;
 let memoryOnly;
 let setLang;
 
@@ -34,8 +32,7 @@ before(async () => {
     appType: "custom",
   });
   ({ App } = await server.ssrLoadModule("/src/App.jsx"));
-  ({ ThemeSwitch, nextThemePref } = await server.ssrLoadModule("/src/components/ThemeSwitch.jsx"));
-  ({ LangSwitch } = await server.ssrLoadModule("/src/components/LangSwitch.jsx"));
+  ({ ThemeSwitch } = await server.ssrLoadModule("/src/components/ThemeSwitch.jsx"));
   ({ memoryOnly } = await server.ssrLoadModule("/src/model/context.js"));
   ({ setLang } = await server.ssrLoadModule("/src/components/i18n.js"));
 });
@@ -175,53 +172,31 @@ test("CSS: color-scheme følgjer temaet (skjemafelt, rullefelt), og main.jsx las
   assert.match(read("web/src/main.jsx"), /import "\.\/styles\/theme\.css";/);
 });
 
-const themeBtn = (pref) => renderToString(createElement(ThemeSwitch, { pref, onChange() {} })).replace(/<!-- -->/g, "");
-
-test("temaknappen: éin ikonknapp som bladar Enhet → Lys → Mørk → Enhet, namn med val og neste (nn/en/de)", () => {
-  assert.equal(nextThemePref("system"), "light");
-  assert.equal(nextThemePref("light"), "dark");
-  assert.equal(nextThemePref("dark"), "system", "tilbake til «følg eininga»");
-  const names = {
-    nn: { system: "Tema: Enhet. Byt til Lys", light: "Tema: Lys. Byt til Mørk", dark: "Tema: Mørk. Byt til Enhet" },
-    en: { system: "Theme: Device. Switch to Light", light: "Theme: Light. Switch to Dark", dark: "Theme: Dark. Switch to Device" },
-    de: { system: "Design: Gerät. Wechseln zu Hell", light: "Design: Hell. Wechseln zu Dunkel", dark: "Design: Dunkel. Wechseln zu Gerät" },
-  };
-  for (const [lang, byPref] of Object.entries(names)) {
+test("knappane: merkt gruppe, tre knappar med aria-pressed og synleg tekst (nn/en/de)", () => {
+  const labels = { nn: ["Utsjånad", "Enhet", "Lys", "Mørk"], en: ["Appearance", "Device", "Light", "Dark"], de: ["Darstellung", "Gerät", "Hell", "Dunkel"] };
+  for (const [lang, [group, system, light, dark]] of Object.entries(labels)) {
     setLang(lang);
-    for (const [pref, label] of Object.entries(byPref)) {
-      const html = themeBtn(pref);
-      assert.equal((html.match(/<button/g) || []).length, 1);
-      assert.match(html, new RegExp(`aria-label="${label}"`), `${lang}/${pref}`);
-      assert.match(html, new RegExp(`data-theme-pref="${pref}"`));
-      assert.equal(text(html).trim(), "", "berre ikon, ingen synleg tekst");
+    for (const [pref, pressed] of [["system", [true, false, false]], ["light", [false, true, false]], ["dark", [false, false, true]]]) {
+      const html = renderToString(createElement(ThemeSwitch, { pref, theme: "dark", onChange() {} }));
+      assert.match(html, new RegExp(`role="group" aria-label="${group}"`), lang);
+      const buttons = [...html.matchAll(/<button[^>]*>/g)].map((m) => m[0]);
+      assert.equal(buttons.length, 3);
+      assert.deepEqual(buttons.map((b) => /aria-pressed="true"/.test(b)), pressed, `${lang}/${pref}`);
+      assert.ok(buttons.every((b) => /type="button"/.test(b) && /aria-pressed=/.test(b)));
+      assert.equal(text(html).trim(), `${system} ${light} ${dark}`, lang);
     }
   }
   setLang("nn");
+  const html = renderToString(createElement(ThemeSwitch, { pref: "system", theme: "dark", onChange() {} }));
+  assert.match(html, /title="Følg eininga \(no: Mørk\)"/, "Enhet viser kva eininga vil ha no");
 });
 
-test("språkflagg: tre knappar med flagg, namn og aria-pressed", () => {
-  setLang("nn");
-  const html = renderToString(createElement(LangSwitch, { lang: "en", onChange() {} })).replace(/<!-- -->/g, "");
-  const buttons = [...html.matchAll(/<button[^>]*>/g)].map((m) => m[0]);
-  assert.equal(buttons.length, 3);
-  assert.deepEqual(buttons.map((b) => /aria-pressed="true"/.test(b)), [false, true, false]);
-  for (const name of ["Nynorsk", "English", "Deutsch"]) assert.match(html, new RegExp(`aria-label="${name}"`));
-  assert.equal((html.match(/<svg/g) || []).length, 3, "eitt flagg per knapp");
-});
-
-test("appen: flagg og temaknapp i toppen (ingen tannhjul), ingen merkeikon eller stripe, 44 px", () => {
+test("appen: temavalet står i toppen, ved sida av språkvalet, éin gong", () => {
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog: null, connections: null };
   const initialState = { routeChoice: "1136", lang: "nn", override: null, date: null, showPast: true };
   const html = renderToString(createElement(App, { initialData, initialState, memory: memoryOnly() })).replace(/<!-- -->/g, "");
-  const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
-  assert.equal((header.match(/class="lang-switch"/g) || []).length, 1);
-  assert.equal((header.match(/class="theme-btn"/g) || []).length, 1);
-  assert.ok(header.indexOf("lang-switch") < header.indexOf("theme-btn"), "flagg først, så tema");
-  assert.doesNotMatch(html, /settings-btn|settings-dialog|gear-icon|brand-mark|class="skyline"|theme-switch/i);
-  assert.doesNotMatch(text(header), /FERGEORAKELET/i, "ingen appnamn-linje i toppen");
-  assert.match(header, /<h1 id="route-title">[^<]+<\/h1><\/div><p class="eyebrow">Rute 1136<\/p>/, "1136: berre «Rute 1136»");
-  const css = read("web/src/styles/header.css");
-  assert.match(css, /\.theme-btn \{[^}]*width: 44px;[^}]*height: 44px;/s);
-  assert.match(css, /\.header-tools \.lang-btn,\s*\.header-tools \.install-btn \{ min-height: 44px; \}/);
-  assert.match(css, /\.header-title h1 \{\s*font-size: 1\.5rem; \/\* 24 px \*\//);
+  assert.equal((html.match(/class="theme-switch"/g) || []).length, 1);
+  const tools = html.slice(html.indexOf('class="header-tools"'), html.indexOf("</header>"));
+  assert.ok(tools.indexOf("lang-switch") < tools.indexOf("theme-switch"), "språk først, så tema");
+  assert.match(tools, /data-theme-pref="system" aria-pressed="true"/, "Enhet er valt som standard");
 });
