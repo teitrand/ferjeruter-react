@@ -5,7 +5,9 @@ import test from "node:test";
 const yml = readFileSync(new URL("../.github/workflows/pages.yml", import.meta.url), "utf8");
 
 test("Pages-bygget: rutedata frå eige repo og frisk frå Entur (feil stoppar ikkje byggjet); meldingar og signallogg frå produksjon", () => {
-  assert.match(yml, /VITE_DATA_BASE: \$\{\{ vars\.DATA_BASE \|\| '\.\/data\/' \}\}/, "rutetabellen følgjer med i byggjet");
+  // Tom VITE_DATA_BASE = vite legg kopien i dist/data/. Ein sett verdi (òg «./data/») gjev ingen kopi og 404 i førehandsvisinga.
+  assert.match(yml, /VITE_DATA_BASE: \$\{\{ vars\.DATA_BASE \}\}\s*\n/, "rutetabellen følgjer med i byggjet");
+  assert.doesNotMatch(yml, /VITE_DATA_BASE: \$\{\{ vars\.DATA_BASE \|\|/, "ingen standardverdi som slår av kopien");
   assert.match(yml, /VITE_LIVE_DATA_BASE: \$\{\{ vars\.LIVE_DATA_BASE \|\| 'https:\/\/teitrand\.github\.io\/fergeruter\/data\/' \}\}/);
   for (const script of ["fetch_ruter.py", "fetch_korrespondanse.py"]) {
     const at = yml.indexOf(`run: python scripts/${script}`);

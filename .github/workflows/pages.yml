@@ -12,7 +12,7 @@ name: Publiser React-skalet til GitHub Pages
 #
 # Overstyr utan kodeendring med repo-variablar (Settings → Variables → Actions):
 # - WEB_BASE: «/» når sida skal liggje i rota av eige domene
-# - DATA_BASE: anna adresse for rutetabell/kombirute/korrespondanse (standard: ./data/, altså denne repoen)
+# - DATA_BASE: anna adresse for rutetabell/kombirute/korrespondanse (standard: tom, altså kopien som følgjer med i byggjet)
 # - LIVE_DATA_BASE: anna adresse for trafikkmeldingar og signallogg
 on:
   push:
@@ -55,7 +55,9 @@ jobs:
         run: npm run build:web
         env:
           WEB_BASE: ${{ vars.WEB_BASE || '/ferjeruter-react/' }}
-          VITE_DATA_BASE: ${{ vars.DATA_BASE || './data/' }}
+          # Tom (standard): rutetabellen følgjer med i byggjet som ./data/ (vite legg då ein kopi i dist/data/). Sett ho berre
+          # med repo-variabelen DATA_BASE; ein sett VITE_DATA_BASE (også «./data/») gjev INGEN kopi i byggjet.
+          VITE_DATA_BASE: ${{ vars.DATA_BASE }}
           VITE_LIVE_DATA_BASE: ${{ vars.LIVE_DATA_BASE || 'https://teitrand.github.io/fergeruter/data/' }}
       - name: Last opp
         uses: actions/upload-pages-artifact@v3
