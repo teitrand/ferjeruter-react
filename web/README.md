@@ -25,6 +25,16 @@ npm run test:web       # teiknar <App> med fast data via Vite SSR
 - `src/components/`: Header (språk, tittel, samband, statuslinje), DayNav, Timeline, Footer.
   Same klassenamn som vanilla-appen, så `assets/styles.css` blir brukt som han er.
 
+## Fargetema (lys/mørkt)
+
+Standard er å følgje eininga (`prefers-color-scheme`, endrar seg live); knappane **Enhet / Lys / Mørk** i toppen overstyrer, og valet ligg i `localStorage` (`fergeruter-theme`; «Enhet» fjernar nøkkelen).
+
+- `src/model/theme.js`: oppløysing, lagring og `applyTheme` (sett `data-theme` på `<html>`, `color-scheme` og `<meta name="theme-color">`).
+- `build/theme-early.js`: same regel som eit lite skript i `<head>`, så temaet står før fyrste teikning (ingen blink). `tests/theme.test.mjs` køyrer skriptet mot modellen.
+- Fargar er roller (tokens). Lyse verdiar ligg i `assets/styles.css`, `crossing.css`, `nowcard.css` og `picker.css`; dei mørke i `src/styles/theme.css` under `html[data-theme="dark"]`. Nye komponentar brukar rolletokens, ikkje faste fargar.
+- `tests/theme-contrast.test.mjs` les dei faktiske CSS-filene og krev ≥ 4,5:1 for tekst og ≥ 3:1 for status-, kai- og ferjefargar i begge tema. Legg nye par i lista der.
+- Manifestet kan ikkje skifte `theme_color` med temaet; det står på lyst tema (`#073b4c`). `<meta name="theme-color">` blir oppdatert i køyrande side og vinn i nettlesaren og i installert app.
+
 ## ?v= i core
 
 Core importerer med `?v=<versjon>` for vanilla-appen. `build/strip-version-query.js` fjernar

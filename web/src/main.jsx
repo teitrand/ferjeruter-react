@@ -4,6 +4,7 @@ import "../../assets/styles.css";
 import "./styles/crossing.css";
 import "./styles/nowcard.css";
 import "./styles/picker.css";
+import "./styles/theme.css";
 import { App } from "./App.jsx";
 import { AnnouncerProvider } from "./components/Announcer.jsx";
 import { detectLang } from "./components/i18n.js";

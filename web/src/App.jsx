@@ -19,6 +19,7 @@ import { useInstall } from "./hooks/useInstall.js";
 import { useMessages } from "./hooks/useMessages.js";
 import { useOnline } from "./hooks/useOnline.js";
 import { useSanntid } from "./hooks/useSanntid.js";
+import { useTheme } from "./hooks/useTheme.js";
 import { useWake } from "./hooks/useWake.js";
 import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDate } from "./model/context.js";
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
@@ -157,6 +158,7 @@ export function App({
     }
   }, [win]);
   const install = useInstall(track, { enabled: live, early: installPrompt });
+  const themeState = useTheme();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
@@ -205,7 +207,7 @@ export function App({
         {t("skip")}
       </a>
       <div className="skyline" aria-hidden="true" />
-      <Header chrome={headerChrome} lede={lede} ui={ui} onLang={onLang} install={install} />
+      <Header chrome={headerChrome} lede={lede} ui={ui} onLang={onLang} install={install} themeState={themeState} />
       <main id="innhald">
         <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">
           <MessagesPanel

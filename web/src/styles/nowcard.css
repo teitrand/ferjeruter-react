@@ -1,9 +1,18 @@
 /*
  * «No»-kortet (Designer V2, na-pen2-*.png): hovudlinje, støttelinje, ferja på ei line mellom to bryggjer og eit lite
- * kjeldemerke nederst. Fargar frå tokens i crossing.css; ingen eigen mørk modus (appen har berre eitt tema).
+ * kjeldemerke nederst. Fargar frå tokens (crossing.css, assets/styles.css); mørk variant av tokens i theme.css.
  * Semantikk som ikkje berre er farge: stipla line = ikkje eksakt, «?» = ukjend, «≈» = berekna, blå tagg + pil = utanfor ruta,
  * grønt berre ved fersk AIS. Berre transform og opacity blir animert; mindre rørsle gjev ingen glid og ingen puls.
  */
+:root {
+  /* «No»-kortet: himmelgradient og fjellsilhuett. Mørk variant i theme.css. */
+  --na-top: #fff;
+  --na-bottom: #f1f6f5;
+  --na-mountain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90' preserveAspectRatio='none'%3E%3Cpath d='M0 90V60l45-24 38 20 52-38 60 44 40-18 70 36 55-30 40 20v20z' fill='%23cfe0e3' fill-opacity='.45'/%3E%3C/svg%3E");
+  --na-live-line: #b8dccf;
+  --na-outside-line: #b7cde0;
+}
+
 .trips-heading {
   margin: 1.1rem 0 0.45rem;
   font-size: 0.78rem;
@@ -20,15 +29,15 @@
   padding: 14px 14px 13px; /* px: ved 200 % tekst skal ikkje polstringa ete breidda */
   color: var(--ink);
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90' preserveAspectRatio='none'%3E%3Cpath d='M0 90V60l45-24 38 20 52-38 60 44 40-18 70 36 55-30 40 20v20z' fill='%23cfe0e3' fill-opacity='.45'/%3E%3C/svg%3E") bottom / 100% 4.5rem no-repeat,
-    linear-gradient(#fff, #f1f6f5);
+    var(--na-mountain) bottom / 100% 4.5rem no-repeat,
+    linear-gradient(var(--na-top), var(--na-bottom));
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(4, 28, 36, 0.08);
   overflow: hidden;
 }
-.na-state-live { border-color: #b8dccf; }
-.na-outside { border-color: #b7cde0; }
+.na-state-live { border-color: var(--na-live-line); }
+.na-outside { border-color: var(--na-outside-line); }
 
 .na-body { position: relative; }
 .na p { margin: 0; }
@@ -52,19 +61,19 @@
   font-weight: 600;
   font-size: 1.0625rem; /* 17 px */
   line-height: 1.25;
-  color: var(--fjord);
+  color: var(--strong);
   overflow-wrap: break-word;
 }
 .na-support { margin-top: 0.2rem !important; font-size: 0.9rem; line-height: 1.35; overflow-wrap: break-word; }
 .na-support-trip, .na-support-note { color: var(--muted); }
-.na-support-delay { color: #8f4a0c; font-weight: 600; }
+.na-support-delay { color: var(--delay-fg); font-weight: 600; }
 .na-support-cancelled { color: var(--stop-fg); font-weight: 600; }
 .na-support b { font-weight: 700; }
 
 /* ---------- Scenen: bryggje – line med ferje – bryggje ---------- */
 .na-scene { margin-top: 0.75rem; }
 .na-rail { display: flex; align-items: flex-end; }
-.na-pier { flex: none; width: 22px; height: 31px; color: var(--fjord); }
+.na-pier { flex: none; width: 22px; height: 31px; color: var(--quay); }
 .na-pier-deck, .na-pier-top { fill: currentColor; stroke: currentColor; stroke-width: 1; stroke-linejoin: round; }
 .na-pier-top { fill: none; }
 .na-pier-post { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
@@ -84,7 +93,7 @@
   border-radius: 5px;
   background: var(--track);
 }
-.na-scene.is-dashed .na-bar { background: repeating-linear-gradient(90deg, #aebcb9 0 8px, transparent 8px 13px); }
+.na-scene.is-dashed .na-bar { background: repeating-linear-gradient(90deg, var(--track-dash) 0 8px, transparent 8px 13px); }
 .na-scene.is-faded .na-bar { opacity: 0.6; }
 .na-lane { position: absolute; inset: 0 calc(var(--fw) / 2); }
 .na-lane-bar { transform: translateX(calc(var(--x, 0) * 100%)); }
@@ -135,7 +144,7 @@
   font: 700 0.8rem/1.05rem Outfit, sans-serif;
   text-align: center;
   color: var(--unknown-fg);
-  background: #fff;
+  background: var(--card);
   border: 1.5px dashed var(--unknown-line);
   border-radius: 999px;
 }

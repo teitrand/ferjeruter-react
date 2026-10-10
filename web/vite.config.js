@@ -5,6 +5,7 @@ import { noindexUnlessRoot } from "./build/noindex.js";
 import { pwaAssets } from "./build/pwa-assets.js";
 import { repoData } from "./build/repo-data.js";
 import { stripVersionQuery } from "./build/strip-version-query.js";
+import { themeEarly } from "./build/theme-early.js";
 
 // React-skalet. Byggjet går til web/dist og rører ikkje vanilla-appen i / eller /dev/.
 // packages/core og assets/ ligg utanfor web/, men innanfor npm-workspacen i rota, som
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => {
   const base = env.WEB_BASE || "./";
   return {
     base,
-    plugins: [stripVersionQuery(), repoData({ emit: !env.VITE_DATA_BASE }), pwaAssets(), earlySanntid(env), noindexUnlessRoot(base), react()],
+    plugins: [stripVersionQuery(), repoData({ emit: !env.VITE_DATA_BASE }), pwaAssets(), earlySanntid(env), themeEarly(), noindexUnlessRoot(base), react()],
     build: {
       outDir: "dist",
       emptyOutDir: true,

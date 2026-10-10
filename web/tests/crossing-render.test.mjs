@@ -499,10 +499,10 @@ test("CSS: kortet bryt tekst i staden for å klippe, px-polstring, ferje 80–88
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.na-badge\[data-fresh="1"\] \.na-badge-icon \{ animation: none; \}[^}]*transition: none;/s);
   // Fargane: grønt berre ved fersk AIS (live/utanfor), oransje berre for forseinking, raudt berre avlyst, blått for «utanfor ruta».
   assert.match(css, /\.na-badge\[data-state="live"\], \.na-badge\[data-state="outside"\] \{ color: var\(--ok-fg\)/);
-  assert.match(css, /\.na-support-delay \{ color: #8f4a0c/);
+  assert.match(css, /\.na-support-delay \{ color: var\(--delay-fg\)/);
   assert.match(css, /\.na-support-cancelled \{ color: var\(--stop-fg\)/);
   assert.match(css, /\.na-tag \{[^}]*color: var\(--info-fg\)/s);
-  assert.doesNotMatch(css, /fdeee0|--delay/, "ingen liggetid-oransje og ingen delt bakgrunn i kortet");
+  assert.doesNotMatch(css, /fdeee0|var\(--delay\)|--delay-(bg|soft|line)/, "ingen liggetid-oransje og ingen delt bakgrunn i kortet (oransje berre som tekst for forseinking)");
   const ferry = readFileSync(new URL("src/components/FerryV2.jsx", new URL("..", import.meta.url)), "utf8");
   assert.match(ferry, /viewBox="0 0 96 32"/);
   assert.doesNotMatch(ferry, /#[0-9a-f]{3,6}"/i, "ingen faste fargar i SVG-en: fargane kjem frå CSS-variablane");
@@ -581,6 +581,7 @@ test("kortet: live AIS ved kai er den vanlege grøne stilen – ingen liggetid-o
     assert.doesNotMatch(now, /is-layover|has-progress|now-track|now-fill|--now-progress|na-support-delay/);
     assert.equal(badgeText(html), "Live frå AIS · 15 s");
   }
-  assert.match(css, /\.na-state-live \{ border-color: #b8dccf; \}/);
-  assert.doesNotMatch(css, /\.na-(moored|state-live)[^{]*\{[^}]*(fdeee0|8f4a0c)/);
+  assert.match(css, /\.na-state-live \{ border-color: var\(--na-live-line\); \}/);
+  assert.match(css, /--na-live-line: #b8dccf;/, "lyst tema: grøn kant ved live");
+  assert.doesNotMatch(css, /\.na-(moored|state-live)[^{]*\{[^}]*(fdeee0|8f4a0c|delay)/);
 });

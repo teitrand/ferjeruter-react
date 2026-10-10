@@ -1,6 +1,13 @@
 /* Samband-veljaren: fast kort nederst + ark (<dialog>). Namn 17 px, støtte 13–14 px, rader ≥ 56 px (em), kontrast ≥ 4,5:1.
    Innhaldet får padding-bottom = høgda på kortet (--route-bar-h, sett av RoutePicker; veks ved stor tekst). */
-:root { --route-bar-h: 6.25rem; }
+:root {
+  --route-bar-h: 6.25rem;
+  --handle: #b7c3c6;
+  --sel-row: #d8eee9;
+  --soon-bg: #efe7d8;
+  --soon-fg: #5a6a6f;
+  --soon-line: #77878c;
+}
 
 html { scroll-padding-bottom: var(--route-bar-h); }
 body { padding-bottom: var(--route-bar-h); }
@@ -33,8 +40,8 @@ body { padding-bottom: var(--route-bar-h); }
   font: inherit;
   text-align: left;
   color: var(--ink);
-  background: #fff;
-  border: 2px solid var(--fjord);
+  background: var(--card);
+  border: 2px solid var(--strong);
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(4, 28, 36, 0.14);
   cursor: pointer;
@@ -43,7 +50,7 @@ body { padding-bottom: var(--route-bar-h); }
 
 .route-card-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 8rem; }
 .route-card-label { font-size: 0.8125rem; line-height: 1.25; color: var(--muted); }
-.route-card-name { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 1.0625rem; line-height: 1.2; color: var(--fjord); overflow-wrap: normal; }
+.route-card-name { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 1.0625rem; line-height: 1.2; color: var(--strong); overflow-wrap: normal; }
 
 .route-card-action {
   display: inline-flex;
@@ -55,8 +62,8 @@ body { padding-bottom: var(--route-bar-h); }
   font-weight: 700;
   font-size: 0.9375rem;
   white-space: nowrap;
-  color: #fff;
-  background: var(--fjord);
+  color: var(--sel-fg);
+  background: var(--sel-bg);
   border-radius: 12px;
 }
 .route-chevron { flex: none; width: 1.1em; height: 1.1em; }
@@ -84,18 +91,18 @@ body { padding-bottom: var(--route-bar-h); }
   max-height: inherit;
   padding: 0.5rem 0.9rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
 }
-.route-sheet-handle { align-self: center; width: 2.6rem; height: 0.3rem; margin: 0.1rem 0 0.5rem; border-radius: 999px; background: #b7c3c6; flex: none; }
+.route-sheet-handle { align-self: center; width: 2.6rem; height: 0.3rem; margin: 0.1rem 0 0.5rem; border-radius: 999px; background: var(--handle); flex: none; }
 .route-sheet-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 0.6rem; margin-bottom: 0.55rem; flex: none; }
-.route-sheet-head h2 { min-width: 0; margin: 0; font-family: Fraunces, Georgia, serif; font-size: 1.25rem; line-height: 1.2; color: var(--fjord); }
+.route-sheet-head h2 { min-width: 0; margin: 0; font-family: Fraunces, Georgia, serif; font-size: 1.25rem; line-height: 1.2; color: var(--strong); }
 .route-sheet-close {
   flex: none;
   font: inherit;
   font-weight: 700;
   min-height: 2.75rem;
   padding: 0.3rem 1.1rem;
-  color: var(--fjord);
+  color: var(--strong);
   background: transparent;
-  border: 2px solid var(--fjord);
+  border: 2px solid var(--strong);
   border-radius: 12px;
   cursor: pointer;
 }
@@ -114,20 +121,20 @@ body { padding-bottom: var(--route-bar-h); }
   font: inherit;
   text-align: left;
   color: var(--ink);
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   cursor: pointer;
 }
-.route-row.is-selected { background: #d8eee9; border: 2px solid var(--water); }
-.route-row.is-soon { background: #efe7d8; color: #5a6a6f; border: 1px dashed #8a9a9e; cursor: default; }
-.route-mark { flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid #8a9a9e; color: #fff; }
-.route-row.is-selected .route-mark { background: var(--fjord); border-color: var(--fjord); }
-.route-row.is-soon .route-mark { border: 0; color: #5a6a6f; }
+.route-row.is-selected { background: var(--sel-row); border: 2px solid var(--water); }
+.route-row.is-soon { background: var(--soon-bg); color: var(--soon-fg); border: 1px dashed var(--soon-line); cursor: default; }
+.route-mark { flex: none; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid var(--soon-line); color: var(--sel-fg); }
+.route-row.is-selected .route-mark { background: var(--sel-bg); border-color: var(--sel-bg); }
+.route-row.is-soon .route-mark { border: 0; color: var(--soon-fg); }
 .route-mark svg { width: 100%; height: 100%; }
 .route-row-text { display: flex; flex-direction: column; min-width: 0; }
-.route-row-name { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 1rem; line-height: 1.25; color: var(--fjord); }
-.route-row.is-soon .route-row-name { color: #5a6a6f; }
+.route-row-name { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 1rem; line-height: 1.25; color: var(--strong); }
+.route-row.is-soon .route-row-name { color: var(--soon-fg); }
 .route-row-sub { font-size: 0.8125rem; line-height: 1.3; color: var(--muted); }
 .route-row-next { font-weight: 700; color: var(--ink); }
 .route-row-soon { font-weight: 700; }
