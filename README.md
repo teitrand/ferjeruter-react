@@ -26,6 +26,8 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 
 Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt eller det er kombirute; då visest det same i **begge** sambanda. Ved normal drift vel du 1136 eller 1135 i sambandsvalet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
 
+Samband 1049 Festøya–Hundeidvik og 1069 Festøya–Solavågen er eigne samband utan korrespondanse og utan signalturar. 1069 har tre ferjer som går om kvarandre, så der viser appen berre turane og neste avgang (ingen «No»-kort, ingen AIS-posisjon).
+
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 
 Fjord1 sitt gamle GraphQL-endepunkt svarar 404, og Ibexa-viewet har ikkje CORS frå `teitrand.github.io`. Nettlesaren les derfor `data/trafikkmeldinger.json`, og når den er eldre enn åtte minutt spør han workeren `cloudflare/trafikkmeldinger/` (same Ibexa-kall som GitHub Actions, med CORS og 2 minutt kant-cache). Svarer ikkje workeren, blir HTML-sida lesen via `r.jina.ai` som siste utveg. GitHub Actions skriv framleis fila på `main`, men berre når meldingsteksten er endra. GitHub sin `*/5`-cron er reserve for den fila og blir ofte køyrd berre nokre gonger i døgnet. Workeren startar ikkje den jobben. Oppsett: `cloudflare/trafikkmeldinger/README.md`.

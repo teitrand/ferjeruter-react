@@ -13,6 +13,7 @@ import {
   activePlan,
   isCombinedTimetable,
   legsForDate,
+  isMultiFerryRoute,
   legsForMode,
   operationalMode,
 } from "./plan.js?v=84";
@@ -162,6 +163,8 @@ export function timelineEvents(legs, ctx, filters = NO_FILTERS, date = ctx.date)
   const events = [];
   const seenDep = new Set();
   const combined = isCombinedTimetable(ctx);
+  // Fleire ferjer om kvarandre (1069): turane overlappar, så «liggetid» og «tomtur» mellom to turar gjev ingen meining.
+  const oneFerry = !isMultiFerryRoute(activeMode(ctx));
   const routeSwitch = activePlan(date, ctx).switch;
   const journeys = filters.from && filters.to ? passengerJourneysFrom(legs, filters.from, filters.to) : null;
   legs.forEach((leg, index) => {
@@ -191,7 +194,7 @@ export function timelineEvents(legs, ctx, filters = NO_FILTERS, date = ctx.date)
       }
     }
     const next = legs[index + 1];
-    const stay = layoverAfter(leg, next);
+    const stay = oneFerry ? layoverAfter(leg, next) : null;
     if (stay && matchesLayover(stay, filters)) {
       events.push({ at: clockMinutes(stay.from), until: clockMinutes(stay.until), kind: "layover", quays: [stay.quay], stay });
     }
@@ -208,13 +211,13 @@ export function timelineEvents(legs, ctx, filters = NO_FILTERS, date = ctx.date)
         });
       }
     }
-    if (!combined && next && isEmptyReposition(leg.to, next.from) && (!leg.table || !next.table || leg.table === next.table)) {
+    if (oneFerry && !combined && next && isEmptyReposition(leg.to, next.from) && (!leg.table || !next.table || leg.table === next.table)) {
       events.push({ at: clockMinutes(leg.arrival), kind: "transfer", quays: [leg.to, next.from], from: leg.to, to: next.from });
     }
   });
   const last = legs[legs.length - 1];
   const home = homeQuay(legs);
-  if (!combined && last && isEmptyReposition(last.to, home)) {
+  if (oneFerry && !combined && last && isEmptyReposition(last.to, home)) {
     events.push({ at: clockMinutes(last.arrival), kind: "transfer", quays: [last.to, home], from: last.to, to: home });
   }
   const start = dayStartSplit(legs, date, ctx);
@@ -283,8 +286,8 @@ export function transferDestinationsFor(date, ctx) {
 
 /** Korrespondanse-vala: overgang til den andre ferja, så bussar/ferjer frå korrespondanse.json. */
 export function visibleConnectionLines(legs, connections, date, ctx) {
-  // 1049 Festøya–Hundeidvik har ingen korrespondanse (Hjørundfjord-bussar og overgang på Sæbø gjeld ikkje der).
-  if (activeMode(ctx) === "1049") return [];
+  // 1049 Festøya–Hundeidvik og 1069 Festøya–Solavågen har ingen korrespondanse (Hjørundfjord-bussar og overgang på Sæbø gjeld ikkje der).
+  if (["1049", "1069"].includes(activeMode(ctx))) return [];
   const quays = quaysInDay(legs);
   const lines = [];
   const other = otherFerryMode(ctx);

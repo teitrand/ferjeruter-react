@@ -23,9 +23,9 @@ OSLO = ZoneInfo("Europe/Oslo")
 ROUTE_RE = re.compile(r"\b1136\b|trandal|standal|valderøy|store kalvøy|sæbø|skår", re.I)
 # Hjørundfjorden (1136 Standal-Trandal-Sæbø-Skår, 1135 Sæbø-Leknes) pluss
 # 1049 Festøya-Hundeidvika, som er vegen ut av fjorden.
-LOCAL_ROUTE_RE = re.compile(r"\b(1136|1135|1049)\b", re.I)
+LOCAL_ROUTE_RE = re.compile(r"\b(1136|1135|1049|1069)\b", re.I)
 LOCAL_PLACE_RE = re.compile(
-    r"trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik",
+    r"trandal|standal|sæbø|skår|store kalvøy|valderøy|bjørke|urke|festøy|hundeidvik|solavåg",
     re.I,
 )
 NORMAL_RE = re.compile(r"normal drift", re.I)
@@ -44,7 +44,7 @@ HJORUNDFJORD_RE = re.compile(
     r"kombinasjon|kombirute|kombinert rute",
     re.I,
 )
-ONLY_1049_RE = re.compile(r"\b1049\b|festøy|hundeidvik", re.I)
+ONLY_1049_RE = re.compile(r"\b(?:1049|1069)\b|festøy|hundeidvik|solavåg", re.I)
 VESSEL_UTFORT_RE = re.compile(r"utført av\s+(?:m/?f\.?\s*)?(geiranger|kvernes)", re.I)
 VESSEL_NAME_RE = re.compile(r"\b(?:m/?f\.?\s*)?(geiranger|kvernes)\b", re.I)
 SWITCH_KOMBI_RE = re.compile(

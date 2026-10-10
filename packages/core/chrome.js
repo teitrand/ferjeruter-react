@@ -14,6 +14,7 @@ export const KOMBI_PDF =
 export const FJORD1_PDF =
   "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/standal-trandal-valderoeya-store-kalvoey/(page)/pdf";
 export const FJORD1_PDF_1135 = "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/leknes-saeboe/(page)/pdf";
+export const FRAM_PDF_1069 = "https://frammr.no/_f/p2/i16dd0b69-6d60-433c-8a75-da5170f74274/1069-festoya-solavagen-20250501.pdf";
 export const FJORD1_PDF_1049 = "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/festoeya-hundeidvika/(page)/pdf";
 export const FRAMMR_URL = "https://frammr.no/";
 export const NAIS_URL = "https://nais.kystverket.no/";
@@ -37,9 +38,10 @@ export function routeFootnotes(mode, { kombirute = null, vessel = null } = {}) {
   if (mode === "kombi") pdf = { href: kombirute?.source || KOMBI_PDF, text: t("footnote.kombiPdf") };
   else if (mode === "1135") pdf = { href: FJORD1_PDF_1135, text: "fjord1.no" };
   else if (mode === "1049") pdf = { href: FJORD1_PDF_1049, text: "fjord1.no" };
+  else if (mode === "1069") pdf = { href: FRAM_PDF_1069, text: "frammr.no" };
   return {
     pdf,
-    nais: vessel ? t("footnote.naisVessel", { name: vessel.name }) : t("footnote.nais"),
+    nais: vessel ? t("footnote.naisVessel", { name: vessel.name }) : mode === "1069" ? t("footnote.naisFleet") : t("footnote.nais"),
   };
 }
 
@@ -79,7 +81,7 @@ export function isPreview(loc) {
   );
 }
 
-/** ?samband=1136|1135|1049, på alle vertar. Eit samband som ikkje finst (eller er «Kjem snart») gjev null. */
+/** ?samband=1136|1135|1049|1069, på alle vertar. Eit samband som ikkje finst (eller er «Kjem snart») gjev null. */
 export function routeFromQuery(loc) {
   try {
     const raw = new URL(loc.href, "https://teitrand.github.io").searchParams.get("samband");
@@ -89,7 +91,7 @@ export function routeFromQuery(loc) {
   }
 }
 
-/** ?rute=1136|1135|1049|kombi, berre i førehandsvising. */
+/** ?rute=1136|1135|1049|1069|kombi, berre i førehandsvising. */
 export function routeOverride(loc) {
   if (!isPreview(loc)) return null;
   try {

@@ -46,6 +46,6 @@ export function signalPhone(leg, ctx) {
   if (running?.phone) return running.phone;
   if (leg?.signal?.phone) return leg.signal.phone;
   if (table === "1135") return vesselInfo("Geiranger", ctx)?.phone || "916 69 321";
-  if (table === "kombi" || table === "1049") return "";
+  if (table === "kombi" || table === "1049" || table === "1069") return "";
   return vesselInfo("Kvernes", ctx)?.phone || "916 69 340";
 }

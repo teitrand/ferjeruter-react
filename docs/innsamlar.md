@@ -1,7 +1,7 @@
 # Innsamlaren (heimeserveren)
 
 `collector/` køyrer på heimeserveren `ferjeappen` som systemd-tenesta `fergeruter-collector`.
-Han lyttar på sanntid frå Entur for 1136, 1135 og 1049, lagrar posisjonar og hendingar i SQLite
+Han lyttar på sanntid frå Entur for 1136, 1135, 1049 og 1069, lagrar posisjonar og hendingar i SQLite
 og skriv ein status-JSON med «det vi veit» per linje. Appen treng han ikkje: utan innsamlaren
 (eller utan workeren) verkar appen akkurat som i dag.
 

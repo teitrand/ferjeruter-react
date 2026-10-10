@@ -4,7 +4,7 @@
  * Alt les frå eit eksplisitt `ctx` i staden for global tilstand:
  * - `routes`, `kombirute`: rutetabellane (data/ruter.json og data/kombirute.json)
  * - `messages`: trafikkmeldingane
- * - `routeChoice`: sambandet brukaren har valt («1136», «1135» eller «1049»)
+ * - `routeChoice`: sambandet brukaren har valt («1136», «1135», «1049» eller «1069»)
  * - `override`: ?rute= på testhosten, elles null
  * - `fromQuery`: omlegging frå ?frå= på testhosten, elles null
  * - `nowMs`, `today`: klokka og datoen i dag
@@ -26,6 +26,8 @@ import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=84
  * Sambanda i samband-veljaren, i den rekkjefølgja dei står. Éin stad å leggje til ei linje:
  * - `needsData`: kan berre veljast når rutetabellen har linja (elles «Kjem snart»)
  * - `independent`: eigen tabell som trafikkmeldingane ikkje styrer (ingen kombirute)
+ * - `multiFerry`: fleire ferjer går om kvarandre (turane overlappar). Då finst ingen «ei ferje»-status: ingen «No»-kort,
+ *   ingen liggetid/tomtur, og statuslinja seier berre neste avgang
  * - `placeholder`: berre ei rad i veljaren («Kjem snart»), ingen data og ikkje valbar
  * Namnet på sambandet ligg i i18n (`route.<id>`).
  */
@@ -33,8 +35,13 @@ export const ROUTE_CATALOG = Object.freeze([
   Object.freeze({ id: "1136", line: "1136" }),
   Object.freeze({ id: "1135", line: "1135" }),
   Object.freeze({ id: "1049", line: "1049", needsData: true, independent: true }),
-  Object.freeze({ id: "1069", line: "1069", placeholder: true }),
+  Object.freeze({ id: "1069", line: "1069", needsData: true, independent: true, multiFerry: true }),
 ]);
+
+/** Går fleire ferjer om kvarandre på sambandet (turane overlappar)? Då kan vi ikkje seie kvar «ferja» er. */
+export function isMultiFerryRoute(mode) {
+  return Boolean(ROUTE_CATALOG.find((item) => item.id === mode)?.multiFerry);
+}
 
 /** Kan sambandet veljast no? Ikkje plassholdarar, og med `needsData` først når tabellen har linja (eller medan han lastar). */
 export function routeHasData(route, ctx) {
@@ -188,6 +195,7 @@ export const LINE_QUAYS = [
   "Urke",
   "Hundeidvik",
   "Festøya",
+  "Solavågen",
 ];
 
 export function knownQuays(ctx) {

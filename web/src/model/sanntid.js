@@ -139,6 +139,9 @@ export function sanntidDue({ fetchedAt = 0, blockedUntil = 0 }, data, ui, nowMs 
   return since >= SANNTID_IDLE_INTERVAL_MS;
 }
 
+/** Linjer der fleire ferjer går samtidig, så ein AIS-posisjon ikkje kan knytast til ein tur. */
+export const AIS_UNATTRIBUTED_LINES = new Set(["1069"]);
+
 /** Sambandet AIS gjeld for (same som sanntida frå Entur: i dag, ikkje vald dag). */
 export function sanntidMode(data, ui) {
   return enturMode(data, ui);
@@ -151,7 +154,9 @@ export function sanntidMode(data, ui) {
  */
 export function withSanntid(data, state, mode, { on = true } = {}) {
   if (!on) return data;
-  const lines = new Set(modeLines(mode));
+  // Linjer med fleire ferjer samtidig (1069) har ingen AIS-kjelde i appen enno: workeren held berre éin AIS-posisjon per linje,
+  // og vi kan ikkje seie kva for ferje som tek kva tur. Då viser vi heller Entur-posisjonen (per tur) enn feil ferje.
+  const lines = new Set(modeLines(mode).filter((line) => !AIS_UNATTRIBUTED_LINES.has(line)));
   return {
     ...data,
     positions: state.entries.filter((item) => lines.has(item.line)).map((item) => item.fix),

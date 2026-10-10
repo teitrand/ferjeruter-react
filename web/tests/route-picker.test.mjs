@@ -59,10 +59,12 @@ function render({ lang = "nn", routeChoice = "1136", routes = ROUTES } = {}) {
 const sheet = (html) => html.slice(html.indexOf('<dialog'), html.indexOf("</dialog>"));
 const card = (html) => html.slice(html.indexOf('<div class="route-bar"'), html.indexOf("</div>", html.indexOf('<div class="route-bar"')));
 
-test("katalogen er den einaste lista: valbare samband og plassholdar", () => {
+test("katalogen er den einaste lista: valbare samband (ingen plassholdarar att)", () => {
   assert.deepEqual(ROUTE_CATALOG.map((route) => route.id), ["1136", "1135", "1049", "1069"]);
-  assert.deepEqual([...CHOOSABLE_ROUTES], ["1136", "1135", "1049"]);
-  assert.equal(routeHasData("1069", { routes: ROUTES }), false, "1069 er berre ei rad");
+  assert.deepEqual([...CHOOSABLE_ROUTES], ["1136", "1135", "1049", "1069"]);
+  assert.equal(ROUTE_CATALOG.some((route) => route.placeholder), false, "alle samband har data");
+  assert.equal(routeHasData("1069", { routes: ROUTES }), true);
+  assert.equal(routeHasData("1069", { routes: { lines: { 1136: {}, 1135: {}, 1049: {} } } }), false, "1069 utan data");
   assert.equal(routeHasData("1049", { routes: ROUTES }), true);
   assert.equal(routeHasData("1049", { routes: { lines: { 1136: {}, 1135: {} } } }), false, "1049 utan data");
   assert.equal(routeHasData("1049", { routes: null }), true, "medan tabellen lastar");
@@ -71,15 +73,16 @@ test("katalogen er den einaste lista: valbare samband og plassholdar", () => {
 test("routePicker: valt, valbare og «Kjem snart»; Neste hh:mm frå tabellen", () => {
   const picker = routePicker({ routes: ROUTES }, { routeChoice: "1135" }, 10 * 60 + 20, "2026-10-12");
   assert.equal(picker.selected, "1135");
-  assert.deepEqual(picker.items.map((item) => [item.id, item.state]), [["1136", "available"], ["1135", "selected"], ["1049", "available"], ["1069", "soon"]]);
-  for (const item of picker.items.filter((entry) => entry.state !== "soon")) assert.match(item.next.time, /^\d\d:\d\d$/, item.id);
-  assert.equal(picker.items[3].next, null);
+  assert.deepEqual(picker.items.map((item) => [item.id, item.state]), [["1136", "available"], ["1135", "selected"], ["1049", "available"], ["1069", "available"]]);
+  for (const item of picker.items) assert.match(item.next.time, /^\d\d:\d\d$/, item.id);
   // Måndag 10:20: første avgang etter det er 10:30 for 1049 og 13:10 for 1136 (tabellen i fixtures).
   assert.deepEqual(picker.items[2].next, { when: "today", time: "10:30" });
   assert.deepEqual(picker.items[0].next, { when: "today", time: "13:10" });
   const without = routePicker({ routes: { ...ROUTES, lines: { 1136: ROUTES.lines["1136"], 1135: ROUTES.lines["1135"] } } }, { routeChoice: "1049" }, 600, "2026-10-12");
   assert.equal(without.selected, "1136", "1049 utan data fell tilbake");
   assert.equal(without.items[2].state, "soon");
+  assert.equal(without.items[3].state, "soon");
+  assert.equal(without.items[3].next, null);
   const late = routePicker({ routes: ROUTES }, { routeChoice: "1136" }, 23 * 60 + 59, "2026-10-12");
   assert.equal(late.items[0].next.when, "tomorrow", "ingen fleire i dag: første i morgon");
 });
@@ -118,10 +121,10 @@ test("arket: dialog, aria-modal, tittel, radiogruppe, valt rad og «Lukk»", () 
   assert.match(rows[0], /aria-checked="true" tabindex="0"[^>]*data-route="1136"/);
   assert.match(rows[1], /aria-checked="false" tabindex="-1"[^>]*data-route="1135"/);
   assert.doesNotMatch(rows[1], /aria-disabled/);
-  assert.match(text(html), /Standal–Trandal Linje 1136 · Neste \d\d:\d\d Sæbø–Leknes Linje 1135 · Neste \d\d:\d\d Festøya–Hundeidvik Linje 1049 · Neste 10:30 Festøya–Solavågen Linje 1069 · Kjem snart/);
+  assert.match(text(html), /Standal–Trandal Linje 1136 · Neste \d\d:\d\d Sæbø–Leknes Linje 1135 · Neste \d\d:\d\d Festøya–Hundeidvik Linje 1049 · Neste 10:30 Festøya–Solavågen Linje 1069 · Neste \d\d:\d\d/);
 });
 
-test("«Kjem snart»: 1069 alltid; 1049 til tabellen har linja; aria-disabled og namnet inneheld teksten", () => {
+test("«Kjem snart»: 1049 og 1069 til tabellen har linja; aria-disabled og namnet inneheld teksten", () => {
   const html = sheet(render({ routes: { ...ROUTES, lines: { 1136: ROUTES.lines["1136"], 1135: ROUTES.lines["1135"] } } }));
   const soon = [...html.matchAll(/<button type="button" role="radio" class="route-row is-soon"[^>]*>(.*?)<\/button>/g)];
   assert.deepEqual(soon.map((match) => /data-route="(\d+)"/.exec(match[0])[1]), ["1049", "1069"]);
@@ -135,10 +138,13 @@ test("«Kjem snart»: 1069 alltid; 1049 til tabellen har linja; aria-disabled og
 test("engelsk og tysk: kort, ark, radar", () => {
   const en = render({ lang: "en", routeChoice: "1135" });
   assert.match(text(card(en)), /Selected route Sæbø–Leknes Change route/);
-  assert.match(text(sheet(en)), /Choose route Close .*Route 1136 · Next \d\d:\d\d.*Route 1049 · Next 10:30.*Route 1069 · Coming soon Your choice is remembered on this device\./);
+  assert.match(text(sheet(en)), /Choose route Close .*Route 1136 · Next \d\d:\d\d.*Route 1049 · Next 10:30.*Route 1069 · Next \d\d:\d\d Your choice is remembered on this device\./);
   const de = render({ lang: "de" });
   assert.match(text(card(de)), /Gewählte Verbindung Standal–Trandal Verbindung wechseln/);
-  assert.match(text(sheet(de)), /Verbindung wählen Schließen .*Linie 1069 · Kommt bald/);
+  assert.match(text(sheet(de)), /Verbindung wählen Schließen .*Linie 1069 · Nächste \d\d:\d\d/);
+  const only = { routes: { ...ROUTES, lines: { 1136: ROUTES.lines["1136"], 1135: ROUTES.lines["1135"] } } };
+  assert.match(text(sheet(render({ lang: "en", ...only }))), /Route 1049 · Coming soon.*Route 1069 · Coming soon/);
+  assert.match(text(sheet(render({ lang: "de", ...only }))), /Linie 1049 · Kommt bald.*Linie 1069 · Kommt bald/);
 });
 
 test("kortet ligg etter innhaldet og «No»-kortet ligg i innhaldet, ikkje i det faste kortet", () => {
@@ -167,7 +173,8 @@ test("?samband= gjev valbare samband, elles null; adresselinja følgjer valet be
   const url = (query) => ({ href: `https://teitrand.github.io/ferjeruter-react/${query}` });
   assert.equal(routeFromQuery(url("?samband=1049")), "1049");
   assert.equal(routeFromQuery(url("?samband=1135&x=1")), "1135");
-  assert.equal(routeFromQuery(url("?samband=1069")), null, "plassholdar");
+  assert.equal(routeFromQuery(url("?samband=1069")), "1069");
+  assert.equal(routeFromQuery(url("?samband=1234")), null, "ukjent samband");
   assert.equal(routeFromQuery(url("?samband=kombi")), null);
   assert.equal(routeFromQuery(url("")), null);
   assert.equal(routeFromQuery(url("?rute=1049")), null, "?rute= er eit anna, uendra val");

@@ -8,7 +8,16 @@ skal byggjast. Ingen nøklar, klient-ID-ar eller tokens høyrer heime i repoet, 
 | --- | --- | --- |
 | M/F Kvernes | 257297400 | 1136 |
 | M/F Geiranger | 257262400 | 1135 |
-| M/F Dryna (uverifisert) | 258408000 | 1049 |
+| M/F Dryna (verifisert 10. okt. 2026) | 258408000 | 1049 |
+| M/F Festøya (verifisert, ikkje i bruk) | 257090560 | 1069 |
+| M/F Solavågen (verifisert, ikkje i bruk) | 257090550 | 1069 |
+| M/F Tidefjord (verifisert, ikkje i bruk) | 258220500 | 1069 |
+
+**1069 Festøya–Solavågen:** dei tre ferjene står i BarentsWatch sin AIS-straum (10. okt. 2026, alle ved eller på kryssinga), men dei går om
+kvarandre med overlappande turar, og workeren held berre éin AIS-posisjon per linje i `/v1/latest`. Appen kan difor ikkje seie kva for
+ferje som tek kva tur. Til det er løyst står 1069 utan AIS (`AIS_UNATTRIBUTED_LINES` i `web/src/model/sanntid.js`; MMSI-ane er ikkje i
+`FERGERUTER_AIS_MMSI`). Sambandet bruker Entur-posisjon per tur og rutetabellen. Løysing seinare: alle fartøy per linje frå workeren
+(`aisAll`) og val av ferje per tur etter kurs og kai (`headingTowards`).
 
 ## Kjelder vi har sett på (9. okt. 2026)
 

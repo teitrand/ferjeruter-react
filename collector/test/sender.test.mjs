@@ -51,7 +51,7 @@ test("feil frå workeren held hendingane i køa og gjev backoff", async () => {
 
 test("standardoppsett", () => {
   const c = loadConfig({});
-  assert.deepEqual(c.lines, ["1136", "1135", "1049"]);
+  assert.deepEqual(c.lines, ["1136", "1135", "1049", "1069"]);
   assert.equal(c.dbPath, "/var/lib/fergeruter/collector.sqlite");
   assert.equal(c.retentionDays, 30);
   assert.equal(c.mode, "stream");

@@ -17,6 +17,8 @@ export const STOP_PLACES = {
   // 1049 Festøya–Hundeidvik (NSR, henta frå Entur 10. okt. 2026).
   Hundeidvik: "NSR:StopPlace:58756",
   Festøya: "NSR:StopPlace:38754",
+  // 1069 Festøya–Solavågen (Festøya deler kai med 1049).
+  Solavågen: "NSR:StopPlace:41550",
 };
 
 export const LIVE_MAX_AGE_MS = 3 * 60 * 1000;
@@ -124,13 +126,15 @@ export const QUAY_COORDS = {
   // 1049. Festøya har to NSR-kaier (66979, 66976) ~90 m frå kvarandre; her midtpunktet.
   Hundeidvik: { latitude: 62.371677, longitude: 6.424135 },
   Festøya: { latitude: 62.375, longitude: 6.331668 },
+  // 1069: Solavågen ferjekai (NSR:Quay:71083, Entur 10. okt. 2026).
+  Solavågen: { latitude: 62.413591, longitude: 6.328525 },
 };
 
 export function cancellationQuery(stops) {
   const fields = stops
     .map((name, index) => {
       const id = STOP_PLACES[name];
-      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135", "MOR:Line:1049"] }) { cancellation aimedDepartureTime actualDepartureTime serviceJourney { id } } }`;
+      return `s${index}: stopPlace(id: "${id}") { estimatedCalls(startTime: $start, timeRange: 86400, numberOfDepartures: 40, includeCancelledTrips: true, whiteListed: { lines: ["MOR:Line:1136", "MOR:Line:1135", "MOR:Line:1049", "MOR:Line:1069"] }) { cancellation aimedDepartureTime actualDepartureTime serviceJourney { id } } }`;
     })
     .join("\n");
   return `query Cancelled($start: DateTime!) { ${fields} }`;

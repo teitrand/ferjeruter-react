@@ -28,6 +28,7 @@ export const LIVE_VM_URLS = {
   1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
   1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
   1049: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1049",
+  1069: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1069",
 };
 /** Minste tid mellom to sanntidskall. */
 export const LIVE_MIN_INTERVAL_MS = 55 * 1000;
@@ -44,6 +45,7 @@ export function liveFetchUrls(mode) {
   if (mode === "1135") return [LIVE_VM_URLS[1135]];
   if (mode === "1136") return [LIVE_VM_URLS[1136]];
   if (mode === "1049") return [LIVE_VM_URLS[1049]];
+  if (mode === "1069") return [LIVE_VM_URLS[1069]];
   return [LIVE_VM_URLS[1136], LIVE_VM_URLS[1135]];
 }
 
