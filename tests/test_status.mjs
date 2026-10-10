@@ -2156,7 +2156,7 @@ test("20:20 avlyst men køyrd (ekte 8. oktober): «Gått» og Standal, òg etter
     const { legs, back, out } = evening2030(freshVm);
     const now = 20 * 60 + 30;
     assert.equal(rememberLiveSailed(freshVm, now), true);
-    assert.deepEqual(JSON.parse(storage.data["fergeruter-sailed-v1"]), { [todayIso()]: [BACK_2020] });
+    assert.deepEqual(JSON.parse(storage.data["fergeruter-sailed-v2"]), { [todayIso()]: [BACK_2020] });
     assert.notEqual(signalVerdict(back, freshVm, now), "skipped");
     assert.equal(signalSailed(back), true);
     assert.equal(departureDetail(back, now).phase, "sailed");
@@ -2202,16 +2202,16 @@ test("utan sanntid i det heile seier status framleis Standal når turen heim er 
 
 test("hugsa turar gjeld berre dagen i dag og blir få", () => {
   const storage = fakeStorage({
-    "fergeruter-sailed-v1": JSON.stringify({ "2026-10-07": ["MOR:ServiceJourney:old"] }),
+    "fergeruter-sailed-v2": JSON.stringify({ "2026-10-07": ["MOR:ServiceJourney:old"] }),
   });
   assert.deepEqual([...readSailedJourneys(todayIso(), storage)], []);
   const many = Array.from({ length: 80 }, (_, i) => `MOR:ServiceJourney:x${i}`);
   writeSailedJourneys(todayIso(), new Set(many), storage);
-  const saved = JSON.parse(storage.data["fergeruter-sailed-v1"]);
+  const saved = JSON.parse(storage.data["fergeruter-sailed-v2"]);
   assert.deepEqual(Object.keys(saved), [todayIso()]);
   assert.equal(saved[todayIso()].length, 60);
   assert.equal(readSailedJourneys("2026-10-07", storage).size, 0);
-  const broken = fakeStorage({ "fergeruter-sailed-v1": "{ikkje json" });
+  const broken = fakeStorage({ "fergeruter-sailed-v2": "{ikkje json" });
   assert.equal(readSailedJourneys(todayIso(), broken).size, 0);
 });
 

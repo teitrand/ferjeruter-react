@@ -2,7 +2,7 @@
 // Køyrer òg via test_status.mjs, sidan arbeidsflyta listar testfilene ein og ein.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { departureStateKey, tripStatus } from "../packages/core/index.js";
+import { departureStateKey, leftOrigin, liveProvesSailed, tripStatus } from "../packages/core/index.js";
 
 const DAY = "2026-10-08";
 const J = (n) => `MOR:ServiceJourney:1136_${n}_9150000046000000`;
@@ -332,4 +332,62 @@ test("tripStatus: Entur-posisjon på strekninga eller ved startkaien: lagt frå 
   const atQuay = tripStatus(kalvoy, evidence({ live: { ...base, ...VALDEROYA }, dayLegs: legs, dateLegs: legs, clockNow: min("12:20") }), min("12:20"));
   assert.equal(atQuay.sailed, false, "ved startkaien: ikkje lagt frå");
   assert.equal(atQuay.kind, "unknown");
+});
+
+// Feilen 10. oktober 2026: 1136 låg ved Standal, Entur kopla ferja til signalturen 12:15 Valderøya → Store Kalvøy
+// (1136_615) på førehand, og appen viste «Bestilt signaltur». AIS viste ferja ved Standal heile tida.
+const VALDEROYA_TRIP = {
+  id: "MOR:ServiceJourney:1136_615_9150000037358198#0",
+  from: "Valderøya",
+  to: "Store Kalvøy",
+  departure: "12:15:00",
+  arrival: "12:25:00",
+  signal: { minutesBefore: 60, phone: "91 66 93 40" },
+};
+const STANDAL_FIX = { latitude: 62.2665, longitude: 6.4232 };
+
+function standalEvidence(live, partial = {}) {
+  return evidence({
+    dayLegs: [VALDEROYA_TRIP],
+    dateLegs: [VALDEROYA_TRIP],
+    live: {
+      validUntil: "2099-01-01T00:00:00Z",
+      recordedAt: "2026-10-10T10:12:00Z",
+      journeyRef: "MOR:ServiceJourney:1136_615_9150000037358198",
+      stopName: "Standal",
+      ...STANDAL_FIX,
+      ...live,
+    },
+    clockNow: min("12:12"),
+    ...partial,
+  });
+}
+
+test("tripStatus: ferja ved Standal med turen Valderøya → Store Kalvøy tilordna er ikkje bestilt eller køyrd", () => {
+  for (const live of [
+    { atStop: true },
+    { atStop: false },
+    { atStop: null },
+    { atStop: true, latitude: undefined, longitude: undefined },
+    { atStop: true, actualDeparture: "2026-10-10T12:10:00+02:00" },
+  ]) {
+    for (const clock of ["12:12", "12:20", "12:40"]) {
+      const ev = standalEvidence(live, { clockNow: min(clock) });
+      const status = tripStatus(VALDEROYA_TRIP, ev, min(clock));
+      assert.notEqual(status.kind, "booked", `${JSON.stringify(live)} ${clock}`);
+      assert.notEqual(status.kind, "sailed", `${JSON.stringify(live)} ${clock}`);
+    }
+  }
+});
+
+test("liveProvesSailed og leftOrigin: ved ei anna kai enn start- og endekaia tel ikkje som avgang", () => {
+  const atStandal = standalEvidence({ atStop: true }).live;
+  assert.equal(leftOrigin(atStandal, VALDEROYA_TRIP), null);
+  assert.equal(liveProvesSailed(atStandal, VALDEROYA_TRIP, min("12:20")), false);
+  // Ekte avgang: på strekninga etter rutetida, eller ved endekaia.
+  const underway = { ...atStandal, atStop: false, stopName: "Store Kalvøy", latitude: 62.51, longitude: 6.16 };
+  assert.equal(leftOrigin(underway, VALDEROYA_TRIP), true);
+  assert.equal(liveProvesSailed(underway, VALDEROYA_TRIP, min("12:20")), true);
+  const arrived = { ...atStandal, stopName: "Store Kalvøy", atStop: true, latitude: 62.526923, longitude: 6.20374 };
+  assert.equal(leftOrigin(arrived, VALDEROYA_TRIP), true);
 });

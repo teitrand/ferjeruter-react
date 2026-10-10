@@ -181,10 +181,14 @@ Posisjon nærare enn 250 m frå kai-koordinata i `QUAY_COORDS` reknast som liggj
 
 `leftOrigin`:
 
-- faktisk avgangstid → har lagt frå
+- faktisk avgangstid → har lagt frå, men ikkje når ferja står langt frå strekninga (då er ho ikkje på turen)
 - `atStop` på startkaien → ligg
-- `atStop` på ein annan kai, eller meir enn 250 m frå startkaien → har lagt frå
+- `atStop` på endekaia → har lagt frå
+- `atStop` på ei anna kai → ukjent: ferja er ein tomtur eller ligg til kai, og Entur kan ha kopla ho til turen på førehand
+- meir enn 250 m frå startkaien og på strekninga (`nearLeg`) → har lagt frå; langt frå strekninga → ukjent
 - elles ukjent
+
+Ein signaltur blir aldri «bestilt» eller «gått» av at Entur har tilordna ferja til turen. Det krev avgang frå startkaien eller ferja på strekninga/ved endekaia etter rutetida. Feilen 10. oktober 2026 (1136 låg ved Standal, turen 12:15 Valderøya → Store Kalvøy vart vist som bestilt) kom av at `atStop` på ei anna kai tel som avgang. Hugsa turar ligg under `fergeruter-sailed-v2` så gamle feilhugsingar blir kasta.
 
 Forseinking blir lagt på vanleg rute, og på signaltur berre når ferja faktisk har lagt frå kai. Ein signaltur som ikkje går skal ikkje få «40 min forsinka».
 

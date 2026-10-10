@@ -68,3 +68,24 @@ test("bevis per linje frå lagra hendingar", () => {
   assert.equal(ev["1136"].departures[0].stop, "Trandal");
   assert.deepEqual(ev["1135"].cancelled, ["B"]);
 });
+
+test("ferja ved Standal tilordna signalturen Valderøya → Store Kalvøy gjev ingen «sailed» (feilen 10. oktober)", () => {
+  const trip = {
+    id: "MOR:ServiceJourney:1136_615_9150000037358198#0",
+    departure: "12:15:00",
+    arrival: "12:25:00",
+    from: "Valderøya",
+    to: "Store Kalvøy",
+    signal: true,
+  };
+  const STANDAL = { latitude: 62.2665, longitude: 6.4232, stopName: "Standal" };
+  for (const atStop of [true, false, null]) {
+    let clock = base + 10 * 60000; // 12:10 i Oslo
+    const tracker = createTracker({ legsFor: () => [trip], now: () => clock });
+    for (const min of [10, 11, 20, 40]) {
+      clock = base + min * 60000 + 5000;
+      const evs = tracker.observe({ ...at(min, { ...STANDAL, atStop }), journeyRef: "MOR:ServiceJourney:1136_615_9150000037358198" });
+      assert.equal(evs.filter((e) => e.kind === "sailed").length, 0, `atStop=${atStop} +${min}`);
+    }
+  }
+});
