@@ -2,10 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../../assets/styles.css";
 import "./styles/crossing.css";
+import "./styles/picker.css";
 import { App } from "./App.jsx";
 import { AnnouncerProvider } from "./components/Announcer.jsx";
 import { detectLang } from "./components/i18n.js";
-import { routeOverride } from "../../packages/core/index.js";
+import { routeFromQuery, routeOverride } from "../../packages/core/index.js";
 import { dataBase, liveDataBase } from "./model/data.js";
 import {
   browserMemory,
@@ -14,6 +15,7 @@ import {
   readLastMode,
   readRouteChoice,
   timetableCache,
+  writeRouteChoice,
 } from "./model/storage.js";
 import { captureInstallPrompt, createPwaEvents, registerServiceWorker } from "./pwa/register.js";
 import { initialUi } from "./state.js";
@@ -23,8 +25,12 @@ const installPrompt = captureInstallPrompt(window);
 const pwaEvents = createPwaEvents();
 registerServiceWorker(pwaEvents, { enabled: import.meta.env.PROD, baseUrl: import.meta.env.BASE_URL });
 
+// ?samband= vinn over det lagra valet ved oppstart, og blir hugsa.
+const fromQuery = routeFromQuery(location);
+if (fromQuery) writeRouteChoice(fromQuery);
+
 const initialState = initialUi({
-  routeChoice: readRouteChoice(),
+  routeChoice: fromQuery || readRouteChoice(),
   lang: detectLang(),
   override: routeOverride(location),
   hideArrivals: readHideArrivals(),

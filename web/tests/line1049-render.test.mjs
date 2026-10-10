@@ -53,13 +53,12 @@ function render({ lang = "nn", routeChoice = "1049", routes = ROUTES, messages =
 
 const text = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
-test("1049: tittel, overtittel, tre faner med 1049 vald, ?rute=1049", () => {
+test("1049: tittel, overtittel, kortet viser 1049 som valt, ?rute=1049", () => {
   const html = render();
   assert.match(html, /id="route-title">Festøya–Hundeidvik</);
   assert.match(html, /class="eyebrow">Rute 1049 · Fjord1 \/ FRAM</);
-  const chips = [...html.matchAll(/<button type="button" class="(chip(?: is-active)?)" aria-pressed="(true|false)">([^<]+)<\/button>/g)].filter((m) => /–/.test(m[3]) && /Standal|Sæbø|Festøya/.test(m[3]));
-  assert.deepEqual(chips.map((m) => m[3]), ["Standal–Trandal", "Sæbø–Leknes", "Festøya–Hundeidvik"]);
-  assert.deepEqual(chips.map((m) => m[2]), ["false", "false", "true"]);
+  assert.match(text(html.slice(html.indexOf('id="route-card"'), html.indexOf("</button>", html.indexOf('id="route-card"')))), /Valt samband Festøya– ?Hundeidvik Byt samband/);
+  assert.match(html, /role="radio" class="route-row is-selected" aria-checked="true"[^>]*data-route="1049"/);
   const viaOverride = render({ routeChoice: "1136", override: "1049" });
   assert.match(viaOverride, /id="route-title">Festøya–Hundeidvik</);
 });
@@ -71,7 +70,8 @@ test("1049: avgangar Festøya↔Hundeidvik, ingen Hjørundfjord-rader, ankomstti
   assert.match(plain, /11:30\s+Festøya → Hundeidvik/);
   assert.match(plain, /Ankomst 11:25/);
   assert.match(html, /aria-pressed="true">Ankomsttider</, "ankomsttider er på");
-  const body = plain.replace(/Vel samband Standal–Trandal Sæbø–Leknes Festøya–Hundeidvik/, "");
+  // Veljaren (kort og ark) nemner dei andre sambanda; sjekk berre tidtabellen.
+  const body = text(html.slice(html.indexOf('id="timetable-panel"'), html.indexOf('id="route-card"')));
   assert.doesNotMatch(body, /Ferja flyttar seg|Standal|Trandal|Kvernes|Geiranger|Sæbø|På signal|Ring innan|signal/i, "ingen Hjørundfjord-tekst eller signalturar");
   assert.doesNotMatch(html, /id="conn-filter"[^>]*>\s*<label/, "korrespondanse-vala er skjult");
   assert.doesNotMatch(html, /class="conn-select/);
@@ -110,15 +110,16 @@ test("1049: engelsk og tysk (tittel, overtittel, fane)", () => {
   const de = render({ lang: "de" });
   assert.match(de, /class="eyebrow">Linie 1049 · Fjord1 \/ FRAM</);
   assert.match(text(de), /Betreiber Fjord1\. Auftraggeber FRAM\. M\/F Dryna\./);
-  assert.match(de, /aria-pressed="true">Festøya–Hundeidvik</);
+  assert.match(de, /Gewählte Verbindung\s*<\/span><span class="route-card-name">Festøya–<wbr\/>Hundeidvik/);
+  assert.match(en, /Selected route<\/span>/);
 });
 
-test("1049 utan data i rutetabellen: ingen tom fane, valet fell tilbake til 1136", () => {
+test("1049 utan data i rutetabellen: «Kjem snart» i arket, valet fell tilbake til 1136", () => {
   const without = { ...ROUTES, lines: { 1136: ROUTES.lines["1136"], 1135: ROUTES.lines["1135"] } };
   const html = render({ routes: without });
-  assert.doesNotMatch(html, /Festøya–Hundeidvik<\/button>/);
+  assert.match(html, /role="radio" class="route-row is-soon" aria-checked="false" aria-disabled="true" tabindex="-1" data-route="1049"/);
   assert.match(html, /id="route-title">Standal–Trandal–Sæbø/);
-  assert.match(html, /class="chip is-active" aria-pressed="true">Standal–Trandal</);
+  assert.match(html, /role="radio" class="route-row is-selected" aria-checked="true"[^>]*data-route="1136"/);
 });
 
 test("1049: meldingspanelet viser 1049-meldinga på 1049-fana", () => {

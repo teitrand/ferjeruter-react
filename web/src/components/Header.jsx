@@ -3,8 +3,6 @@ import { InstallButton } from "./InstallDialog.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
 import { t } from "./i18n.js";
 
-const ROUTES = ["1136", "1135", "1049"];
-
 function BrandMark() {
   return (
     <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
@@ -13,32 +11,6 @@ function BrandMark() {
       <path d="M14 38 32 20l10 6h8l-6 12H18z" fill="#f4efe4" />
       <rect x="28" y="16" width="3" height="10" fill="#e07a3d" />
     </svg>
-  );
-}
-
-/** Samband: Standal–Trandal (1136), Sæbø–Leknes (1135) eller Festøya–Hundeidvik (1049). Kombirute kjem frå meldingane. */
-function RouteSwitch({ routeChoice, routes, onChange }) {
-  // Eit lagra val som ikkje finst (1049 før tabellen har linja) viser 1136 som valt, som resten av appen.
-  const active = routes.includes(routeChoice) ? routeChoice : "1136";
-  return (
-    <div className="header-routes">
-      <span id="route-switch-label" className="route-switch-label">
-        {t("route.label")}
-      </span>
-      <div className="filters route-switch" role="group" aria-labelledby="route-switch-label">
-        {routes.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className={active === value ? "chip is-active" : "chip"}
-            aria-pressed={active === value}
-            onClick={() => onChange(value)}
-          >
-            {t(`route.${value}`)}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -87,7 +59,7 @@ export function Lede({ lede }) {
   );
 }
 
-export function Header({ chrome, lede, ui, routes = ROUTES, onRoute, onLang, install = null }) {
+export function Header({ chrome, lede, ui, onLang, install = null }) {
   return (
     <header className={chrome ? "site-header" : "site-header is-pending-route"}>
       <div className="header-tools">
@@ -104,7 +76,6 @@ export function Header({ chrome, lede, ui, routes = ROUTES, onRoute, onLang, ins
           </span>
         ) : null}
       </div>
-      <RouteSwitch routeChoice={ui.routeChoice} routes={routes} onChange={onRoute} />
       <Lede lede={lede} />
     </header>
   );

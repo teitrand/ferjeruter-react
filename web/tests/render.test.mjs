@@ -77,7 +77,7 @@ test("skalet teiknar 1136 på nynorsk med statuslinje, dag og «Ukjent»", () =>
   assert.match(html, /class="lede" id="lede-status">Ferja [^<]+\./, "statuslinja har tekst");
   assert.match(html, /class="stop-state" data-signal="unknown">Ukjent</);
   assert.match(plain, /Gått/);
-  assert.match(html, /class="chip is-active" aria-pressed="true">Standal–Trandal</);
+  assert.match(html, /id="route-card"[^>]*aria-haspopup="dialog"/, "samband-kortet nederst");
   assert.ok((html.match(/class="stop stop-dep/g) || []).length > 10, "mange avgangar");
 });
 

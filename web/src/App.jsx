@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { appMode, chosenRoute, nowMinutes } from "../../packages/core/index.js";
+import { appMode, chosenRoute, nowMinutes, osloIsoFromMs } from "../../packages/core/index.js";
 import { DayNav } from "./components/DayNav.jsx";
 import { DepartureDialog } from "./components/DepartureDialog.jsx";
 import { FeedbackDialog } from "./components/FeedbackDialog.jsx";
@@ -24,8 +24,10 @@ import { hasTimetable, isTodaySelected, memoryOnly, rememberBookings, selectedDa
 import { connectionModel, detailModel, messagesModel, placeFilterModel, staleChoices } from "./model/controls.js";
 import { rememberEntur, withEntur } from "./model/entur.js";
 import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
-import { chromeForMode, footnoteModel, ledeModel, routeChrome, routeTabs } from "./model/header.js";
-import { markPwaFirstOpen, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
+import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
+import { routePicker } from "./model/routes.js";
+import { RoutePicker } from "./components/RoutePicker.jsx";
+import { markPwaFirstOpen, syncRouteQuery, writeHideArrivals, writeLastMode, writeRouteChoice } from "./model/storage.js";
 import { buildTimeline } from "./model/timeline.js";
 import { actionEvent, track as sendEvent, visitEvents } from "./model/track.js";
 import { initialUi, uiReducer } from "./state.js";
@@ -184,6 +186,7 @@ export function App({
 
   const onRoute = (route) => {
     writeRouteChoice(route);
+    if (live) syncRouteQuery(route);
     act({ type: "route", route });
   };
   const onLang = (lang) => {
@@ -201,7 +204,7 @@ export function App({
         {t("skip")}
       </a>
       <div className="skyline" aria-hidden="true" />
-      <Header chrome={headerChrome} lede={lede} ui={ui} routes={routeTabs(data)} onRoute={onRoute} onLang={onLang} install={install} />
+      <Header chrome={headerChrome} lede={lede} ui={ui} onLang={onLang} install={install} />
       <main id="innhald">
         <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">
           <MessagesPanel
@@ -248,6 +251,7 @@ export function App({
         </div>
       </main>
       <Footer chrome={chrome} notes={notes} onFeedback={() => setFeedbackOpen(true)} />
+      <RoutePicker picker={routePicker(data, ui, now, osloIsoFromMs(clockMs))} onSelect={onRoute} />
       <InstallDialog open={install.helpOpen} onClose={install.closeHelp} />
       <DepartureDialog detail={detail} onClose={() => dispatch({ type: "detail", leg: null })} />
       <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
