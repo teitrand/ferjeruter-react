@@ -542,3 +542,22 @@ test("fyrste AIS-svar på veg: nøytralt «Hentar posisjon», ikkje «Berekna fr
   assert.match(text(nowArea(renderApp({ lang: "en", initialSanntid: { entries: [], loaded: false } }))), /Getting position …/);
   assert.match(text(nowArea(renderApp({ lang: "de", initialSanntid: { entries: [], loaded: false } }))), /Position wird geladen …/);
 });
+
+test("«No»-raden: live AIS ved kai er den vanlege grøne stilen, utan liggetid-oransje og utan delt bakgrunn (framdriftsfyll)", () => {
+  const t = oslo(7, 25);
+  const css = readFileSync(new URL("assets/styles.css", new URL("../../", import.meta.url)), "utf8");
+  // Utan AIS: liggetid etter rutetabellen er oransje med framdriftsfyll.
+  const calc = atTime(t, () => renderApp());
+  assert.match(nowArea(calc), /^<div class="now is-layover has-progress now-live"/);
+  // Fersk AIS ved kai (Standal eller Trandal): grøn «ved kai», ingen fyll, same ærlege kjeldemerke.
+  for (const f of [0, 1]) {
+    const html = atTime(t, () => renderApp({ initialSanntid: { entries: [aisEntry(f, FIXED - t + 15000, { sog: 0 })] } }));
+    const now = nowArea(html);
+    assert.match(now, /^<div class="now is-moored now-live" role="group"/, `AIS ved kai ${f}`);
+    assert.doesNotMatch(now, /is-layover|has-progress|now-track|now-fill|--now-progress/, "ingen oransje og ingen delt bakgrunn");
+    assert.match(text(now), /Live frå AIS · 15 s/);
+  }
+  // Oransje er berre for liggetid i rutetabellen (og ingen anna klasse gjev oransje).
+  assert.match(css, /\.now\.is-layover \{[^}]*background: #fdeee0/);
+  assert.doesNotMatch(css, /\.now\.is-moored[^{]*\{[^}]*(fdeee0|delay)/);
+});
