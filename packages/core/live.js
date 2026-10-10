@@ -85,7 +85,8 @@ export function observationMinutes(iso) {
  */
 export function liveProvesSailed(live, leg, now = nowMinutes()) {
   if (!leg || !isLiveFresh(live)) return false;
-  if (live.actualDeparture) return true;
+  // Ei ferje som står langt frå strekninga har ikkje køyrt turen, same kva Entur har skrive om avgang.
+  if (live.actualDeparture) return nearLeg(live, leg) !== false;
   const dest = quayPlace(leg.to);
   const stop = quayPlace(live.stopName);
   if (dest && stop === dest && (live.atStop === true || Boolean(live.actualArrival))) {
@@ -253,11 +254,16 @@ export function nearLeg(live, leg) {
 
 export function leftOrigin(live, leg) {
   if (!live || !leg) return null;
-  if (live.actualDeparture) return true;
+  if (live.actualDeparture) return nearLeg(live, leg) === false ? null : true;
   const origin = quayPlace(leg.from);
   const stop = quayPlace(live.stopName);
   if (live.atStop === true && stop === origin) return false;
-  if (live.atStop === true && stop && stop !== origin) return true;
+  // Ferja ved ei anna kai enn startkaien har berre lagt frå når ho står ved endekaia til turen. Elles er ho ein
+  // tomtur eller ligg til kai (Entur koplar ho til turen på førehand, t.d. ligg ved Standal medan turen går
+  // Valderøya → Store Kalvøy). Då veit vi ikkje, og ein tur blir ikkje «bestilt» av at ferja er tilordna.
+  if (live.atStop === true && stop && stop !== origin) {
+    return stop === quayPlace(leg.to) ? true : null;
+  }
   const dist = distanceToQuay(live, origin);
   if (dist != null) {
     if (dist <= QUAY_RADIUS_M) return false;

@@ -650,6 +650,16 @@ class SailedDespiteCancelTests(unittest.TestCase):
         call.pop("ActualArrivalTime")
         self.assertEqual(mod.vm_sailed_from_payload(payload, self.legs, self.DAY), {})
 
+    def test_vm_ferje_ved_ei_anna_kai_enn_turen_er_ikkje_bevis(self):
+        # 10. oktober: 1136 låg ved Standal medan Entur hadde kopla ferja til turen Valderøya → Store Kalvøy.
+        payload = json.loads(json.dumps(self.vm))
+        activity = payload["Siri"]["ServiceDelivery"]["VehicleMonitoringDelivery"][0]["VehicleActivity"][0]
+        call = activity["MonitoredVehicleJourney"]["MonitoredCall"]
+        call["StopPointName"] = [{"value": "Skår ferjekai"}]
+        call["ActualDepartureTime"] = "2026-10-08T20:25:00+02:00"
+        call["VehicleAtStop"] = True
+        self.assertEqual(mod.vm_sailed_from_payload(payload, self.legs, self.DAY), {})
+
     def _observe(self, actual):
         trips = observe_signal_trips(
             self.legs,

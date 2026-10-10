@@ -37,7 +37,7 @@ export const LIVE_MAX_BACKOFF_MS = 15 * 60 * 1000;
 /** Spør berre frå litt før fyrste avgang til litt etter siste ankomst. */
 export const LIVE_SERVICE_MARGIN_MIN = 30;
 /** Turar vi har sett gå i sanntid, per dag. Berre dagen i dag blir teken vare på. */
-export const SAILED_KEY = "fergeruter-sailed-v1";
+export const SAILED_KEY = "fergeruter-sailed-v2";
 export const SAILED_MAX_PER_DAY = 60;
 
 /** Kombi spør 1136 fyrst og 1135 berre som reserve. */

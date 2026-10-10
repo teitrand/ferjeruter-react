@@ -479,6 +479,9 @@ def vm_sailed_from_payload(payload, legs, day_iso):
             call = journey_data.get("MonitoredCall") or {}
             stop = _quay_place(_siri_value(call.get("StopPointName")))
             at_dest = bool(stop) and stop == _quay_place(leg.get("to"))
+            if stop and stop not in (_quay_place(leg.get("from")), _quay_place(leg.get("to"))):
+                # Ferja er knytt til turen, men står ved ei anna kai (tomtur/ligg til kai): ikkje bevis for denne turen.
+                continue
             when = None
             if call.get("ActualDepartureTime"):
                 when = call.get("ActualDepartureTime")
