@@ -328,6 +328,9 @@ export function tripKey(leg) {
   return leg ? `${leg.id || ""}|${leg.from}|${leg.departure}` : "";
 }
 
+/** Ei ferje som står stille ved endekaia lenger før ankomsttida enn dette, høyrer ikkje til turen (fixBelongsTo). */
+const EARLY_ARRIVAL_MS = 5 * 60000;
+
 /** Høyrer posisjonen til denne overfarten? */
 export function fixBelongsTo(fix, leg, nowMs) {
   if (!fix || !leg || fix.source === "computed") return false;
@@ -338,6 +341,14 @@ export function fixBelongsTo(fix, leg, nowMs) {
   if (fix.at > nowMs + FIX_BEFORE_DEPARTURE_MS) return false;
   // Rett tur-id er ikkje nok: Entur koplar ferja til turen før ho er ved startkaien, så posisjonen må òg liggje på strekninga.
   if (fix.journeyRef) return fix.journeyRef === serviceJourneyId(leg.id) && nearLeg(fix, leg) !== false;
+  if (fix.source === "ais") {
+    // AIS har ingen tur-id, og to ferjer kan gå samtidig på same strekning (1069). Då avgjer kursen og kaia kva tur ferja har:
+    // går ho frå endekaia mot startkaien, er det den motsette turen,
+    if (headingTowards(fix, leg.from, leg.to) === false) return false;
+    // og står ho stille ved endekaia før turen har rekt fram, ventar ho på neste avgang derifrå.
+    const still = fix.moored || fix.speedKn == null || fix.speedKn < AT_QUAY_MAX_KN;
+    if (still && fixAtQuay(fix, leg.to) && !fixAtQuay(fix, leg.from) && fix.at < clockMs(leg.arrival, nowMs) - EARLY_ARRIVAL_MS) return false;
+  }
   return nearRoute(fix, leg);
 }
 
@@ -366,10 +377,11 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   if (!leg) return null;
   const trip = tripKey(leg);
   // Ferja ligg utanfor ruta: ingen framdrift, og vi påstår ikkje at ho følgjer rutetabellen.
-  const away = outsideFix(fixes || [fix], nowMs, leg);
-  if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);
   // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
   const own = bestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)), nowMs);
+  // Har ei ferje turen, er det ikkje «utanfor ruta» fordi ei anna ferje på linja (1069) ligg ein annan stad.
+  const away = own ? null : outsideFix(fixes || [fix], nowMs, leg);
+  if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);
   let state = "calc";
   let source = "computed";
   let progress = timetableFraction(leg, nowMs);

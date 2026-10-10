@@ -33,7 +33,7 @@ import {
   tableName,
   visibleConnectionLines,
 } from "../../packages/core/index.js";
-import { AIS_UNATTRIBUTED_LINES, withSanntid } from "../src/model/sanntid.js";
+import { withSanntid } from "../src/model/sanntid.js";
 
 const ROUTES = JSON.parse(readFileSync(new URL("../../tests/fixtures/ruter.json", import.meta.url), "utf8"));
 const MON = "2026-10-12";
@@ -130,11 +130,14 @@ test("1069-melding styrer aldri 1136/1135/kombirute", () => {
   assert.equal(matchesChosenRouteNotice(m, "1069"), true);
 });
 
-test("AIS: 1069 har ingen AIS-kjelde i appen (tre ferjer, ein posisjon per linje frå workeren); 1049 og 1136 held fram", () => {
-  assert.deepEqual([...AIS_UNATTRIBUTED_LINES], ["1069"]);
+test("AIS: alle tre 1069-ferjene følgjer med i appen; 1049 og 1136 får berre sine eigne", () => {
   const fix = (vessel) => ({ source: "ais", latitude: 62.39, longitude: 6.33, at: NOW, speedKn: 8, course: 0, atStop: null, moored: false, journeyRef: "", expectedArrival: "", vessel });
-  const state = { entries: [{ line: "1069", fix: fix("257090560") }, { line: "1049", fix: fix("258408000") }, { line: "1136", fix: fix("257297400") }], failed: false, loaded: true };
-  assert.deepEqual(withSanntid({}, state, "1069").positions, []);
+  const state = {
+    entries: ["257090560", "257090550", "258220500"].map((vessel) => ({ line: "1069", fix: fix(vessel) })).concat([{ line: "1049", fix: fix("258408000") }, { line: "1136", fix: fix("257297400") }]),
+    failed: false,
+    loaded: true,
+  };
+  assert.deepEqual(withSanntid({}, state, "1069").positions.map((item) => item.vessel), ["257090560", "257090550", "258220500"]);
   assert.deepEqual(withSanntid({}, state, "1049").positions.map((item) => item.vessel), ["258408000"]);
   assert.deepEqual(withSanntid({}, state, "1136").positions.map((item) => item.vessel), ["257297400"]);
   assert.equal(withSanntid({}, state, "1069").sanntidOn, true);

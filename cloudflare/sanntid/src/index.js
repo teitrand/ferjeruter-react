@@ -323,6 +323,9 @@ export async function buildLatest(db, nowMs) {
     const view = aisView(row, nowMs);
     lines[row.line] ??= lineView(null, { collectorStale, nowMs });
     lines[row.line].ais = view; // sortert stigande: nyaste fartøy sist
+    // Alle fartøy på linja (1069 har tre ferjer som går om kvarandre): éin visning per fartøy, eldste fyrst.
+    // `ais` over er uendra (nyaste), så gamle klientar verkar som før.
+    (lines[row.line].aisAll ??= []).push(view);
   }
 
   const results = eventsResult?.results || [];

@@ -129,7 +129,7 @@ const kvernes = (msgtime, extra = {}) =>
   JSON.stringify({ mmsi: 257297400, msgtime, latitude: 62.260655, longitude: 6.500472, speedOverGround: 0, courseOverGround: 44.4, trueHeading: 22, navigationalStatus: 0, name: "KVERNES", ...extra });
 
 test("MMSI-kart: standard er Kvernes 1136, Geiranger 1135 og Dryna 1049, ugyldige delar blir hoppa over", () => {
-  assert.deepEqual([...parseMmsiMap()], [[257297400, "1136"], [257262400, "1135"], [258408000, "1049"]]);
+  assert.deepEqual([...parseMmsiMap()], [[257297400, "1136"], [257262400, "1135"], [258408000, "1049"], [257090560, "1069"], [257090550, "1069"], [258220500, "1069"]]);
   assert.deepEqual([...parseMmsiMap("123:1, 257297400:1136, x:y")], [[257297400, "1136"]]);
 });
 
@@ -192,7 +192,7 @@ test("straum: POST med MMSI-filter, Full, utan nedsampling; berre våre MMSI bli
   assert.equal(init.method, "POST");
   assert.equal(init.headers.Accept, "text/event-stream");
   assert.match(init.headers.Authorization, /^Bearer tok\.en\.FAKE1$/);
-  assert.deepEqual(JSON.parse(init.body), { mmsi: [257297400, 257262400, 258408000], modelType: "Full", downsample: false });
+  assert.deepEqual(JSON.parse(init.body), { mmsi: [257297400, 257262400, 258408000, 257090560, 257090550, 258220500], modelType: "Full", downsample: false });
   assert.equal(ais.state.connected, true);
   calls.bodies[0].push(`data: ${kvernes("2026-10-09T17:00:01+00:00")}\n\n`);
   calls.bodies[0].push(`data: ${JSON.stringify({ mmsi: 999999999, msgtime: "x", latitude: 60, longitude: 5 })}\n\n: ka\n\n`);
@@ -337,15 +337,15 @@ test("eldre database utan AIS-kolonnar blir oppgradert", async () => {
   db.close();
 });
 
-test("standardkartet har Dryna (verifisert) på 1049; 1069 har ingen AIS enno, og FERGERUTER_AIS_MMSI kan overstyre", () => {
+test("standardkartet har Dryna (verifisert) på 1049 og tre ferjer på 1069; FERGERUTER_AIS_MMSI kan overstyre", () => {
   const map = parseMmsiMap();
   assert.equal(map.get(257297400), "1136");
   assert.equal(map.get(257262400), "1135");
   assert.equal(map.get(258408000), "1049");
-  assert.equal(map.size, 3);
+  assert.equal(map.size, 6);
   assert.deepEqual([...parseMmsiMap("258408000:1049")], [[258408000, "1049"]]);
   assert.deepEqual(loadConfig({}).lines, ["1136", "1135", "1049", "1069"]);
-  assert.ok(![...map.values()].includes("1069"), "tre ferjer samtidig: ingen AIS-kopling før appen kan knyte posisjon til tur");
+  assert.deepEqual([...map].filter(([, line]) => line === "1069").map(([mmsi]) => mmsi), [257090560, 257090550, 258220500], "tre ferjer på 1069; appen vel ferje per tur");
   assert.equal(loadConfig({ FERGERUTER_LINES: "1136" }).lines.length, 1);
   assert.equal(loadConfig({ FERGERUTER_AIS_MMSI: "258408000:1049" }).ais.mmsi, "258408000:1049");
 });
