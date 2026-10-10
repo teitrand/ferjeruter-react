@@ -141,12 +141,12 @@ test("engelsk og tysk: kort, ark, radar", () => {
   assert.match(text(sheet(de)), /Verbindung wählen Schließen .*Linie 1069 · Kommt bald/);
 });
 
-test("kortet ligg etter innhaldet og «No»-raden ligg i innhaldet, ikkje i det faste kortet", () => {
+test("kortet ligg etter innhaldet og «No»-kortet ligg i innhaldet, ikkje i det faste kortet", () => {
   const html = render();
   const bar = html.indexOf('class="route-bar"');
   assert.ok(bar > html.indexOf('id="innhald"') && bar > html.indexOf('class="site-footer'), "kortet kjem etter main og botn");
-  assert.ok(html.indexOf('class="now ') > 0 && html.indexOf('class="now ') < bar, "«No»-raden er i main");
-  assert.doesNotMatch(card(html), /class="now/);
+  assert.ok(html.indexOf('class="na ') > 0 && html.indexOf('class="na ') < bar, "«No»-kortet er i main");
+  assert.doesNotMatch(card(html), /class="na /);
 });
 
 test("CSS: innhaldet får padding-bottom = kortet, rullar fri; ark utan glid ved redusert rørsle; 16–17 px namn", () => {

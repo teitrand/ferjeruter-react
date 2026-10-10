@@ -1,0 +1,183 @@
+/*
+ * «No»-kortet (Designer V2, na-pen2-*.png): hovudlinje, støttelinje, ferja på ei line mellom to bryggjer og eit lite
+ * kjeldemerke nederst. Fargar frå tokens i crossing.css; ingen eigen mørk modus (appen har berre eitt tema).
+ * Semantikk som ikkje berre er farge: stipla line = ikkje eksakt, «?» = ukjend, «≈» = berekna, blå tagg + pil = utanfor ruta,
+ * grønt berre ved fersk AIS. Berre transform og opacity blir animert; mindre rørsle gjev ingen glid og ingen puls.
+ */
+.trips-heading {
+  margin: 1.1rem 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.na {
+  --fw: clamp(80px, 5rem, 88px); /* ferja: 80 px, 88 px ved 200 % tekst */
+  position: relative;
+  margin: 0.55rem 0 0.2rem;
+  padding: 14px 14px 13px; /* px: ved 200 % tekst skal ikkje polstringa ete breidda */
+  color: var(--ink);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90' preserveAspectRatio='none'%3E%3Cpath d='M0 90V60l45-24 38 20 52-38 60 44 40-18 70 36 55-30 40 20v20z' fill='%23cfe0e3' fill-opacity='.45'/%3E%3C/svg%3E") bottom / 100% 4.5rem no-repeat,
+    linear-gradient(#fff, #f1f6f5);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(4, 28, 36, 0.08);
+  overflow: hidden;
+}
+.na-state-live { border-color: #b8dccf; }
+.na-outside { border-color: #b7cde0; }
+
+.na-body { position: relative; }
+.na p { margin: 0; }
+
+.na-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+  padding: 2px 10px 2px 7px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--info-fg);
+  background: var(--info-bg);
+  border-radius: 999px;
+}
+.na-tag-icon { flex: none; width: 1em; height: 1em; }
+
+.na-main {
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 600;
+  font-size: 1.0625rem; /* 17 px */
+  line-height: 1.25;
+  color: var(--fjord);
+  overflow-wrap: break-word;
+}
+.na-support { margin-top: 0.2rem !important; font-size: 0.9rem; line-height: 1.35; overflow-wrap: break-word; }
+.na-support-trip, .na-support-note { color: var(--muted); }
+.na-support-delay { color: #8f4a0c; font-weight: 600; }
+.na-support-cancelled { color: var(--stop-fg); font-weight: 600; }
+.na-support b { font-weight: 700; }
+
+/* ---------- Scenen: bryggje – line med ferje – bryggje ---------- */
+.na-scene { margin-top: 0.75rem; }
+.na-rail { display: flex; align-items: flex-end; }
+.na-pier { flex: none; width: 22px; height: 31px; color: var(--fjord); }
+.na-pier-deck, .na-pier-top { fill: currentColor; stroke: currentColor; stroke-width: 1; stroke-linejoin: round; }
+.na-pier-top { fill: none; }
+.na-pier-post { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+.na-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--fw) * 0.3334 + 2px);
+  margin-top: 1.1rem; /* rom til «?»/«≈»-boblen over ferja */
+}
+.na-bar {
+  position: absolute;
+  inset: auto 0 3px 0;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--track);
+}
+.na-scene.is-dashed .na-bar { background: repeating-linear-gradient(90deg, #aebcb9 0 8px, transparent 8px 13px); }
+.na-scene.is-faded .na-bar { opacity: 0.6; }
+.na-lane { position: absolute; inset: 0 calc(var(--fw) / 2); }
+.na-lane-bar { transform: translateX(calc(var(--x, 0) * 100%)); }
+.na-fill { position: absolute; top: 0; bottom: 0; right: 100%; width: calc(100% + var(--fw) / 2); display: none; background: var(--fill-measured); }
+.na-fill-solid .na-fill, .na-fill-soft .na-fill, .na-fill-striped .na-fill { display: block; }
+.na-fill-soft .na-fill { opacity: 0.55; }
+.na-fill-striped .na-fill { background: repeating-linear-gradient(135deg, var(--fill-calc) 0 4px, transparent 4px 8px); }
+
+.na-runner { position: absolute; inset: 0 calc(var(--fw) / 2); transform: translateX(calc(var(--x, 0) * 100%)); will-change: transform; pointer-events: none; }
+.na-lane-bar { will-change: transform; }
+.na-ferry { position: absolute; left: calc(var(--fw) / -2); bottom: 0; width: var(--fw); height: calc(var(--fw) / 3); display: block; }
+.na-ferry-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* Svak spegling under skroget. */
+.na-ferry::after { content: ""; position: absolute; left: 6%; right: 6%; bottom: -3px; height: 4px; border-radius: 50%; background: var(--ferry-hull); opacity: 0.12; }
+
+.fe-hull { fill: var(--ferry-hull); stroke: var(--ferry-outline); stroke-width: 1; stroke-linejoin: round; }
+.fe-sup { fill: var(--ferry-super); stroke: var(--ferry-outline); stroke-width: 0.9; stroke-linejoin: round; }
+.fe-win { fill: var(--ferry-window); }
+.fe-mast { fill: none; stroke: var(--ferry-mast); stroke-width: 0.75; stroke-linecap: round; stroke-linejoin: round; }
+.fe-rail { fill: none; stroke: var(--ferry-mast); stroke-width: 0.6; stroke-linecap: round; }
+.fe-red { fill: var(--ferry-red); }
+.fe-cap { fill: var(--ferry-hull); }
+.fe-gloss { fill: none; stroke: #fff; stroke-opacity: 0.3; stroke-width: 0.9; stroke-linecap: round; }
+.fe-car { fill: var(--ferry-car); }
+.fe-cwin { fill: #e6f0f3; opacity: 0.9; }
+
+/* Berekna: stipla kontur og litt dempa. Ukjend: bleik grå ferje. Siste kjende: litt dempa. */
+.na-state-calc .na-ferry-svg, .na-state-loading .na-ferry-svg { opacity: 0.8; }
+.na-state-calc .fe-hull, .na-state-calc .fe-sup, .na-state-loading .fe-hull, .na-state-loading .fe-sup { stroke-dasharray: 2.2 1.4; }
+.na-state-stale .na-ferry-svg { opacity: 0.88; }
+.na-scene.is-faded .na-ferry-svg { opacity: 0.4; filter: grayscale(1); }
+
+/* Kjølvatn berre når ferja er i fart. */
+.na-wake { position: absolute; right: calc(100% - 6px); bottom: 3px; width: 34px; height: 8px; pointer-events: none; }
+.na-wake::before, .na-wake::after { content: ""; position: absolute; right: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--water)); opacity: 0.55; }
+.na-wake::before { width: 34px; top: 0; }
+.na-wake::after { width: 22px; top: 5px; }
+
+.na-marker {
+  position: absolute;
+  left: 50%;
+  top: -1.05rem;
+  transform: translateX(-50%);
+  min-width: 1.25rem;
+  height: 1.25rem;
+  box-sizing: border-box;
+  padding: 0 0.2rem;
+  font: 700 0.8rem/1.05rem Outfit, sans-serif;
+  text-align: center;
+  color: var(--unknown-fg);
+  background: #fff;
+  border: 1.5px dashed var(--unknown-line);
+  border-radius: 999px;
+}
+
+.na-quays { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0 0.75rem; margin-top: 0.3rem; font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
+.na-quays > span { min-width: 0; overflow-wrap: break-word; }
+.na-quays > span:last-child:not(:first-child) { text-align: right; margin-left: auto; }
+
+/* Utanfor ruta: ferja med ei blå stipla pil, ingen line mellom kaiane. */
+.na-scene-outside { display: flex; align-items: flex-end; gap: 0.6rem; margin-top: 0.8rem; color: var(--info-fg); }
+.na-scene-outside .na-ferry { position: relative; left: auto; flex: none; }
+.na-arrow { flex: 1; min-width: 2rem; max-width: 9rem; height: 0.8rem; margin-bottom: 0.45rem; }
+
+/* ---------- Kjeldemerket nederst ---------- */
+.na-foot { margin-top: 0.7rem; padding-top: 0.55rem; border-top: 1px solid var(--line); }
+.na-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 2px 10px 2px 7px;
+  font-size: 0.8125rem; /* 13 px */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--unknown-fg);
+  background: var(--unknown-bg);
+  border-radius: 14px;
+}
+.na-badge[data-state="live"], .na-badge[data-state="outside"] { color: var(--ok-fg); background: var(--ok-bg); }
+.na-badge[data-state="calc"], .na-badge[data-state="loading"] { background: transparent; border: 1px dashed var(--unknown-line); }
+.na-badge-icon { flex: none; width: 1.05em; height: 1.05em; }
+.na-badge-text { min-width: 0; overflow-wrap: anywhere; }
+@keyframes na-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.na-badge[data-fresh="1"] .na-badge-icon { animation: na-pulse 2s ease-in-out infinite; }
+
+/* Overgangar berre etter fyrste frame; berre ferja (og linjefyllet) glir, med transform. */
+.na-scene.is-ready .na-runner, .na-scene.is-ready .na-lane-bar { transition: transform var(--dur-position) var(--ease-position); }
+
+@media (prefers-reduced-motion: reduce) {
+  .na-badge[data-fresh="1"] .na-badge-icon { animation: none; }
+  .na-scene .na-runner, .na-scene .na-lane-bar { transition: none; }
+}
+.na[data-motion="reduce"] .na-badge-icon { animation: none !important; }
+.na[data-motion="reduce"] .na-runner, .na[data-motion="reduce"] .na-lane-bar { transition: none; }

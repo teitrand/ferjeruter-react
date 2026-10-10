@@ -106,8 +106,11 @@ function firstLine(leg, headKey, params, ms, nowMs) {
  * @param {(iso: string) => object[]} p.legsOn  turane ein annan dag (legsForDate)
  * @param {number|null} [p.speedKn]  AIS-fart (aisSpeed); står på staden-linja berre på overfart, «Ferja er på veg mot X · 11 knop»
  * @param {boolean} [p.arrivalShown]  ankomsttida står på avgangsrada i tidslinja (ankomstar på, ingen frå/til-filter)
- * @returns {{ lines: {kind: string, text: string}[], first: string|null }}
+ * @returns {{ lines: {kind: string, text: string}[], first: string|null, leg: object|null, legKind: "scheduled"|"upcoming"|"first"|null, legAhead?: number, legDay?: string }}
  *   `first`: setninga om første tur når dagen er slutt (til statuslinja), elles null
+ *   `leg`: turen «No»-kortet viser planen for: den forseinka (`scheduled`, ferja ligg ved kai medan tabellen seier overfart)
+ *   eller neste tur ferja kan ta (`upcoming`), eller første tur neste driftsdag (`first`, med `legAhead` dagar fram og `legDay`);
+ *   null når ferja er utanfor ruta eller på overfart
  */
 export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arrivalShown = false, speedKn = null }) {
   const lines = [];
@@ -117,14 +120,14 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
   if (place && speedKn != null && status?.underway && !status.atQuay && !status.outside) place = `${place} · ${t("speed.knots", { n: speedKn })}`;
   if (place) lines.push({ kind: "place", text: place });
   // Utanfor ruta (AIS): ingen avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
-  if (status?.outside) return { lines, first: null };
+  if (status?.outside) return { lines, first: null, leg: null, legKind: null };
   const ran = visible(running);
   let current = ran.find((leg) => clockMs(leg.departure, nowMs) <= nowMs && nowMs < clockMs(leg.arrival || leg.departure, nowMs)) || null;
   // AIS seier ferja ligg ved ei anna kai enn turen startar frå (t.d. Standal medan turen går frå Valderøya): ho er på veg
   // til turen, så «Planlagd avgang» frå ei kai ho ikkje ligg ved vil villeie. Då gjeld det neste turen ho kan ta.
   if (current && status?.atQuay && quayPlace(current.from) !== quayPlace(status.atQuay)) current = null;
   // På overfart står framdrift og «framme om N min» i overfartslinja, og neste avgang i statuslinja.
-  if (current && status?.underway) return { lines, first: null };
+  if (current && status?.underway) return { lines, first: null, leg: null, legKind: null };
   const trip = (leg) => {
     const line = arrivalShown ? null : tripLine(leg);
     if (line) lines.push(line);
@@ -133,7 +136,7 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
     // Rutetabellen seier overfart, men ferja ligg ved kai (AIS): turen er forseinka, ikkje vist som overfart.
     lines.push({ kind: "scheduled", text: t("now.scheduled", { time: hhmm(current.departure), from: current.from }) });
     trip(current);
-    return { lines, first: null };
+    return { lines, first: null, leg: current, legKind: "scheduled" };
   }
 
   const upcoming = pickNextDeparture(ran.filter((leg) => clockMs(leg.departure, nowMs) > nowMs), ev, nowMinutes(nowMs));
@@ -145,7 +148,7 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
   }
   if (upcoming) {
     trip(upcoming);
-    return { lines, first: null };
+    return { lines, first: null, leg: upcoming, legKind: "upcoming" };
   }
 
   // Dagen er slutt: fyrste tur neste driftsdag (i morgon, elles dagen det går tur). Han står ikkje i tidslinja, så
@@ -159,7 +162,7 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
     const sentence = firstLine(first, head, { day: ahead === 1 ? "" : formatDay(iso) }, departureMs(iso, first.departure), nowMs);
     const line = tripLine(first);
     if (line) lines.push(line);
-    return { lines, first: sentence };
+    return { lines, first: sentence, leg: first, legKind: "first", legAhead: ahead, legDay: iso };
   }
-  return { lines, first: null };
+  return { lines, first: null, leg: null, legKind: null };
 }

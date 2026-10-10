@@ -222,3 +222,20 @@ test("AIS ved ei anna kai enn turen startar frå: ingen «Planlagd avgang» frå
   const atValderoya = { short: "Ferja ligg til kai på Valderøya", atQuay: "Valderøya" };
   assert.equal(texts(info(oslo(10, 12, 20), { status: atValderoya, legs: day, running: day, today: "2026-10-10", event: fullEv(day) }))[1], "scheduled: Planlagd avgang 12:15 frå Valderøya");
 });
+
+test("«No»-kortet får turen det viser planen for: neste tur, forseinka tur eller første tur neste driftsdag", () => {
+  setLang("nn");
+  const legs = [leg("Standal", "Trandal", "12:00", "12:10"), leg("Trandal", "Standal", "12:30", "12:40"), leg("Standal", "Trandal", "13:00", "13:10")];
+  const upcoming = info(oslo(9, 12, 14), { status: { short: "Ferja ligg til kai på Trandal" }, legs });
+  assert.equal(upcoming.legKind, "upcoming");
+  assert.equal(upcoming.leg.departure, "12:30:00");
+  // Tabellen seier overfart, men AIS seier ferja ligg ved starkaia: forseinka tur.
+  const late = info(oslo(9, 12, 33), { status: { short: "Ferja ligg til kai på Trandal" }, legs, atQuay: "Trandal" });
+  assert.equal(late.legKind, "scheduled");
+  assert.equal(late.leg.departure, "12:30:00");
+  // Dagen er slutt: første tur neste driftsdag, med kor mange dagar fram.
+  const night = info(oslo(9, 21, 10), { status: done });
+  assert.deepEqual([night.legKind, night.legAhead, night.legDay, night.leg.departure], ["first", 1, "2026-10-10", "06:40:00"]);
+  // På overfart og utanfor ruta: ingen plan å vise.
+  assert.deepEqual([info(oslo(9, 20, 25), { status: { underway: true, text: "Ferja er på veg mot Standal" } }).leg, info(oslo(9, 12, 14), { status: { outside: true, short: "Ferja er utanfor ruta" } }).leg], [null, null]);
+});

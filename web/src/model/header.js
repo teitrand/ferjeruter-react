@@ -24,6 +24,7 @@ import {
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence } from "./context.js";
 import { liveStatus, nowSpeed, nowStatus, positionFixes } from "./crossing.js";
+import { nowCardBase } from "./nowcard.js";
 
 const CHROME = {
   1136: { title: "route.title1136", eyebrow: "eyebrow", meta: "meta.title" },
@@ -77,6 +78,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown, speedKn: nowSpeed(data, status) });
   // Neste avgang ferja kan ta (ikkje ein signaltur der fristen er ute og ingen bestilling er sett).
   const next = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
+  const liveInfo = liveStatus(status, legs, now, ev, data);
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
     noTrips: false,
@@ -94,9 +96,11 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
         ? { text: info.first }
         : null,
     // Sanntid under statuslinja: framdrift og ferje på overfart, elles berre kjeldemerket.
-    live: liveStatus(status, legs, now, ev, data),
+    live: liveInfo,
     // Teksten i «No»-raden: kvar ferja er, neste/fyrste tur med nedteljing, overfartstid og turen etter.
     info,
+    // «No»-kortet (model/nowcard.js): kva som skal visast ved kai, på veg, utanfor ruta osv.
+    card: nowCardBase({ status, info, live: liveInfo, data, quays: knownQuays(ctx) }),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }
