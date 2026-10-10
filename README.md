@@ -26,7 +26,7 @@ Rutetabellane for 1136 og 1135 blir lasta ned frå Entur og lagra i `data/ruter.
 
 Nyaste **gyldige lokale** Fjord1-melding styrer tabellen når 1136 er innstilt eller det er kombirute; då visest det same i **begge** sambanda. Ved normal drift vel du 1136 eller 1135 i sambandsvalet. Banneret viser framleis Fjord1-teksten, pluss ei merknad og lenke til FRAM-PDF-en når kombiruta er aktiv.
 
-Samband 1049 Festøya–Hundeidvik og 1069 Festøya–Solavågen er eigne samband utan korrespondanse og utan signalturar. 1069 har tre ferjer som går om kvarandre, så der viser appen berre turane og neste avgang (ingen «No»-kort, ingen AIS-posisjon).
+Samband 1049 Festøya–Hundeidvik og 1069 Festøya–Solavågen er eigne samband utan korrespondanse og utan signalturar. 1069 har tre ferjer som går om kvarandre, så der finst ingen «ferja ligg ved kai»-status. Appen viser turane, neste avgang og eit «No»-kort («Ei ferje er på veg mot …», fart og AIS-kjelde, ferja vald per tur frå AIS) når ein tur går.
 
 Korrespondansar: Solavågen og Hundeidvika via Festøya→Standal som før. Når aktiv tabell har **Leknes** (kombirute eller 1135), kjem òg buss **133 Leknes–Øye**.
 

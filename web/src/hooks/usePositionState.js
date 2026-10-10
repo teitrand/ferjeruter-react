@@ -24,7 +24,7 @@ export function usePositionState(live, { nowMs: fixedNow = null, announce: speak
   const view = useMemo(
     () =>
       crossing
-        ? crossingView({ leg: crossing.leg, fixes: crossing.fixes, nowMs, previous: previous.current })
+        ? crossingView({ leg: crossing.leg, fixes: crossing.fixes, nowMs, previous: previous.current, allowOutside: !crossing.multi })
         : positionSourceView(fixes, nowMs, previous.current),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [crossing?.leg, crossing?.fixes, fixes, nowMs]

@@ -18,7 +18,10 @@ alle i `lines["1069"].aisAll` (éin visning per fartøy, eldste fyrst); `ais` er
 gammal worker) og tek alle fartøy med. Kva ferje som høyrer til kva tur, avgjer core `fixBelongsTo`: tid rundt rutetida, på strekninga,
 og for AIS utan tur-id òg kurs (`headingTowards`: kurs mot startkaien er motsett tur) og kai (ei ferje som står stille ved endekaia før
 turen har rekt fram, ventar på neste avgang derifrå). Ei ferje langt unna gjer ikkje ein tur til «utanfor ruta» når ei anna ferje har turen.
-Framleis ikkje bygd: «No»-kort og status for 1069 (fleire ferjer samtidig; sjå `isMultiFerryRoute`).
+«No»-kortet for 1069 (`multiFerryNow` i `web/src/model/crossing.js`): ingen «ferja ligg ved kai»-status, berre «Ei ferje er på veg mot X» for turen som går
+no. Går fleire turar samtidig, tek vi turen med målt AIS (ferja i fart på strekninga går føre ei som ligg parkert ved kaia), så den som kjem
+fyrst fram. Utan måling er det «Truleg på veg», berekna frå rutetabellen. Posisjonen blir aldri «utanfor ruta» for 1069.
+Ingen tur i gang gjev ikkje noko kort, berre neste avgang.
 
 ## Kjelder vi har sett på (9. okt. 2026)
 

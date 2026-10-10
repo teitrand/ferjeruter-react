@@ -26,8 +26,8 @@ import { cutBeforeSwitch, cutFromSwitch, sortDayLegs } from "./timetable.js?v=84
  * Sambanda i samband-veljaren, i den rekkjefølgja dei står. Éin stad å leggje til ei linje:
  * - `needsData`: kan berre veljast når rutetabellen har linja (elles «Kjem snart»)
  * - `independent`: eigen tabell som trafikkmeldingane ikkje styrer (ingen kombirute)
- * - `multiFerry`: fleire ferjer går om kvarandre (turane overlappar). Då finst ingen «ei ferje»-status: ingen «No»-kort,
- *   ingen liggetid/tomtur, og statuslinja seier berre neste avgang
+ * - `multiFerry`: fleire ferjer går om kvarandre (turane overlappar). Då finst ingen «ferja ligg ved kai»-status og ingen
+ *   liggetid/tomtur; «No»-kortet seier berre «ei ferje er på veg mot X» for ein tur som går (web model/crossing.js multiFerryNow)
  * - `placeholder`: berre ei rad i veljaren («Kjem snart»), ingen data og ikkje valbar
  * Namnet på sambandet ligg i i18n (`route.<id>`).
  */

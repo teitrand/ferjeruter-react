@@ -36,7 +36,7 @@ import {
   tripStatus,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence } from "./context.js";
-import { nowStatus } from "./crossing.js";
+import { multiFerryNow, nowStatus } from "./crossing.js";
 
 /**
  * @typedef {object} DepartureRow
@@ -141,8 +141,8 @@ export function buildTimeline(data, ui, memory, { now = nowMinutes(), showArriva
     statuses.set(event.leg, status);
   }
   // Same status som statuslinja: AIS er sanninga når ho seier noko anna enn rutetabellen.
-  // Fleire ferjer om kvarandre (1069): ingen «ei ferje er her»-status, så ingen «No»-punkt på lista.
-  const status = today && !isMultiFerryRoute(activeMode(ctx)) ? nowStatus(data, ctx, dayLegs, now, ev) : null;
+  // Fleire ferjer om kvarandre (1069): ingen «ei ferje er her»-status, berre «ei ferje er på veg» ved den turen som går no.
+  const status = !today ? null : isMultiFerryRoute(activeMode(ctx)) ? multiFerryNow(dayLegs, now, ev, data)?.status || null : nowStatus(data, ctx, dayLegs, now, ev);
   if (status) events.push({ at: status.at, kind: "status", now: status });
   events.sort(compareTimelineEvents);
 

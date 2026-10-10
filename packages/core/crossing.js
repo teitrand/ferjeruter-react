@@ -373,14 +373,17 @@ export function aisSpeed(fix, nowMs) {
  *   measured: boolean, progress: number, percent: number, atQuay: boolean,
  *   fixAt: number|null, ageMs: number|null, pulse: boolean, lastMeasured: number|null }}
  */
-export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = null }) {
+export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = null, allowOutside = true }) {
   if (!leg) return null;
   const trip = tripKey(leg);
   // Ferja ligg utanfor ruta: ingen framdrift, og vi påstår ikkje at ho følgjer rutetabellen.
   // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
-  const own = bestFix((fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs)), nowMs);
+  const owned = (fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs));
+  // Når turen er i gang, er det ferja i fart på strekninga som har turen, ikkje ei som ligg parkert ved kaia (reserveferja på 1069).
+  const underway = nowMs >= clockMs(leg.departure, nowMs) ? owned.filter((item) => item.source === "ais" && !isMoored(item) && fixFreshness(item, nowMs) === "live") : [];
+  const own = bestFix(underway.length ? underway : owned, nowMs);
   // Har ei ferje turen, er det ikkje «utanfor ruta» fordi ei anna ferje på linja (1069) ligg ein annan stad.
-  const away = own ? null : outsideFix(fixes || [fix], nowMs, leg);
+  const away = own || !allowOutside ? null : outsideFix(fixes || [fix], nowMs, leg);
   if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);
   let state = "calc";
   let source = "computed";

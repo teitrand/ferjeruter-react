@@ -24,7 +24,7 @@ import {
   vesselNameForTable,
 } from "../../../packages/core/index.js";
 import { planContext, statusEvidence } from "./context.js";
-import { liveStatus, nowSpeed, nowStatus, positionFixes } from "./crossing.js";
+import { liveStatus, multiFerryNow, nowSpeed, nowStatus, positionFixes } from "./crossing.js";
 import { nowCardBase } from "./nowcard.js";
 
 const CHROME = {
@@ -62,6 +62,8 @@ export function routeChrome(data, ui) {
   };
 }
 
+const NO_INFO = { lines: [], leg: null, legKind: null, legAhead: 0, legDay: null };
+
 /**
  * Statuslinja øvst, som renderLedeStatus i assets/app.js.
  * @returns {{ noTrips: true } | { noTrips: false, status: string|null,
@@ -75,21 +77,22 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   if (!legs.length) return { noTrips: true };
   const ev = statusEvidence(data, ui, memory, ctx);
   const running = runningLegs(legs, now, ev);
-  // Fleire ferjer om kvarandre (1069): vi kan ikkje seie kvar «ferja» er. Berre neste avgang, utan «No»-kort og framdrift.
+  // Fleire ferjer om kvarandre (1069): ingen «ferja ligg ved kai»-status. Berre «ei ferje er på veg» når ein tur går, og neste avgang.
   if (isMultiFerryRoute(activeMode(ctx))) {
     const upcoming = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
     const first = upcoming ? null : nowInfo({ status: null, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown: true, speedKn: null }).first;
+    const going = multiFerryNow(legs, now, ev, data);
     return {
       noTrips: false,
-      status: null,
+      status: going ? going.status.short : null,
       next: upcoming
         ? { time: hhmm(upcoming.departure), from: upcoming.from, countdown: countdown(upcoming.departure), departure: upcoming.departure, tag: null }
         : first
           ? { text: first }
           : null,
-      live: null,
+      live: going ? going.live : null,
       info: null,
-      card: null,
+      card: going ? nowCardBase({ status: going.status, info: NO_INFO, live: going.live, data, quays: knownQuays(ctx) }) : null,
       logWarning: null,
     };
   }

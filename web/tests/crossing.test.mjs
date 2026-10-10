@@ -737,3 +737,18 @@ test("ei tredje ferje langt unna (1069) gjer ikkje turen til «utanfor ruta» n�
   // Utan ferje på turen er det framleis den siste AIS-posisjonen som blir vist som utanfor ruta.
   assert.equal(crossingView({ leg: DOWN, fixes: [idle], nowMs: now }).state, "outside");
 });
+
+test("turen er i gang: ferja i fart på strekninga har turen, ikkje reserveferja som ligg parkert ved startkaia", () => {
+  const now = oslo(10, 12);
+  const moving = ferry(257090560, 0.5, now - 20000, { cog: headingTo(F, SOL) });
+  // Parkert ved Festøya (startkaia), nyare melding enn ferja i fart.
+  const parked = fixFromAis({ mmsi: 258220500, ...fest(0), sog: 0, cog: null, navStatus: 5, timestamp: now - 2000 });
+  assert.equal(fixBelongsTo(parked, DOWN, now), true, "ho ligg ved startkaia, så ho kan høyre til turen før han går");
+  const view = crossingView({ leg: DOWN, fixes: [moving, parked], nowMs: now });
+  assert.equal(view.atQuay, false);
+  assert.ok(Math.abs(view.progress - 0.5) < 0.02);
+  // Før avgang er det den parkerte ferja ved kaia som er posisjonen.
+  const parkedEarly = { ...parked, at: oslo(9, 59, 50) };
+  const before = crossingView({ leg: DOWN, fixes: [parkedEarly], nowMs: oslo(9, 59, 55) });
+  assert.equal(before.atQuay, true);
+});
