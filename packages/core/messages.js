@@ -534,6 +534,8 @@ export function routeNameFlags(msg) {
       /\b1136\b/.test(blob) ||
       /standal|trandal|valderøy|store kalvøy/i.test(heading),
     named1135: conn === CONN_1135 || /\b1135\b/.test(blob) || /lekne/i.test(heading),
+    // 1049 Festøya–Hundeidvik: berre ordlyd (Fjord1-sambandsnummeret er ikkje stadfesta). Staden i overskrifta ELLER «1049» i teksten.
+    named1049: /\b1049\b/.test(blob) || /festøy|hundeidvik/i.test(heading),
   };
 }
 
@@ -556,13 +558,18 @@ export const SEVERITY_RANK = { cancelled: 0, delay: 1, capacity: 2, info: 3, nor
 
 export function matchesChosenRouteNotice(msg, route) {
   const flags = routeNameFlags(msg);
+  if (route === "1049") return flags.named1049;
   return route === "1135" ? flags.named1135 : flags.named1136;
 }
 
 export function messageRouteScore(msg, route) {
-  const { named1136, named1135 } = routeNameFlags(msg);
+  const { named1136, named1135, named1049 } = routeNameFlags(msg);
   const kombi = msg?.routeMode === "kombi" || KOMBI_RE.test(messageBlob(msg));
-  const [own, other] = route === "1136" ? [named1136, named1135] : route === "1135" ? [named1135, named1136] : [null, null];
+  const [own, other] =
+    route === "1136" ? [named1136, named1135]
+    : route === "1135" ? [named1135, named1136]
+    : route === "1049" ? [named1049, named1136 || named1135]
+    : [null, null];
   if (own === null) return 3;
   if (own && !other) return 0;
   if (own) return 1;

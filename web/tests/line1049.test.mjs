@@ -13,6 +13,11 @@ import {
   activeMode,
   activePlan,
   cancellationQuery,
+  cancelledDepartureSet,
+  matchesChosenRouteNotice,
+  messagesPanel,
+  normalizeFjord1Node,
+  routeNameFlags,
   chosenRoute,
   crossesArea,
   distanceMeters,
@@ -119,4 +124,59 @@ test("1049: Plausible-namn, ?rute=1049, fotnote og ingen korrespondanse", () => 
   assert.equal(routeOverride({ href: "https://teitrand.github.io/ferjeruter-react/?rute=1049", pathname: "/ferjeruter-react/", hostname: "teitrand.github.io" }), "1049");
   assert.match(routeFootnotes("1049").pdf.href, /festoeya-hundeidvika/);
   assert.deepEqual(visibleConnectionLines(legsForDate(MON, ctx()), { lines: [{ id: "x", label: "X", roadTo: "Hundeidvik" }] }, MON, ctx()), []);
+});
+
+// --- Trafikkmeldingar (Fjord1) for 1049: berre ordlyd, utan sambandsnummer ---
+
+const MSG_1049 = {
+  id: "m1049",
+  heading: "Hundeidvika – Festøya",
+  text: "Rute 1049 Hundeidvika – Festøya: Grunna arbeid på kai vert sambandet innstilt frå kl. 10:30 til 13:25.",
+  publishedAt: "2026-10-12T05:00:00Z",
+  validFrom: "2026-10-12T05:00:00Z",
+  validTo: "2026-10-12T13:00:00Z",
+};
+const MSG_1136 = { id: "m1136", heading: "Standal–Trandal", text: "Rute 1136: avgangar innstilt grunna vind.", publishedAt: "2026-10-12T05:10:00Z", validFrom: "2026-10-12T05:10:00Z", validTo: "2026-10-12T13:00:00Z" };
+const MSG_1135 = { id: "m1135", heading: "Sæbø – Leknes", text: "Rute 1135: normal drift.", publishedAt: "2026-10-12T05:20:00Z", validFrom: "2026-10-12T05:20:00Z", validTo: "2026-10-12T13:00:00Z" };
+const norm = (node) => normalizeFjord1Node({ id: node.id, heading: node.heading, content: node.text, date: "12.10.2026 07:00:00", validFrom: Date.parse(node.validFrom) / 1000, validTo: Date.parse(node.validTo) / 1000 });
+
+test("1049-melding: lokal, men ingen rutekontroll og ikkje 1136; namnet gjev 1049-treff", () => {
+  const msg = norm(MSG_1049);
+  assert.equal(msg.isLocal, true);
+  assert.equal(msg.isRouteControl, false, "styrer ikkje 1136/1135/kombirute");
+  assert.equal(msg.isRoute1136, false);
+  assert.equal(msg.routeSwitch, null);
+  const flags = routeNameFlags(msg);
+  assert.deepEqual([flags.named1136, flags.named1135, flags.named1049], [false, false, true]);
+  assert.equal(matchesChosenRouteNotice(msg, "1049"), true);
+  assert.equal(matchesChosenRouteNotice(msg, "1136"), false);
+  assert.equal(matchesChosenRouteNotice(msg, "1135"), false);
+});
+
+test("1049-melding: staden i overskrifta gjev 1049-treff; ein stad i brødteksten gjer det ikkje", () => {
+  const byHeading = { heading: "Festøya - Hundeidvika", text: "Ferja går ikkje." };
+  assert.equal(routeNameFlags(byHeading).named1049, true);
+  // Ei 1136-melding om bussen til Hundeidvika i brødteksten er ikkje ei 1049-melding.
+  const bus = { heading: "Standal–Trandal", text: "Rute 1136: buss mot Hundeidvika går som vanleg.", connectionNumber: 132 };
+  assert.deepEqual([routeNameFlags(bus).named1136, routeNameFlags(bus).named1049], [true, false]);
+});
+
+test("meldingspanelet: 1049-fana viser 1049-meldinga først, og dei andre fanene held fram som før", () => {
+  const payload = { fetchedAt: "2026-10-12T05:30:00Z", messages: [norm(MSG_1136), norm(MSG_1049), norm(MSG_1135)] };
+  const now = Date.parse("2026-10-12T08:20:00Z");
+  const ids = (route, filter) => messagesPanel(payload, filter, route, now).messages.map((msg) => msg.id);
+  assert.equal(ids("1049", "local")[0], "m1049");
+  assert.deepEqual(ids("1049", "route"), ["m1049"]);
+  assert.equal(ids("1136", "local")[0], "m1136");
+  assert.deepEqual(ids("1136", "route"), ["m1136"]);
+  assert.deepEqual(ids("1135", "route"), ["m1135"]);
+  assert.deepEqual(messagesPanel(payload, "route", "1049", now).filters, ["local", "route"]);
+});
+
+test("1049-melding om innstilt avgang frå Hundeidvik gjev ikkje avlysing på 1136, og motsett", () => {
+  const cancel1049 = norm({ ...MSG_1049, id: "c1", text: "Rute 1049: avgangar innstilt: 11:00 frå Hundeidvik og 11:30 frå Festøya." });
+  const set = cancelledDepartureSet([cancel1049]);
+  assert.equal(set.has("Hundeidvik|11:00:00"), true);
+  assert.equal(set.has("Festøya|11:30:00"), true);
+  assert.equal([...set].some((key) => /^(Standal|Trandal|Sæbø|Skår|Leknes)\|/.test(key)), false);
 });
