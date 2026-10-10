@@ -104,15 +104,17 @@ function firstLine(leg, headKey, params, ms, nowMs) {
  * @param {number} p.nowMs
  * @param {string} p.today        ISO-dato i dag (Oslo)
  * @param {(iso: string) => object[]} p.legsOn  turane ein annan dag (legsForDate)
+ * @param {number|null} [p.speedKn]  AIS-fart (aisSpeed); står på staden-linja berre på overfart, «Ferja er på veg mot X · 11 knop»
  * @param {boolean} [p.arrivalShown]  ankomsttida står på avgangsrada i tidslinja (ankomstar på, ingen frå/til-filter)
  * @returns {{ lines: {kind: string, text: string}[], first: string|null }}
  *   `first`: setninga om første tur når dagen er slutt (til statuslinja), elles null
  */
-export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arrivalShown = false }) {
+export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arrivalShown = false, speedKn = null }) {
   const lines = [];
   let place = status ? status.short || String(status.text || "").replace(/\.$/, "") : "";
   // status.atQuay: fersk AIS ved kai (statusFromPosition). Då seier raden «ligg til kai på X» òg når tabellen seier «ferdig for dagen».
   if (status?.atQuay && !status.underway) place = t("status.mooredAt", { quay: status.atQuay });
+  if (place && speedKn != null && status?.underway && !status.atQuay && !status.outside) place = `${place} · ${t("speed.knots", { n: speedKn })}`;
   if (place) lines.push({ kind: "place", text: place });
   // Utanfor ruta (AIS): ingen avgang/overfart/framkomst, så det ser ikkje ut som ferja følgjer rutetabellen.
   if (status?.outside) return { lines, first: null };

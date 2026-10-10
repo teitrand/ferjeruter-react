@@ -4,6 +4,8 @@
  * (core crossingView / positionSourceView); her kjem berre turen og posisjonane.
  */
 import {
+  aisSpeed,
+  bestFix,
   clockMs,
   currentStatus,
   fixAtQuay,
@@ -61,4 +63,10 @@ export function liveStatus(status, legs, now, ev, data) {
   const nowMs = Date.now();
   const leg = liveLeg(running, fixes, nowMs) || running.find((item) => within(item, nowMs, 0)) || null;
   return { crossing: leg ? { leg, fixes } : null, fixes, pending };
+}
+
+/** AIS-fart (knop) til «No»-raden: berre på overfart etter statuslinja, og berre frå AIS (aisSpeed). */
+export function nowSpeed(data, status, nowMs = Date.now()) {
+  if (!status?.underway || status.atQuay || status.outside) return null;
+  return aisSpeed(bestFix(positionFixes(data), nowMs), nowMs);
 }

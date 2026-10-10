@@ -91,7 +91,7 @@ test("live-overfart: éi linje der framdrift og ferje ligg saman, progressbar me
   assert.match(html, /class="crossing is-ready" data-source="measured" data-line="solid" style="--p:0\.6\d*"/);
   assert.match(html, /class="live" data-state="live" data-fresh="1"/);
   assert.match(text(html), /Live frå AIS · 12 s/);
-  assert.match(html, /role="progressbar" aria-label="Overfarten Trandal → Standal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60" aria-valuetext="60 % av overfarten frå Trandal til Standal, målt med AIS"/);
+  assert.match(html, /role="progressbar" aria-label="Overfarten Trandal → Standal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="60" aria-valuetext="60 % av overfarten frå Trandal til Standal, målt med AIS, 11 knop"/);
   // Éi linje: spor, fyll, kaiane og ferja er alle inne i same progressbar.
   const line = html.slice(html.indexOf('class="ferry-line"'), html.indexOf('class="line-labels"'));
   assert.match(line, /role="progressbar"/);
@@ -133,7 +133,7 @@ test("siste kjende, ukjent og berekna: grått, ærleg merka", async () => {
   assert.match(stale, /data-source="stale" data-line="dashed"/);
   assert.match(stale, /class="live" data-state="stale">/);
   assert.match(text(stale), /Siste kjende frå AIS · 3 min sidan/);
-  assert.match(stale, /aria-valuetext="[^"]*, siste kjende posisjon, frå AIS"/);
+  assert.match(stale, /aria-valuetext="[^"]*, siste kjende posisjon, frå AIS(, \d+ knop)?"/);
 
   const unknown = clean(renderToString(createElement(CrossingView, { view: view(aisAt(0.2, oslo(20, 22))) })));
   assert.match(unknown, /data-source="unknown" data-line="dashed"/);
@@ -297,7 +297,7 @@ test("appen: AIS er sanninga – live frå AIS vinn over ein Entur-posisjon, og 
   const area = nowArea(html);
   assert.match(area, /class="crossing" data-source="measured" data-line="solid"/);
   assert.match(text(area), /Live frå AIS · 8 s/);
-  assert.match(area, /aria-valuetext="50 % av overfarten frå Trandal til Standal, målt med AIS"/);
+  assert.match(area, /aria-valuetext="50 % av overfarten frå Trandal til Standal, målt med AIS, 10 knop"/);
   assert.match(text(area), /Posisjon målt med AIS frå Kystverket\./);
   assert.doesNotMatch(text(area), /Entur/);
   assert.doesNotMatch(area, /aria-[a-z]+="[^"]*Entur/);
@@ -327,7 +327,7 @@ test("appen: siste kjende AIS utan Entur er stipla og seier AIS; for gammal er u
   const area = nowArea(stale);
   assert.match(area, /data-source="stale" data-line="dashed"/);
   assert.match(text(area), /Siste kjende frå AIS · 3 min sidan/);
-  assert.match(area, /aria-valuetext="[^"]*, siste kjende posisjon, frå AIS"/);
+  assert.match(area, /aria-valuetext="[^"]*, siste kjende posisjon, frå AIS(, \d+ knop)?"/);
   assert.match(text(area), /Siste AIS-posisjon kl\. 20:27\./);
   assert.doesNotMatch(text(area), /Entur/);
   const unknown = nowArea(renderApp({ initialSanntid: { entries: [aisEntry(0.4, 8 * 60000)] } }));
@@ -464,7 +464,7 @@ test("«No»-raden på overfart: ferja på linja, minutt att til framkomst og kv
   assert.match(now, /<svg class="ferry"/);
   assert.match(text(now), /Live frå AIS · 8 s/);
   assert.match(text(now), /av overfarten · Framme 20:35 · om 5 min/);
-  assert.deepEqual(infoLines(html), ["place: Ferja er på veg mot Standal"], "framdrift og minutt att står i overfartslinja; ingen «Deretter»");
+  assert.deepEqual(infoLines(html), ["place: Ferja er på veg mot Standal · 11 knop"], "framdrift og minutt att står i overfartslinja; fart frå AIS på staden-linja; ingen «Deretter»");
 });
 
 test("«No»-raden: nn, en og de, og ingen tekst utan tabell", async () => {

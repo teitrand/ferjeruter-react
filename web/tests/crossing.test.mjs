@@ -23,6 +23,7 @@ import {
   crossingNote,
   crossingProgressText,
   positionSourceView,
+  aisSpeed,
   crossingValueText,
   crossingView,
   fixAtQuay,
@@ -298,7 +299,7 @@ test("crossing.js les ikkje tripStatus: posisjonen er aldri bevis for at ein tur
   const view = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.deepEqual(
     Object.keys(view).sort(),
-    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "left", "measured", "percent", "progress", "pulse", "seenLive", "source", "state", "to", "trip"]
+    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "left", "measured", "percent", "progress", "pulse", "seenLive", "source", "speedKn", "state", "to", "trip"]
   );
 });
 
@@ -308,10 +309,10 @@ test("tekstar: merke, kjeldeline og aria-valuetext seier alltid kjelda (nn)", ()
   const live = crossingView({ leg: OUT, fix, nowMs: fix.at + 12000 });
   assert.equal(crossingBadge(live), "Live frå AIS · 12 s");
   assert.equal(crossingNote(live), "Posisjon målt med AIS frå Kystverket.");
-  assert.match(crossingValueText(live), /^3[05] % av overfarten frå Standal til Trandal, målt med AIS$/);
+  assert.match(crossingValueText(live), /^3[05] % av overfarten frå Standal til Trandal, målt med AIS, 10 knop$/);
   const stale = crossingView({ leg: OUT, fix, nowMs: fix.at + 3 * 60000 });
   assert.equal(crossingBadge(stale), "Siste kjende frå AIS · 3 min sidan");
-  assert.match(crossingValueText(stale), /siste kjende posisjon, frå AIS$/);
+  assert.match(crossingValueText(stale), /siste kjende posisjon, frå AIS, 10 knop$/);
   const unknown = crossingView({ leg: OUT, fix, nowMs: fix.at + 7 * 60000 });
   assert.equal(crossingBadge(unknown), "Ukjent · ingen sanntid sidan 20:05");
   assert.match(crossingValueText(unknown), /posisjon ukjend, berekna frå rutetabellen$/);
@@ -645,4 +646,31 @@ test("Entur-posisjon med rett tur-id men langt frå strekninga (ferja på veg ti
   const K = QUAY_COORDS["Store Kalvøy"];
   const mid = { ...standal, latitude: (V.latitude + K.latitude) / 2, longitude: (V.longitude + K.longitude) / 2, at: oslo(12, 20) };
   assert.equal(crossingView({ leg: kalvoy, fix: mid, nowMs: oslo(12, 20, 10) }).source, "entur");
+});
+
+test("fart: AIS-knop berre på AIS som er live eller siste kjende, i fart og ikkje ved kai; aldri frå Entur eller rutetabell", () => {
+  setLang("nn");
+  const fix = ais(0.4, oslo(20, 5));
+  const at = (ms) => crossingView({ leg: OUT, fix, nowMs: fix.at + ms });
+  assert.equal(at(10000).speedKn, 10, "live");
+  assert.equal(at(3 * 60000).speedKn, 10, "siste kjende");
+  assert.equal(at(7 * 60000).speedKn, null, "for gammal: ukjend");
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: 11.4 }), oslo(20, 5, 10)), 11);
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: 11.6 }), oslo(20, 5, 10)), 12);
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: 0.4 }), oslo(20, 5, 10)), null, "under 0,5 knop: ved kai");
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: 0.6 }), oslo(20, 5, 10)), 1, "aldri «0 knop» i fart");
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: null }), oslo(20, 5, 10)), null, "ukjend fart (null)");
+  assert.equal(aisSpeed(ais(0.4, oslo(20, 5), { sog: 102.3 }), oslo(20, 5, 10)), null, "AIS «ukjend fart» (102,3)");
+  assert.equal(aisSpeed({ ...fix, source: "entur" }, fix.at + 5000), null, "Entur har ingen fart");
+  assert.equal(crossingView({ leg: OUT, fix: { ...fix, source: "entur" }, nowMs: fix.at + 5000 }).speedKn, null);
+  assert.equal(crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) }).speedKn, null, "rutetabell");
+  assert.equal(crossingView({ leg: OUT, fix: ais(0, oslo(20, 5), { sog: 0 }), nowMs: oslo(20, 5, 10) }).speedKn, null, "ved kai (stille i kairadius)");
+  assert.equal(crossingView({ leg: OUT, fix: ais(0, oslo(20, 5), { sog: 8 }), nowMs: oslo(20, 5, 10) }).speedKn, 8, "legg frå kai i fart: farta står");
+  // aria-valuetext tek med farta, i alle språk.
+  assert.match(crossingValueText(at(10000)), /, målt med AIS, 10 knop$/);
+  setLang("en");
+  assert.match(crossingValueText(at(10000)), /, measured by AIS, 10 knots$/);
+  setLang("de");
+  assert.match(crossingValueText(at(10000)), /, 10 Knoten$/);
+  setLang("nn");
 });

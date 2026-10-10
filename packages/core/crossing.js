@@ -342,6 +342,17 @@ export function fixBelongsTo(fix, leg, nowMs) {
 }
 
 /**
+ * Fart i knop frå AIS, avrunda, til «11 knop». Berre når posisjonen kjem frå AIS og er live eller siste kjende
+ * (ikkje «ukjend»), og ferja er i fart (minst AT_QUAY_MAX_KN). Entur og rutetabellen har ingen fart, så der er det null.
+ * @returns {number|null}
+ */
+export function aisSpeed(fix, nowMs) {
+  if (!fix || fix.source !== "ais" || fix.moored || fix.speedKn == null || fix.speedKn < AT_QUAY_MAX_KN) return null;
+  if (fixFreshness(fix, nowMs) === "unknown") return null;
+  return Math.max(1, Math.round(fix.speedKn));
+}
+
+/**
  * Alt framdriftslinja treng. `fixes` er alle kjende posisjonar (Entur, AIS per fartøy);
  * berre dei som høyrer til `leg` blir brukte. `previous` er førre resultat (same objekt som vart returnert),
  * så framdrifta for same tur aldri går bakover.
@@ -421,6 +432,8 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
     progress,
     percent: Math.round(progress * 100),
     atQuay,
+    // Fart (knop) berre frå AIS og berre i fart mellom kaiane; elles null.
+    speedKn: own && state !== "unknown" && !atQuay ? aisSpeed(own, nowMs) : null,
     fixAt: own ? own.at : null,
     ageMs,
     pulse: state === "live" && ageMs != null && ageMs <= FIX_PULSE_MS,
@@ -546,7 +559,7 @@ export function crossingValueText(view) {
     from: view.from,
     to: view.to,
     source: t(sourceKey(view)),
-  });
+  }) + (view.speedKn != null ? `, ${t("speed.knots", { n: view.speedKn })}` : "");
 }
 
 /**
