@@ -18,8 +18,13 @@ import { quayAt } from "./vehicles.js";
 
 export const AIS_TOKEN_URL = "https://id.barentswatch.no/connect/token";
 export const AIS_SSE_URL = "https://live.ais.barentswatch.no/v1/sse/combined";
-/** MMSI:linje. M/F Kvernes (1136), M/F Geiranger (1135). */
-export const DEFAULT_AIS_MMSI = "257297400:1136,257262400:1135";
+/**
+ * MMSI:linje. M/F Kvernes (1136), M/F Geiranger (1135), M/F Dryna (1049).
+ * Dryna (258408000) er UVERIFISERT mot BarentsWatch: Entur-køyretøyet på 1049 (254_40800) følgjer same
+ * mønster som dei to andre og NAIS viste ho ved Hundeidvik 10. okt., men AIS-straumen er ikkje sjekka.
+ * Bytt fartøy utan kodeendring med FERGERUTER_AIS_MMSI i collector.env.
+ */
+export const DEFAULT_AIS_MMSI = "257297400:1136,257262400:1135,258408000:1049";
 
 export const AIS_RECONNECT_START_MS = 15000;
 export const AIS_RECONNECT_MAX_MS = 15 * 60 * 1000;

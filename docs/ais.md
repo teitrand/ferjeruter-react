@@ -8,6 +8,7 @@ skal byggjast. Ingen nøklar, klient-ID-ar eller tokens høyrer heime i repoet, 
 | --- | --- | --- |
 | M/F Kvernes | 257297400 | 1136 |
 | M/F Geiranger | 257262400 | 1135 |
+| M/F Dryna (uverifisert) | 258408000 | 1049 |
 
 ## Kjelder vi har sett på (9. okt. 2026)
 

@@ -495,5 +495,20 @@ class StoredTimetableTests(unittest.TestCase):
             self.assertGreaterEqual(max(dates), horizon.isoformat(), code)
 
 
+class Line1049Tests(unittest.TestCase):
+    def test_line_ids_include_festoya_hundeidvik(self):
+        self.assertEqual(mod.LINE_IDS["1049"], "MOR:Line:1049")
+
+    def test_fixture_has_1049_without_signal_trips(self):
+        line = json.loads(FIXTURE_RUTER.read_text(encoding="utf-8"))["lines"]["1049"]
+        self.assertEqual(line["publicCode"], "1049")
+        self.assertTrue(all(leg["signal"] is None for leg in line["legs"]))
+        self.assertEqual({leg["from"] for leg in line["legs"]}, {"Festøya", "Hundeidvik"})
+
+    def test_quay_names_lose_ferjekai_suffix(self):
+        self.assertEqual(mod.quay_place("Hundeidvik ferjekai"), "Hundeidvik")
+        self.assertEqual(mod.quay_place("Festøya ferjekai"), "Festøya")
+
+
 if __name__ == "__main__":
     unittest.main()

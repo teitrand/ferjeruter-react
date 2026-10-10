@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hent rutetabellane for 1136 og 1135 frå Entur.
+"""Hent rutetabellane for 1136, 1135 og 1049 (Festøya–Hundeidvik) frå Entur.
 
 Workflowen køyrer kvar dag. Fila blir berre skriven når innhaldet er endra.
 Nettlesaren les den lagra fila.
@@ -21,7 +21,7 @@ from pathlib import Path
 
 ENTUR_URL = "https://api.entur.io/journey-planner/v3/graphql"
 CLIENT_NAME = "teitrand-fergeruter"
-LINE_IDS = {"1136": "MOR:Line:1136", "1135": "MOR:Line:1135"}
+LINE_IDS = {"1136": "MOR:Line:1136", "1135": "MOR:Line:1135", "1049": "MOR:Line:1049"}
 QUAY_ALIASES = {"Lekneset": "Leknes"}
 
 QUAY_SUFFIXES = (" ferjekai", " kai")

@@ -1,4 +1,4 @@
-# Innsamlaren: Entur Vehicle Positions (1136, 1135) til SQLite i /var/lib/fergeruter.
+# Innsamlaren: Entur Vehicle Positions (1136, 1135, 1049) til SQLite i /var/lib/fergeruter.
 # Installert av collector/deploy/install.sh. Sjå docs/innsamlar.md.
 [Unit]
 Description=Fergeruter innsamlar (Entur sanntid til SQLite)

@@ -27,6 +27,7 @@ export const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphq
 export const LIVE_VM_URLS = {
   1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
   1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
+  1049: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1049",
 };
 /** Minste tid mellom to sanntidskall. */
 export const LIVE_MIN_INTERVAL_MS = 55 * 1000;
@@ -42,6 +43,7 @@ export const SAILED_MAX_PER_DAY = 60;
 export function liveFetchUrls(mode) {
   if (mode === "1135") return [LIVE_VM_URLS[1135]];
   if (mode === "1136") return [LIVE_VM_URLS[1136]];
+  if (mode === "1049") return [LIVE_VM_URLS[1049]];
   return [LIVE_VM_URLS[1136], LIVE_VM_URLS[1135]];
 }
 
