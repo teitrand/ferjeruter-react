@@ -76,10 +76,10 @@ test("live-regionen: éin, polite og atomic", () => {
   assert.match(html, /<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-announcer="">/);
 });
 
-function renderApp({ initialEntur = null, initialSanntid = null, lang = "nn" } = {}) {
+function renderApp({ initialEntur = null, initialSanntid = null, lang = "nn", date = null, showPast = true } = {}) {
   const signalLog = { days: { "2026-10-08": LOG.days["2026-10-08"] } };
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog, connections: null };
-  const initialState = { routeChoice: "1136", lang, override: null, date: null, showPast: true };
+  const initialState = { routeChoice: "1136", lang, override: null, date, showPast };
   const app = createElement(App, { initialData, initialEntur, initialSanntid, initialState, memory: memoryOnly() });
   return clean(renderToString(createElement(AnnouncerProvider, null, app)));
 }
@@ -212,11 +212,17 @@ test("modellen: nn, en og de", async () => {
 
 // --- «No»-kortet i appen ---
 
-test("appen: kortet står over lista med «Turar», ikkje som rad i tidslinja; role=status utan eigen live-region", () => {
+test("appen: kortet er eit punkt på tidslinja (ikkje over lista); role=status utan eigen live-region", () => {
   const html = renderApp();
   const card = nowArea(html);
-  assert.ok(html.indexOf('class="na ') > 0 && html.indexOf('class="na ') < html.indexOf('class="trips-heading"') && html.indexOf('class="trips-heading"') < html.indexOf('class="timeline"'));
-  assert.doesNotMatch(html, /class="now[ "]/, "ingen «No»-rad i tidslinja");
+  const heading = html.indexOf('class="trips-heading"');
+  const timeline = html.indexOf('class="timeline"');
+  const slot = html.indexOf('class="timeline-now"');
+  const na = html.indexOf('class="na ');
+  assert.ok(heading > 0 && heading < timeline && timeline < slot && slot < na, "«Turar» → tidslinja → «No»-punktet → kortet");
+  assert.equal((html.match(/id="na-card"/g) || []).length, 1, "berre eitt kort");
+  assert.match(html, /<div class="timeline-now"><section class="na /, "kortet er direkte barn av punktet");
+  assert.doesNotMatch(html, /class="now[ "]/, "ingen gamal «No»-rad");
   assert.match(card, /^<section class="na na-underway na-state-calc" id="na-card" role="status" aria-live="off" aria-label="Ferja no" data-state="calc" data-mode="underway">/);
   assert.equal((html.match(/data-announcer=""/g) || []).length, 1, "éin felles live-region for sanntid");
   // Synleg innhald er aria-hidden; skjermlesar får éi setning.
@@ -584,4 +590,68 @@ test("kortet: live AIS ved kai er den vanlege grøne stilen – ingen liggetid-o
   assert.match(css, /\.na-state-live \{ border-color: var\(--na-live-line\); \}/);
   assert.match(css, /--na-live-line: #b8dccf;/, "lyst tema: grøn kant ved live");
   assert.doesNotMatch(css, /\.na-(moored|state-live)[^{]*\{[^}]*(fdeee0|8f4a0c|delay)/);
+});
+
+
+// --- «No» som utvida punkt på tidslinja ---
+
+/** Rekkefølgja på tidslinja: avgangstider og «NO» der kortet står. */
+const order = (html) => {
+  const body = html.slice(html.indexOf('class="timeline"'), html.indexOf('class="footnote"') > 0 ? html.indexOf('class="footnote"') : undefined);
+  return [...body.matchAll(/class="stop-time">(\d\d:\d\d)|class="timeline-now"/g)].map((m) => m[1] || "NO");
+};
+const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
+
+test("tidslinja: ferja på veg – tidlegare turar før «No», komande etter; ei tur, eitt punkt", () => {
+  const html = renderApp({ initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
+  const seq = order(html);
+  const at = seq.indexOf("NO");
+  assert.ok(at > 0 && seq.filter((x) => x === "NO").length === 1, seq.join(" "));
+  const before = seq.slice(0, at).map(minutesOf);
+  const after = seq.slice(at + 1).map(minutesOf);
+  assert.ok(before.length > 0 && before.every((m) => m <= 20 * 60 + 30), "det som er starta ligg før kortet");
+  assert.ok(after.every((m) => m >= 20 * 60 + 30), `det som kjem ligg etter kortet: ${seq.join(" ")}`);
+  assert.ok(before.includes(20 * 60 + 20), "turen som er i gang (20:20) står rett over kortet");
+  assert.equal(seq[at - 1], "20:20");
+});
+
+test("tidslinja: ved kai ligg kortet mellom siste gjennomførde og neste tur", () => {
+  const html = atTime(oslo(20, 16), () => renderApp({ initialSanntid: { entries: [aisEntry(0, 3000, { sog: 0 })] } }));
+  const seq = order(html);
+  const at = seq.indexOf("NO");
+  assert.ok(at >= 0, seq.join(" "));
+  assert.ok(seq.slice(0, at).map(minutesOf).every((m) => m < 20 * 60 + 20), "ingenting som ikkje har gått føre kortet");
+  assert.equal(seq[at + 1], "20:20", "neste avgang kjem rett etter kortet");
+});
+
+test("tidslinja: «Vis tidlegare avgangar» endrar ikkje kortet; andre dagar har ingen «No»-punkt", () => {
+  const hidden = renderApp({ showPast: false });
+  assert.match(hidden, /class="timeline-now"/);
+  assert.equal((hidden.match(/id="na-card"/g) || []).length, 1);
+  assert.ok(order(renderApp({ showPast: true })).filter((x) => x !== "NO").length > order(hidden).filter((x) => x !== "NO").length, "tidlegare turar er gøymde");
+  const tomorrow = renderApp({ date: "2026-10-09" });
+  assert.doesNotMatch(tomorrow, /timeline-now|id="na-card"/);
+  assert.match(tomorrow, /class="timeline"/);
+});
+
+test("«No»-kortet: «Sist sett ved kai» står berre der posisjonen er ukjend, aldri med fersk AIS på veg", () => {
+  const live = renderApp({ initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
+  assert.match(nowArea(live), /data-state="live"/);
+  assert.doesNotMatch(strip(nowArea(live)), /Sist sett ved kai/);
+  assert.doesNotMatch(sentenceOf(live), /Sist sett ved kai/);
+  const base = { mode: "underway", quay: null, place: "På veg mot Standal", leg: { from: "Trandal", to: "Standal", departure: "20:20", arrival: "20:35" }, legKind: "crossing", lastQuay: "Trandal" };
+  const liveCard = nowcard.composeNowCard(base, { ...VIEW, state: "live", speedKn: 11 });
+  assert.ok(!liveCard.support.some((line) => /Sist sett/.test(line.text)) && !/Sist sett/.test(liveCard.sentence));
+  const staleCard = nowcard.composeNowCard(base, { ...VIEW, state: "stale", ageMs: 3 * 60000, fixAt: FIXED - 3 * 60000 });
+  assert.ok(!staleCard.support.some((line) => /Sist sett/.test(line.text)));
+});
+
+test("tidslinja: midt på dagen på veg – komande turar følgjer etter kortet", () => {
+  // 20:20 er siste tur; midt på dagen er det mange etter. Ferja har gått 16:00 og er framleis på veg.
+  const html = atTime(oslo(16, 5), () => renderApp({ initialSanntid: { entries: [aisEntry(0.5, FIXED - oslo(16, 5) + 8000, { sog: 9 })] } }));
+  const seq = order(html);
+  const at = seq.indexOf("NO");
+  assert.ok(at > 0 && at < seq.length - 1, seq.join(" "));
+  assert.ok(seq.slice(0, at).map(minutesOf).every((m) => m <= 16 * 60 + 5));
+  assert.ok(seq.slice(at + 1).map(minutesOf).every((m) => m > 16 * 60 + 5), "komande turar etter kortet");
 });

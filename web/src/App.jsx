@@ -134,6 +134,10 @@ export function App({
     // memoryVersion: minnet er ein ref, så endringar der må gje ny tidslinje.
     [ready, data, ui, filters, connection.value, memory, now, memoryVersion]
   );
+  // «No»-kortet er eit punkt på tidslinja (berre i dag). Finst ikkje hendinga (t.d. tom liste), står kortet over lista.
+  const nowCard =
+    ready && todaySelected && lede && !lede.noTrips && lede.card ? <NowCard base={lede.card} live={lede.live} /> : null;
+  const nowInTimeline = Boolean(nowCard && timeline?.rows?.some((row) => row.kind === "now"));
   const detail = ui.detail && ready ? detailModel(data, ui, memory, ui.detail, now) : null;
   const notes = footnoteModel(data, ui, chrome);
 
@@ -238,7 +242,7 @@ export function App({
                 onConnection={(id) => act({ type: "connection", id })}
               />
             ) : null}
-            {ready && todaySelected && lede && !lede.noTrips && lede.card ? <NowCard base={lede.card} live={lede.live} /> : null}
+            {nowCard && !nowInTimeline ? nowCard : null}
             {ready ? <h2 className="trips-heading">{t("trips.heading")}</h2> : null}
             {status === "error" && !ready ? (
               <div className="timeline">
@@ -250,6 +254,7 @@ export function App({
                 showPast={ui.showPast}
                 onTogglePast={() => act({ type: "togglePast" })}
                 onDetail={(leg) => act({ type: "detail", leg })}
+                nowSlot={nowInTimeline ? nowCard : null}
               />
             ) : null}
             <Footnote notes={notes} connection={connection.footnote} />

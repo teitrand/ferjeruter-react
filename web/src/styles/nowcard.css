@@ -190,3 +190,30 @@
 }
 .na[data-motion="reduce"] .na-badge-icon { animation: none !important; }
 .na[data-motion="reduce"] .na-runner, .na[data-motion="reduce"] .na-lane-bar { transition: none; }
+
+/*
+ * «No» som utvida punkt på tidslinja. Lina (.timeline border-left) går gjennom; prikken er større enn turprikkane og
+ * følgjer tilstanden (grøn ved fersk AIS, blå utanfor ruta, grå elles). Kortet er breidare enn ei turrad, så det får
+ * litt luft over og under.
+ */
+.timeline-now {
+  position: relative;
+  padding: 0.25rem 0;
+}
+.timeline-now .na { margin: 0; }
+.timeline-now::before {
+  content: "";
+  position: absolute;
+  left: calc(-0.9rem - 1px - 0.45rem); /* midt på lina: polstring + kantlinje, minus halve prikken */
+  top: 1.25rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--card);
+  border: 3px solid var(--na-dot, var(--unknown-line));
+  box-shadow: 0 0 0 3px var(--paper);
+}
+.timeline-now:has(.na-state-live)::before { --na-dot: var(--ok-fg); }
+.timeline-now:has(.na-outside)::before { --na-dot: var(--info-fg); }
+.timeline-now:has(.na-state-stale)::before { --na-dot: var(--delay-fg); }
