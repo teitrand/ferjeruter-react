@@ -209,7 +209,7 @@ test("språkflagg: tre knappar med flagg, namn og aria-pressed", () => {
   assert.equal((html.match(/<svg/g) || []).length, 3, "eitt flagg per knapp");
 });
 
-test("appen: flagg og temaknapp i toppen (ingen tannhjul), ingen merkeikon eller stripe, 44 px", () => {
+test("appen: appikon og namn til venstre, flagg og temaknapp til høgre i same rad, ingen tannhjul eller stripe, 44 px", () => {
   const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog: null, connections: null };
   const initialState = { routeChoice: "1136", lang: "nn", override: null, date: null, showPast: true };
   const html = renderToString(createElement(App, { initialData, initialState, memory: memoryOnly() })).replace(/<!-- -->/g, "");
@@ -217,11 +217,28 @@ test("appen: flagg og temaknapp i toppen (ingen tannhjul), ingen merkeikon eller
   assert.equal((header.match(/class="lang-switch"/g) || []).length, 1);
   assert.equal((header.match(/class="theme-btn"/g) || []).length, 1);
   assert.ok(header.indexOf("lang-switch") < header.indexOf("theme-btn"), "flagg først, så tema");
-  assert.doesNotMatch(html, /settings-btn|settings-dialog|gear-icon|brand-mark|class="skyline"|theme-switch/i);
-  assert.doesNotMatch(text(header), /FERGEORAKELET/i, "ingen appnamn-linje i toppen");
+  assert.doesNotMatch(html, /settings-btn|settings-dialog|gear-icon|class="skyline"|theme-switch/i);
+  // Appikon (dekor, aria-hidden) og namn står saman med verktøya i éi rad (header-bar), før tittelen.
+  const bar = header.slice(header.indexOf('class="header-bar"'), header.indexOf('class="header-title"'));
+  assert.match(bar, /<div class="brand"><svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true"[^>]*>.*<\/svg><span class="brand-name">Fergeorakelet<\/span><\/div>/s);
+  assert.ok(bar.indexOf("brand-name") < bar.indexOf("lang-switch") && bar.indexOf("lang-switch") < bar.indexOf("theme-btn"), "namn, flagg, tema");
+  assert.equal((header.match(/class="brand-mark"/g) || []).length, 1);
   assert.match(header, /<h1 id="route-title">[^<]+<\/h1><\/div><p class="eyebrow">Rute 1136<\/p>/, "1136: berre «Rute 1136»");
   const css = read("web/src/styles/header.css");
   assert.match(css, /\.theme-btn \{[^}]*width: 44px;[^}]*height: 44px;/s);
   assert.match(css, /\.header-tools \.lang-btn,\s*\.header-tools \.install-btn \{ min-height: 44px; \}/);
+  assert.match(css, /\.brand \{[^}]*min-height: 44px;/s);
+  assert.match(css, /\.brand \.brand-mark \{ width: 32px; height: 32px;/);
+  assert.match(header, /<div class="header-install"><button[^>]*id="install-btn"/, "installknappen på eiga rad");
+  assert.match(css, /@media \(max-width: 419px\) \{[^@]*\.header-tools \.lang-code \{ display: none; \}[^@]*\.header-tools \.lang-btn \{ min-width: 44px;/);
   assert.match(css, /\.header-title h1 \{\s*font-size: 1\.5rem; \/\* 24 px \*\//);
+});
+
+test("appnamnet er likt på nn, en og de", () => {
+  const initialData = { routes: ROUTES, kombirute: null, messages: null, signalLog: null, connections: null };
+  for (const lang of ["nn", "en", "de"]) {
+    const html = renderToString(createElement(App, { initialData, initialState: { routeChoice: "1069", lang, override: null, date: null, showPast: true }, memory: memoryOnly() })).replace(/<!-- -->/g, "");
+    assert.match(html, /<span class="brand-name">Fergeorakelet<\/span>/, lang);
+  }
+  setLang("nn");
 });

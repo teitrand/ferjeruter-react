@@ -7,13 +7,25 @@
   display: block;
   padding: calc(0.7rem + env(safe-area-inset-top, 0px)) 0 0.85rem;
 }
+/* Same rad: appikon og namn til venstre, flagg og temaknapp til høgre. Raden bryt på smal skjerm og ved stor tekst. */
+.header-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.brand { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 8.5rem; min-width: 0; min-height: 44px; }
+.brand .brand-mark { width: 32px; height: 32px; flex: none; filter: none; }
+.brand-name { font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.01em; color: var(--foam); overflow-wrap: anywhere; }
 .header-tools {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.4rem;
+  flex: 0 1 auto;
 }
 .header-tools .lang-switch { flex-wrap: wrap; justify-content: flex-end; gap: 0.3rem; }
 .header-tools .lang-btn,
@@ -51,3 +63,17 @@
 .lang-btn:focus-visible, .theme-btn:focus-visible, .install-btn:focus-visible { outline: 2px solid var(--foam); outline-offset: 2px; }
 .site-header .lede { margin: 0.85rem 0 0; }
 .site-header .countdown-text { font-weight: 700; }
+/* Smal skjerm: flagget åleine (namnet står i aria-label), litt mindre ikon og namn, så alt får plass i éi rad på 360 px. */
+/* «Installer app» ligg på eiga rad under, berre når han er synleg. */
+.header-install { display: flex; justify-content: flex-end; }
+.header-install .install-btn:not([hidden]) { margin-bottom: 0.5rem; }
+
+@media (max-width: 419px) {
+  .header-bar { gap: 0.4rem 0.5rem; }
+  .brand { gap: 0.4rem; flex-basis: 7.5rem; }
+  .brand .brand-mark { width: 28px; height: 28px; }
+  .brand-name { font-size: 0.8125rem; }
+  .header-tools { gap: 0.25rem; }
+  .header-tools .lang-code { display: none; }
+  .header-tools .lang-btn { min-width: 44px; justify-content: center; padding: 0.22rem 0.4rem; }
+}

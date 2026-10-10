@@ -4,6 +4,18 @@ import { LangSwitch } from "./LangSwitch.jsx";
 import { ThemeSwitch } from "./ThemeSwitch.jsx";
 import { t } from "./i18n.js";
 
+/** Appikonet (same som før): liten, dekor, aria-hidden. Namnet står som tekst ved sida av. */
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <rect width="64" height="64" rx="14" fill="#073b4c" />
+      <path d="M8 42c6 4 12 4 18 0s12-4 18 0 12 4 18 0" fill="none" stroke="#7ec8c3" strokeWidth="3" strokeLinecap="round" />
+      <path d="M14 38 32 20l10 6h8l-6 12H18z" fill="#f4efe4" />
+      <rect x="28" y="16" width="3" height="10" fill="#e07a3d" />
+    </svg>
+  );
+}
+
 const MARK = "\u0000";
 
 /** «Neste avgang 09:45 frå Trandal, om 4:05» med nedteljinga tikkande inne i setninga. */
@@ -50,15 +62,23 @@ export function Lede({ lede }) {
 }
 
 /**
- * Toppen: språkflagg og ein liten temaknapp øvst til høgre, så tittelen (24 px) som hovudsak med «Rute 1069 · Norled/Fram»
+ * Toppen: appikon og namn til venstre, språkflagg og ein liten temaknapp til høgre i same rad, så tittelen (24 px) som hovudsak med «Rute 1069 · Norled/Fram»
  * under. Ingen merkeikon, stipla stripe eller appnamn.
  */
 export function Header({ chrome, lede, ui, onLang, install = null, themeState = null }) {
   return (
     <header className={chrome ? "site-header" : "site-header is-pending-route"}>
-      <div className="header-tools">
-        <LangSwitch lang={ui.lang} onChange={onLang} />
-        {themeState ? <ThemeSwitch pref={themeState.pref} onChange={themeState.setPref} /> : null}
+      <div className="header-bar">
+        <div className="brand">
+          <BrandMark />
+          <span className="brand-name">{t("app.name")}</span>
+        </div>
+        <div className="header-tools">
+          <LangSwitch lang={ui.lang} onChange={onLang} />
+          {themeState ? <ThemeSwitch pref={themeState.pref} onChange={themeState.setPref} /> : null}
+        </div>
+      </div>
+      <div className="header-install">
         <InstallButton visible={Boolean(install?.visible)} onClick={() => install?.install()} />
       </div>
       <div className="header-title">
