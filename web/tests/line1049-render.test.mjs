@@ -120,3 +120,16 @@ test("1049 utan data i rutetabellen: ingen tom fane, valet fell tilbake til 1136
   assert.match(html, /id="route-title">Standal–Trandal–Sæbø/);
   assert.match(html, /class="chip is-active" aria-pressed="true">Standal–Trandal</);
 });
+
+test("1049: meldingspanelet viser 1049-meldinga på 1049-fana", () => {
+  const messages = {
+    fetchedAt: "2026-10-12T05:30:00Z",
+    messages: [
+      { id: "m1049", heading: "Hundeidvika – Festøya", text: "Rute 1049 Hundeidvika – Festøya: Grunna arbeid på kai vert sambandet innstilt frå kl. 10:30 til 13:25.", publishedAt: "2026-10-12T05:00:00Z", validFrom: "2026-10-12T05:00:00Z", validTo: "2026-10-12T13:00:00Z", severity: "cancelled", isLocal: true, isRouteControl: false, isRoute1136: false, routeMode: null, routeSwitch: null },
+    ],
+  };
+  const html = render({ messages });
+  assert.match(text(html), /Hundeidvika – Festøya/);
+  assert.match(text(html), /Grunna arbeid på kai/);
+  assert.match(html, /id="route-title">Festøya–Hundeidvik</, "meldinga flyttar ikkje sambandet");
+});
