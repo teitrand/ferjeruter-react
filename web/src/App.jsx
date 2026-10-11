@@ -9,7 +9,7 @@ import { Header } from "./components/Header.jsx";
 import { InstallDialog } from "./components/InstallDialog.jsx";
 import { MessagesPanel } from "./components/MessagesPanel.jsx";
 import { Timeline } from "./components/Timeline.jsx";
-import { ExtrasRow, PlaceFilter, ResetFilters } from "./components/TripControls.jsx";
+import { ExtrasRow, PlaceFilter } from "./components/TripControls.jsx";
 import { setLang, t } from "./components/i18n.js";
 import { TrackContext } from "./components/track.js";
 import { useAppData } from "./hooks/useAppData.js";
@@ -259,9 +259,10 @@ export function App({
                 onToggleArrivals={onToggleArrivals}
                 connection={connection}
                 onConnection={(id) => act({ type: "connection", id })}
+                resetActive={Boolean(filters?.from || filters?.to || connection.value)}
+                onReset={() => act({ type: "resetFilters" })}
               />
             ) : null}
-            {ready ? <ResetFilters active={Boolean(filters?.from || filters?.to || connection.value)} onReset={() => act({ type: "resetFilters" })} /> : null}
             {nowCard && !nowInTimeline ? nowCard : null}
             {ferries ? <FerryList model={ferries} /> : null}
             {ready ? <h2 className="trips-heading">{t("trips.heading")}</h2> : null}

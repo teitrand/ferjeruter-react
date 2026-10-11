@@ -152,14 +152,15 @@ test("frå/til, ankomsttider og korrespondanse: kontrollar og rader", () => {
   assert.match(html, /class="stop stop-layover stop-wait stop-onward/);
   assert.match(html, /class="conn-select has-value"/);
   assert.match(html, /<span id="connection-note">[^<]+<\/span>/);
-  assert.match(html, /class="chip chip-small is-active" aria-pressed="true">Ankomsttider</);
+  assert.match(html, /<button type="button" id="toggle-arrivals" class="chip chip-small">Skjul ankomsttider<\/button>/, "ankomsttider på: knappen seier «Skjul»");
   const hidden = render({ ui: { hideArrivals: true } });
-  assert.match(hidden, /class="chip chip-small" aria-pressed="false">Ankomsttider</);
+  assert.match(hidden, /<button type="button" id="toggle-arrivals" class="chip chip-small">Vis ankomsttider<\/button>/, "ankomsttider av: knappen seier «Vis»");
+  assert.doesNotMatch(hidden + html, /id="toggle-arrivals"[^>]*aria-pressed/, "namnet følgjer handlinga, ikkje aria-pressed");
   assert.doesNotMatch(hidden, /stop-eta/);
 });
 
 test("«Nullstill filter»: berre når minst eitt filter er på (frå, til eller korrespondanse), nn/en/de", () => {
-  const button = /<button type="button" id="reset-filters" class="reset-filters-btn">.*?<\/svg>([^<]+)<\/button>/;
+  const button = /<button type="button" id="reset-filters" class="chip chip-small reset-filters-btn">.*?<\/svg>([^<]+)<\/button>/;
   assert.doesNotMatch(render({ connections: CONNECTIONS }), /reset-filters/, "ingen filter: ingen knapp");
   assert.doesNotMatch(render({ connections: CONNECTIONS, ui: { hideArrivals: true } }), /reset-filters/, "ankomsttider er ikkje eit filter");
   const names = { nn: "Nullstill filter", en: "Reset filters", de: "Filter zurücksetzen" };
@@ -170,11 +171,21 @@ test("«Nullstill filter»: berre når minst eitt filter er på (frå, til eller
       assert.equal((html.match(/id="reset-filters"/g) || []).length, 1);
     }
   }
-  // Knappen ligg mellom filtera og turlista.
+  // Korrespondanse øvst; ankomsttid-knappen og «Nullstill» står i same rad (same pille-stil), ankomsttida fyrst (held plassen).
   const html = render({ connections: CONNECTIONS, ui: { filters: { from: "Standal", to: null } } });
-  assert.ok(html.indexOf('id="conn-filter"') < html.indexOf('id="reset-filters"') && html.indexOf('id="reset-filters"') < html.indexOf('class="trips-heading"'));
+  const at = (id) => html.indexOf(id);
+  assert.ok(at('id="from-stop"') < at('id="conn-filter"') && at('id="conn-filter"') < at('id="toggle-arrivals"') && at('id="toggle-arrivals"') < at('id="reset-filters"') && at('id="reset-filters"') < at('class="trips-heading"'));
+  const row = html.slice(at('class="extras-actions"'), at('class="trips-heading"'));
+  assert.equal((row.match(/class="chip chip-small/g) || []).length, 2, "to like små pillar i same rad");
+  // Berre namn og ikon i rada: «Vis/Skjul ankomsttider» på alle språk.
+  const arrivals = { nn: ["Vis ankomsttider", "Skjul ankomsttider"], en: ["Show arrival times", "Hide arrival times"], de: ["Ankunftszeiten anzeigen", "Ankunftszeiten ausblenden"] };
+  for (const [lang, [show, hide]] of Object.entries(arrivals)) {
+    assert.match(render({ lang, ui: { hideArrivals: true } }), new RegExp(`id="toggle-arrivals" class="chip chip-small">${show}<`), lang);
+    assert.match(render({ lang }), new RegExp(`id="toggle-arrivals" class="chip chip-small">${hide}<`), lang);
+  }
   const css = readFileSync(new URL("web/src/styles/filters.css", repo), "utf8");
-  assert.match(css, /\.reset-filters-btn \{[^}]*min-height: 44px;/s);
+  assert.match(css, /\.extras-actions \.chip-small \{[^}]*min-height: 36px;/s);
+  assert.match(css, /\.extras-actions \.chip-small::after \{ content: ""; position: absolute; inset: -4px -2px; \}/, "44 px treffflate");
 });
 
 test("avgangane opnar detaljvindauget", () => {
