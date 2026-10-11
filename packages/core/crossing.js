@@ -354,6 +354,17 @@ export function fixBelongsTo(fix, leg, nowMs) {
 }
 
 /**
+ * Posisjonen som høyrer til denne overfarten: berre posisjonar som passar turen (fixBelongsTo), AIS > Entur (bestFix).
+ * Når turen er i gang, er det ferja i fart på strekninga som har turen, ikkje ei som ligg parkert ved kaia (reserveferja på 1069).
+ * @returns {PositionFix|null}
+ */
+export function fixForLeg(fixes, leg, nowMs) {
+  const owned = (fixes || []).filter((item) => fixBelongsTo(item, leg, nowMs));
+  const underway = nowMs >= clockMs(leg.departure, nowMs) ? owned.filter((item) => item.source === "ais" && !isMoored(item) && fixFreshness(item, nowMs) === "live") : [];
+  return bestFix(underway.length ? underway : owned, nowMs);
+}
+
+/**
  * Fart i knop frå AIS, avrunda, til «11 knop». Berre når posisjonen kjem frå AIS og er live eller siste kjende
  * (ikkje «ukjend»), og ferja er i fart (minst AT_QUAY_MAX_KN). Entur og rutetabellen har ingen fart, så der er det null.
  * @returns {number|null}
@@ -379,10 +390,7 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
   const trip = tripKey(leg);
   // Ferja ligg utanfor ruta: ingen framdrift, og vi påstår ikkje at ho følgjer rutetabellen.
   // Berre posisjonar som høyrer til denne overfarten. AIS > Entur (bestFix), elles rutetabellen.
-  const owned = (fixes || [fix]).filter((item) => fixBelongsTo(item, leg, nowMs));
-  // Når turen er i gang, er det ferja i fart på strekninga som har turen, ikkje ei som ligg parkert ved kaia (reserveferja på 1069).
-  const underway = nowMs >= clockMs(leg.departure, nowMs) ? owned.filter((item) => item.source === "ais" && !isMoored(item) && fixFreshness(item, nowMs) === "live") : [];
-  const own = bestFix(underway.length ? underway : owned, nowMs);
+  const own = fixForLeg(fixes || [fix], leg, nowMs);
   // Har ei ferje turen, er det ikkje «utanfor ruta» fordi ei anna ferje på linja (1069) ligg ein annan stad.
   const away = own ? null : outsideFix(fixes || [fix], nowMs, leg);
   if (away) return outsideView(away, nowMs, { trip, from: leg.from, to: leg.to, departure: hhmm(leg.departure), arrival: hhmm(leg.arrival) }, previous);

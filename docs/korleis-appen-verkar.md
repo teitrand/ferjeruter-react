@@ -400,3 +400,7 @@ Det som må halde:
 8. Cloudflare Worker (`cloudflare/signaltur-cron/`) startar logging på `main` kl. :07 og :37 UTC mellom 04 og 21. Ikkje 22:07 UTC. GitHub-cron med same minutt er reserve. Jobben skriv `signalturar.json` i sju dagar. `skipped` blir ikkje `booked`. `booked` krev faktisk avgang, ikkje berre eit ope kall etter fristen. `gått` er ein segla tomtur utan bestillingsbevis og blir ikkje «Ikkje utført». Turar som ikkje er i feeden blir ikkje logga. Eit hol blir fylt frå avlysing eller faktisk avgangstid, unntatt posisjonering før ein retur som sjølv har gått. Ein sein `updatedAt` varslar, men stoppar ikkje jobben.
 9. Service worker som i avsnitt 9, med eige cachenamn på `/dev/`.
 10. Sjekk med testane i avsnitt 11 før produksjon. Slepp via `dev`, ikkje med feature-PR mot `main`.
+
+## Detaljvindauget for ei avgang
+
+Vindauget viser ferja på turen (berre når ho er kjend), ankomst med «Overfart ca. N min» (frå rutetabellen) og status. På 1069 kjem ferjenamnet frå AIS-posisjonen som høyrer til akkurat denne turen (same val som overfarten, `fixForLeg`), og berre medan turen går; elles blir linja utelaten. Entur-posisjon gjev ikkje namn (VehicleRef er ikkje eit namn). På 1136, 1135 og 1049 er det ferja som køyrer tabellen (ingen AIS-merke).

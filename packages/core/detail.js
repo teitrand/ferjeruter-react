@@ -57,6 +57,13 @@ export function departureDetail(leg, status, phone = "") {
   };
 }
 
+/** Overfartstid etter rutetabellen i minutt (heil tid, over midnatt òg), eller null. */
+export function crossingMinutes(leg) {
+  if (!leg?.departure || !leg?.arrival) return null;
+  const minutes = (clockMinutes(leg.arrival) - clockMinutes(leg.departure) + 1440) % 1440;
+  return minutes > 0 && minutes < 240 ? Math.round(minutes) : null;
+}
+
 function statusText(leg, detail, opts) {
   if (detail.cancelled) return t("sailing.cancelled");
   if (detail.skipped) return cancelledAhead(leg, opts) ? t("signal.cancelledAhead") : t("signal.notRunning");
@@ -66,13 +73,21 @@ function statusText(leg, detail, opts) {
 }
 
 /**
- * `opts` = { today, now }: ein avlyst signaltur som ikkje har gått enno, står som «Avlyst».
+ * `opts` = { today, now, ferry }: `ferry` = { name, source, state } når ferja på turen er kjend (elles ingen ferjelinje). Ein avlyst signaltur som ikkje har gått enno, står som «Avlyst».
  * @returns {{ title: string, paragraphs: { className: string, text: string, phone?: string }[] }}
  */
 export function departureDetailContent(leg, detail, opts = {}) {
   const p = (text, className = "detail-copy") => ({ className, text });
   const paragraphs = [];
-  if (leg.arrival) paragraphs.push(p(t("sailing.arrival", { time: hhmm(leg.arrival) })));
+  if (opts.ferry?.name) {
+    const how = opts.ferry.source !== "ais" ? "" : opts.ferry.state === "live" ? ` (${t("detail.ferryAis")})` : ` (${t("detail.ferryLast")})`;
+    paragraphs.push(p(`${t("detail.ferry", { name: opts.ferry.name })}${how}`, "detail-copy detail-ferry"));
+  }
+  if (leg.arrival) {
+    const minutes = crossingMinutes(leg);
+    const arrival = t("sailing.arrival", { time: hhmm(leg.arrival) });
+    paragraphs.push(p(minutes ? `${arrival} · ${t("detail.crossing", { n: minutes })}` : arrival));
+  }
   paragraphs.push(p(statusText(leg, detail, opts), "detail-status"));
   if (!detail.signal) {
     if (detail.cancelled) paragraphs.push(p(t("detail.cancelled")));
