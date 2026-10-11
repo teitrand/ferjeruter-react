@@ -1,0 +1,23 @@
+/*
+ * Rada under korrespondanse: «Vis/Skjul ankomsttider» og «Nullstill filter» som to like små pillar (36 px synleg høgd, 44 px
+ * treffflate via ::after). Ankomsttida står til venstre og flyttar seg ikkje når «Nullstill» kjem til høgre. Bryt ved stor tekst.
+ */
+.extras-row { row-gap: 0.55rem; }
+.extras-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.5rem; flex: 1 1 100%; min-width: 0; }
+.extras-actions .filters { margin: 0; }
+.extras-actions .chip-small {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+}
+.extras-actions .chip-small::after { content: ""; position: absolute; inset: -4px -2px; }
+.extras-actions .chip-small svg { width: 0.85rem; height: 0.85rem; flex: none; }
+.extras-actions .chip-small:hover { background: var(--soft-bg); }
+.extras-actions .chip-small:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }

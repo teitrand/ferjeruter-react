@@ -69,7 +69,7 @@ test("1049: avgangar Festøya↔Hundeidvik, ingen Hjørundfjord-rader, ankomstti
   assert.match(plain, /11:00\s+Hundeidvik → Festøya/);
   assert.match(plain, /11:30\s+Festøya → Hundeidvik/);
   assert.match(plain, /Ankomst 11:25/);
-  assert.match(html, /aria-pressed="true">Ankomsttider</, "ankomsttider er på");
+  assert.match(html, />Skjul ankomsttider</, "ankomsttider er på");
   // Veljaren (kort og ark) nemner dei andre sambanda; sjekk berre tidtabellen.
   const body = text(html.slice(html.indexOf('id="timetable-panel"'), html.indexOf('id="route-card"')));
   assert.doesNotMatch(body, /Ferja flyttar seg|Standal|Trandal|Kvernes|Geiranger|Sæbø|På signal|Ring innan|signal/i, "ingen Hjørundfjord-tekst eller signalturar");

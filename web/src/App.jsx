@@ -259,6 +259,8 @@ export function App({
                 onToggleArrivals={onToggleArrivals}
                 connection={connection}
                 onConnection={(id) => act({ type: "connection", id })}
+                resetActive={Boolean(filters?.from || filters?.to || connection.value)}
+                onReset={() => act({ type: "resetFilters" })}
               />
             ) : null}
             {nowCard && !nowInTimeline ? nowCard : null}

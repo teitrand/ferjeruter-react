@@ -1,3 +1,4 @@
+import { useAnnounce } from "./Announcer.jsx";
 import { t } from "./i18n.js";
 
 function SwapIcon() {
@@ -48,15 +49,17 @@ export function PlaceFilter({ place, dispatch }) {
   );
 }
 
-/** Ankomsttider av/på og korrespondanse. `connection` kjem frå connectionModel. */
-export function ExtrasRow({ showArrivals, onToggleArrivals, connection, onConnection }) {
+/**
+ * Korrespondanse øvst, så éi rad med to like små knappar: «Vis/Skjul ankomsttider» (til venstre, held plassen sin) og
+ * «Nullstill filter» (til høgre, berre når eit filter er på). `connection` kjem frå connectionModel.
+ * Ankomsttida-knappen har namn etter handlinga (ikkje aria-pressed, så namnet og tilstanden seier ikkje imot kvarandre).
+ * «Nullstill filter» set Frå/Til til «Alle stopp» og korrespondanse til «Ingen» og rører ikkje noko anna; fokus går til
+ * Frå-vala (knappen forsvinn), og nullstillinga blir sagt høfleg frå til skjermlesar.
+ */
+export function ExtrasRow({ showArrivals, onToggleArrivals, connection, onConnection, resetActive = false, onReset = () => {} }) {
+  const announce = useAnnounce();
   return (
     <div className="extras-row" role="group" aria-label={t("extras.filterAria")}>
-      <div id="view-filter" className="filters" role="group" aria-label={t("view.label")}>
-        <button type="button" className={showArrivals ? "chip chip-small is-active" : "chip chip-small"} aria-pressed={showArrivals} onClick={onToggleArrivals}>
-          {t("view.arrivals")}
-        </button>
-      </div>
       <div id="conn-filter" className="conn-filter" role="group" aria-label={t("conn.label")}>
         {connection.lines.length ? (
           <label className="conn-field">
@@ -75,6 +78,30 @@ export function ExtrasRow({ showArrivals, onToggleArrivals, connection, onConnec
               ))}
             </select>
           </label>
+        ) : null}
+      </div>
+      <div className="extras-actions">
+        <div id="view-filter" className="filters" role="group" aria-label={t("view.label")}>
+          <button type="button" id="toggle-arrivals" className="chip chip-small" onClick={onToggleArrivals}>
+            {showArrivals ? t("view.hideArrivals") : t("view.showArrivals")}
+          </button>
+        </div>
+        {resetActive ? (
+          <button
+            type="button"
+            id="reset-filters"
+            className="chip chip-small reset-filters-btn"
+            onClick={() => {
+              onReset();
+              announce(t("filters.resetDone"));
+              document.getElementById("from-stop")?.focus();
+            }}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M18 6 6 18M6 6l12 12" />
+            </svg>
+            {t("filters.reset")}
+          </button>
         ) : null}
       </div>
     </div>
