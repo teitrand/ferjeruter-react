@@ -4,10 +4,16 @@
  */
 import {
   NO_FILTERS,
+  activeMode,
   chosenRoute,
   connectionFootnote,
   departureDetail,
   departureDetailContent,
+  clockMs,
+  fixForLeg,
+  fixFreshness,
+  isMultiFerryRoute,
+  vesselNameForTable,
   legsForDate,
   messagesPanel,
   nowMinutes,
@@ -18,6 +24,8 @@ import {
   visibleConnectionLines,
 } from "../../../packages/core/index.js";
 import { isTodaySelected, planContext, statusEvidence } from "./context.js";
+import { positionFixes } from "./crossing.js";
+import { ferryName } from "./ferries.js";
 
 /**
  * Frå/til-vala for den valde dagen. `filters` er det som faktisk gjeld (val for kaiar
@@ -63,11 +71,31 @@ export function messagesModel(data, ui, nowMs = Date.now()) {
   return messagesPanel(data.messages, ui.messageFilter, chosenRoute(ui), nowMs);
 }
 
+/**
+ * Ferja på turen, berre når vi veit det (aldri gjetta): 1069 har fleire ferjer, så der kjem namnet frå AIS-posisjonen som høyrer
+ * til akkurat denne turen (same val som overfarten), og berre medan turen går. Elles er det ferja som køyrer tabellen (1136, 1135,
+ * 1049; kombiruta frå meldinga). Ukjend = null, og linja blir utelaten.
+ * @returns {{ name: string, source: "ais"|"table", state?: string }|null}
+ */
+export function detailFerry(data, ui, ctx, leg, nowMs = Date.now()) {
+  const mode = activeMode(ctx);
+  if (isMultiFerryRoute(mode)) {
+    if (!isTodaySelected(ui) || nowMs < clockMs(leg.departure, nowMs) || nowMs > clockMs(leg.arrival, nowMs)) return null;
+    const fix = fixForLeg(positionFixes(data).filter((item) => item.source === "ais"), leg, nowMs);
+    const state = fix ? fixFreshness(fix, nowMs) : null;
+    const name = fix && state !== "unknown" ? ferryName(fix) : "";
+    return name ? { name, source: "ais", state } : null;
+  }
+  const table = leg.table || mode;
+  const name = table === "1049" ? "Dryna" : vesselNameForTable(table, ctx);
+  return name ? { name: String(name).replace(/^M\/F\s+/i, ""), source: "table" } : null;
+}
+
 /** Detaljvindauget for `leg`, med status no. */
-export function detailModel(data, ui, memory, leg, now = nowMinutes()) {
+export function detailModel(data, ui, memory, leg, now = nowMinutes(), nowMs = Date.now()) {
   if (!leg) return null;
   const ctx = planContext(data, ui);
   const status = tripStatus(leg, statusEvidence(data, ui, memory, ctx), now);
   const detail = departureDetail(leg, status, status.signal ? signalPhone(leg, ctx) : "");
-  return departureDetailContent(leg, detail, { today: isTodaySelected(ui), now });
+  return departureDetailContent(leg, detail, { today: isTodaySelected(ui), now, ferry: detailFerry(data, ui, ctx, leg, nowMs) });
 }

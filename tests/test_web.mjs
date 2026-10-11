@@ -951,7 +951,7 @@ test("detaljvindauget: same tekst som vanilla-appen for vanleg tur og signaltur"
     assert.ok(regular && signal.length > 2);
     for (const leg of [regular, ...signal]) {
       const react = detailModel(data, initialUi(), memoryOnly(), leg, 9 * 60);
-      const vanilla = core.departureDetailContent(leg, app.departureDetail(leg, 9 * 60), { today: true, now: 9 * 60 });
+      const vanilla = core.departureDetailContent(leg, app.departureDetail(leg, 9 * 60), { today: true, now: 9 * 60, ferry: { name: "Kvernes", source: "table" } });
       assert.deepEqual(react, vanilla, `${leg.departure} ${leg.from}`);
     }
     const content = detailModel(data, initialUi(), memoryOnly(), signal[signal.length - 1], 9 * 60);
@@ -1032,7 +1032,7 @@ test("avlyst signaltur framfor oss er «Avlyst», etter avgangstida «Ikkje utf�
         // Vanilla brukar same core-funksjon på rada og i minuttoppdateringa.
         const past = offset > 0;
         assert.equal(core.departureStateText(row.state, target, { today: true, past, now }), text, `vanilla-rad ${lang} ${offset}`);
-        const vanilla = core.departureDetailContent(target, app.departureDetail(target, now), { today: true, now });
+        const vanilla = core.departureDetailContent(target, app.departureDetail(target, now), { today: true, now, ferry: { name: "Kvernes", source: "table" } });
         const react = detailModel(data, initialUi(), memoryOnly(), target, now);
         assert.deepEqual(react, vanilla, `dialog ${lang} ${offset}`);
         assert.equal(react.paragraphs.find((item) => item.className === "detail-status").text, text, `dialog ${lang} ${offset}`);
