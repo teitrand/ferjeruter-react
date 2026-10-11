@@ -232,6 +232,7 @@ export function App({
       <a className="skip-link" href="#innhald">
         {t("skip")}
       </a>
+      <div className="skyline" aria-hidden="true" />
       <Header chrome={headerChrome} lede={lede} ui={ui} onLang={onLang} install={install} themeState={themeState} />
       <main id="innhald">
         <div className={panel.hidden && !messagesFailed ? "layout is-single" : "layout"} id="layout">

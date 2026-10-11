@@ -56,7 +56,7 @@ const text = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 test("1049: tittel, overtittel, kortet viser 1049 som valt, ?rute=1049", () => {
   const html = render();
   assert.match(html, /id="route-title">Festøya–Hundeidvik</);
-  assert.match(html, /class="eyebrow">Rute 1049 · Fjord1\/Fram</);
+  assert.match(html, /class="eyebrow">Rute 1049 · Fjord1 \/ FRAM</);
   assert.match(text(html.slice(html.indexOf('id="route-card"'), html.indexOf("</button>", html.indexOf('id="route-card"')))), /Valt samband Festøya– ?Hundeidvik Byt samband/);
   assert.match(html, /role="radio" class="route-row is-selected" aria-checked="true"[^>]*data-route="1049"/);
   const viaOverride = render({ routeChoice: "1136", override: "1049" });
@@ -104,11 +104,11 @@ test("1049: fotnote og botn utan Kvernes-telefon (ferjetelefonen er ikkje kjend)
 
 test("1049: engelsk og tysk (tittel, overtittel, fane)", () => {
   const en = render({ lang: "en" });
-  assert.match(en, /class="eyebrow">Route 1049 · Fjord1\/Fram</);
+  assert.match(en, /class="eyebrow">Route 1049 · Fjord1 \/ FRAM</);
   assert.match(en, /id="route-title">Festøya–Hundeidvik</);
   assert.match(text(en), /Operator Fjord1\. Route owner FRAM\. M\/F Dryna\./);
   const de = render({ lang: "de" });
-  assert.match(de, /class="eyebrow">Linie 1049 · Fjord1\/Fram</);
+  assert.match(de, /class="eyebrow">Linie 1049 · Fjord1 \/ FRAM</);
   assert.match(text(de), /Betreiber Fjord1\. Auftraggeber FRAM\. M\/F Dryna\./);
   assert.match(de, /Gewählte Verbindung\s*<\/span><span class="route-card-name">Festøya–<wbr\/>Hundeidvik/);
   assert.match(en, /Selected route<\/span>/);

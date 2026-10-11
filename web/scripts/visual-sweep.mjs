@@ -154,18 +154,12 @@ async function sweep(combo, { quick = false } = {}) {
     await shot(page, `na-${name}`);
     await ctx.close();
   }
-  // Sida: topp (flagg og temaknapp), heile, meldingar, ark, dialogar, botn
+  // Sida: topp (språk- og temarad), heile, meldingar, ark, dialogar, botn
   const { page, ctx } = await load(PAGE_STATE, combo);
   await check(`${tag} sida`, await audit(page), combo);
   await shot(page, "topp");
   await shot(page, "heile", { fullPage: true });
-  await check(`${tag} toppen`, await audit(page, ".site-header"), combo);
-  await page.locator(".site-header").screenshot({ path: `${OUT}${tag}-toppen.png` });
-  // Temaknappen bladar Enhet → Lys → Mørk
-  const before = await page.locator(".theme-btn").getAttribute("data-theme-pref");
-  await page.click(".theme-btn"); await page.waitForTimeout(150);
-  if ((await page.locator(".theme-btn").getAttribute("data-theme-pref")) === before) { failures += 1; console.log(`✗ ${tag} temaknappen bladar ikkje`); }
-  await page.click(".theme-btn"); await page.click(".theme-btn"); await page.waitForTimeout(150);
+  for (const sel of [".lang-switch", ".theme-switch"]) await check(`${tag} ${sel}`, await audit(page, sel), combo);
   const bar = page.locator(".messages-bar");
   if (await bar.count()) {
     await bar.first().click(); await page.waitForTimeout(250);

@@ -56,11 +56,7 @@ function render({ lang = "nn", routeChoice = "1136", routes = ROUTES } = {}) {
   return renderToString(createElement(App, { initialData, initialState, memory: memoryOnly() })).replace(/<!-- -->/g, "");
 }
 
-const sheet = (html) => {
-  const at = html.indexOf('id="route-sheet"');
-  const start = html.lastIndexOf("<dialog", at);
-  return html.slice(start, html.indexOf("</dialog>", at));
-};
+const sheet = (html) => html.slice(html.indexOf('<dialog'), html.indexOf("</dialog>"));
 const card = (html) => html.slice(html.indexOf('<div class="route-bar"'), html.indexOf("</div>", html.indexOf('<div class="route-bar"')));
 
 test("katalogen er den einaste lista: valbare samband (ingen plassholdarar att)", () => {
