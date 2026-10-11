@@ -1,3 +1,4 @@
+import { useAnnounce } from "./Announcer.jsx";
 import { t } from "./i18n.js";
 
 function SwapIcon() {
@@ -77,6 +78,35 @@ export function ExtrasRow({ showArrivals, onToggleArrivals, connection, onConnec
           </label>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * «Nullstill filter»: set Frå/Til til «Alle stopp» og korrespondanse til «Ingen». Vist berre når minst eitt filter er på.
+ * Rører ikkje ankomsttider, språk, tema, valt samband eller data. Fokus går til Frå-vala (knappen forsvinn), og nullstillinga
+ * blir sagt frå høfleg til skjermlesar.
+ */
+export function ResetFilters({ active, onReset }) {
+  const announce = useAnnounce();
+  if (!active) return null;
+  return (
+    <div className="reset-filters">
+      <button
+        type="button"
+        id="reset-filters"
+        className="reset-filters-btn"
+        onClick={() => {
+          onReset();
+          announce(t("filters.resetDone"));
+          document.getElementById("from-stop")?.focus();
+        }}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M18 6 6 18M6 6l12 12" />
+        </svg>
+        {t("filters.reset")}
+      </button>
     </div>
   );
 }

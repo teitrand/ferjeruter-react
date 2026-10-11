@@ -57,6 +57,11 @@ export function uiReducer(ui, action) {
       const { from, to } = ui.filters;
       return from || to ? { ...ui, filters: { from: to, to: from } } : ui;
     }
+    case "resetFilters": {
+      // Berre frå/til og korrespondanse. Ankomsttider, språk, tema, samband og dag blir ikkje rørt.
+      const { from, to } = ui.filters;
+      return from || to || ui.connection ? { ...ui, filters: NO_FILTERS, connection: null } : ui;
+    }
     case "toggleArrivals":
       return { ...ui, hideArrivals: !ui.hideArrivals };
     case "connection":

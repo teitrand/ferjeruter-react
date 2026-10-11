@@ -158,6 +158,25 @@ test("frå/til, ankomsttider og korrespondanse: kontrollar og rader", () => {
   assert.doesNotMatch(hidden, /stop-eta/);
 });
 
+test("«Nullstill filter»: berre når minst eitt filter er på (frå, til eller korrespondanse), nn/en/de", () => {
+  const button = /<button type="button" id="reset-filters" class="reset-filters-btn">.*?<\/svg>([^<]+)<\/button>/;
+  assert.doesNotMatch(render({ connections: CONNECTIONS }), /reset-filters/, "ingen filter: ingen knapp");
+  assert.doesNotMatch(render({ connections: CONNECTIONS, ui: { hideArrivals: true } }), /reset-filters/, "ankomsttider er ikkje eit filter");
+  const names = { nn: "Nullstill filter", en: "Reset filters", de: "Filter zurücksetzen" };
+  for (const [lang, name] of Object.entries(names)) {
+    for (const ui of [{ filters: { from: "Standal", to: null } }, { filters: { from: null, to: "Trandal" } }, { connection: "solavagen" }]) {
+      const html = render({ lang, connections: CONNECTIONS, ui });
+      assert.equal(html.match(button)?.[1], name, `${lang} ${JSON.stringify(ui)}`);
+      assert.equal((html.match(/id="reset-filters"/g) || []).length, 1);
+    }
+  }
+  // Knappen ligg mellom filtera og turlista.
+  const html = render({ connections: CONNECTIONS, ui: { filters: { from: "Standal", to: null } } });
+  assert.ok(html.indexOf('id="conn-filter"') < html.indexOf('id="reset-filters"') && html.indexOf('id="reset-filters"') < html.indexOf('class="trips-heading"'));
+  const css = readFileSync(new URL("web/src/styles/filters.css", repo), "utf8");
+  assert.match(css, /\.reset-filters-btn \{[^}]*min-height: 44px;/s);
+});
+
 test("avgangane opnar detaljvindauget", () => {
   const html = render();
   assert.match(html, /<button type="button" class="stop-name stop-detail" aria-haspopup="dialog" aria-controls="departure-dialog">/);

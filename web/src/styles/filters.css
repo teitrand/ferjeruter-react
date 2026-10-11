@@ -1,0 +1,20 @@
+/* «Nullstill filter»: liten knapp under frå/til/korrespondanse, berre når eit filter er på. 44 px treffflate. */
+.reset-filters { display: flex; justify-content: flex-end; margin: -0.2rem 0 0.5rem; }
+.reset-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--strong);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--strong);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reset-filters-btn svg { width: 1rem; height: 1rem; flex: none; }
+.reset-filters-btn:hover { background: var(--soft-bg); }
+.reset-filters-btn:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }

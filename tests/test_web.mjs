@@ -180,6 +180,14 @@ test("web: UI-reduceren", () => {
   assert.deepEqual([ui.date, ui.showPast], ["2026-10-09", false]);
   assert.equal(uiReducer(ui, { type: "lang", lang: "en" }).lang, "en");
   assert.equal(uiReducer(ui, { type: "togglePast" }).showPast, true);
+  // Nullstill filter: berre frå/til og korrespondanse; alt anna er uendra. Utan filter same objekt.
+  assert.equal(uiReducer(ui, { type: "resetFilters" }), ui, "ingen filter: same objekt");
+  const filtered = { ...ui, filters: { from: "Standal", to: "Trandal" }, connection: "solavagen", hideArrivals: true, lang: "de", routeChoice: "1135", showPast: true, messageFilter: "route" };
+  const cleared = uiReducer(filtered, { type: "resetFilters" });
+  assert.deepEqual(cleared.filters, { from: null, to: null });
+  assert.equal(cleared.connection, null);
+  assert.deepEqual({ ...cleared, filters: filtered.filters, connection: filtered.connection }, filtered, "ankomsttider, språk, samband, dag og meldingsval er rørt ikkje");
+  assert.equal(uiReducer({ ...ui, connection: "solavagen" }, { type: "resetFilters" }).connection, null, "berre korrespondanse");
   assert.throws(() => uiReducer(ui, { type: "tull" }));
 });
 
