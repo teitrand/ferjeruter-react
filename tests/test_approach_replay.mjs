@@ -133,3 +133,12 @@ test("statuslinja tek neste avgang frå dei same turane som lista (signaltur ett
   assert.equal(lede.next.time, first.time);
   assert.equal(lede.next.from, first.from);
 });
+
+test("LIVE-merket på «No»-kortet lenkjer til ferja i NAIS ut frå MMSI-en", () => {
+  const view = positionSourceView([kvernes()], NOW, null, QUAYS);
+  const card = composeNowCard({ mode: "outside", place: "", leg: null, quay: null }, view);
+  assert.equal(card.nais.href, "https://nais.kystverket.no/embed/aisstream/257297400");
+  assert.equal(card.nais.label, "Opne M/F Kvernes i NAIS-kartet (opnar ny fane)");
+  const noAis = composeNowCard({ mode: "other", place: "x", leg: null, quay: null }, { state: "calc", source: "computed" });
+  assert.equal(noAis.nais, null);
+});

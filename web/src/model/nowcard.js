@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -52,6 +52,13 @@ function ageText(ms) {
 }
 
 const clockOf = (ms) => (ms == null ? "" : osloHm(new Date(ms).toISOString()));
+
+/** «KVERNES» (AIS) → «M/F Kvernes»; utan namn «ferja». */
+function vesselTitle(name) {
+  const text = String(name || "").trim();
+  if (!text) return t("na.naisFerry");
+  return `M/F ${text.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase())}`;
+}
 
 function sailMinutes(leg) {
   const minutes = clockMinutes(leg.arrival) - clockMinutes(leg.departure);
@@ -195,5 +202,10 @@ export function composeNowCard(base, view) {
       faded: state === "unknown",
     };
   }
-  return { mode, state, tag, main, support, badge, scene, sentence, label: t("na.label") };
+  // Lenkje til ferja i NAIS når posisjonen er frå AIS (MMSI-en til ferja kortet viser).
+  // MMSI og namn kjem frå AIS-posisjonen til ferja kortet viser (MMSI-lista i innsamlaren), ikkje hardkoda her.
+  // Fast aria-label, så sekundteljaren i merket ikkje blir lesen opp på nytt.
+  const href = view?.source === "ais" ? naisVesselUrl(view.mmsi) : null;
+  const nais = href ? { href, label: t("na.naisLink", { name: vesselTitle(view.vesselName) }) } : null;
+  return { mode, state, tag, main, support, badge, scene, sentence, nais, label: t("na.label") };
 }

@@ -18,6 +18,12 @@ export const FRAM_PDF_1069 = "https://frammr.no/_f/p2/i16dd0b69-6d60-433c-8a75-d
 export const FJORD1_PDF_1049 = "https://www.fjord1.no/ruteoversikt/moere-og-romsdal/festoeya-hundeidvika/(page)/pdf";
 export const FRAMMR_URL = "https://frammr.no/";
 export const NAIS_URL = "https://nais.kystverket.no/";
+
+/** Éi ferje i NAIS-kartet (BarentsWatch/Kystverket), følgd ut frå MMSI. null utan gyldig MMSI. */
+export function naisVesselUrl(mmsi) {
+  const id = String(mmsi ?? "").replace(/^mmsi:/, "");
+  return /^\d{9}$/.test(id) ? `${NAIS_URL}embed/aisstream/${id}` : null;
+}
 export const FJORD1_SMS_URL = "https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken";
 
 export function feedbackMailto(rating, comment) {

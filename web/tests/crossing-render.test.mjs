@@ -585,10 +585,13 @@ test("kortet: live AIS ved kai er den vanlege grøne stilen – ingen liggetid-o
     const html = atTime(t, () => renderApp({ initialSanntid: { entries: [aisEntry(f, FIXED - t + 15000, { sog: 0 })] } }));
     const now = nowArea(html);
     assert.match(now, /class="na na-moored na-state-live"/, `AIS ved kai ${f}`);
-    assert.match(now, /<span class="na-badge" data-state="live"/);
+    assert.match(now, /class="na-badge" data-state="live"/);
     assert.match(sceneOf(html), /na-fill-none is-solid/, "ingen fyll ved kai");
     assert.doesNotMatch(now, /is-layover|has-progress|now-track|now-fill|--now-progress|na-support-delay/);
     assert.equal(badgeText(html), "Live frå AIS · 15 s");
+    assert.match(now, /<span class="na-badge-ext"> ↗<\/span><\/a>/);
+    // Lenkje til ferja i NAIS med fast aria-label (ikkje sekundteljaren).
+    assert.match(now, /href="https:\/\/nais\.kystverket\.no\/embed\/aisstream\/\d{9}" target="_blank" rel="noopener" aria-label="Opne [^"]+ i NAIS-kartet \(opnar ny fane\)"/);
   }
   assert.match(css, /\.na-state-live \{ border-color: var\(--na-live-line\); \}/);
   assert.match(css, /--na-live-line: #b8dccf;/, "lyst tema: grøn kant ved live");

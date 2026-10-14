@@ -513,6 +513,8 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
     progress,
     percent: Math.round(progress * 100),
     atQuay,
+    mmsi: own?.source === "ais" ? own.vessel || null : null,
+    vesselName: own?.source === "ais" ? own.name || null : null,
     // Fart (knop) berre frå AIS og berre i fart mellom kaiane; elles null.
     speedKn: own && state !== "unknown" && !atQuay ? aisSpeed(own, nowMs) : null,
     fixAt: own ? own.at : null,
@@ -529,6 +531,8 @@ function outsideView(fix, nowMs, trip, previous, approach = null) {
   return {
     ...trip,
     approach,
+    mmsi: fix.vessel || null,
+    vesselName: fix.name || null,
     left: null,
     source: "ais",
     state: "outside",
@@ -558,6 +562,8 @@ export function positionSourceView(fixes, nowMs, previous = null, quays = []) {
   const ageMs = own ? Math.max(0, nowMs - own.at) : null;
   return {
     trip: "",
+    mmsi: own?.source === "ais" ? own.vessel || null : null,
+    vesselName: own?.source === "ais" ? own.name || null : null,
     source: trusted ? own.source : "computed",
     state,
     measured: Boolean(trusted),

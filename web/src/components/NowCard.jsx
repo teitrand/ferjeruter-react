@@ -3,6 +3,7 @@ import { usePositionState } from "../hooks/usePositionState.js";
 import { useReducedMotion } from "../hooks/useReducedMotion.js";
 import { composeNowCard } from "../model/nowcard.js";
 import { FerryV2 } from "./FerryV2.jsx";
+import { t } from "./i18n.js";
 
 /** Klokkeslett og tal står i feit skrift (som i skissene). */
 function Bold({ text }) {
@@ -111,12 +112,6 @@ function Scene({ scene, reducedMotion, ready }) {
   );
 }
 
-/** Trykk på merket (LIVE): rull mjukt til ferja, «No»-punktet i tidslinja. Skjermlesar har setninga i kortet. */
-function showFerry(reducedMotion) {
-  const target = document.querySelector("#na-card .na-scene") || document.querySelector(".timeline-now") || document.getElementById("na-card");
-  target?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
-}
-
 /**
  * «No»-kortet over tidslinja (Designer V2): hovudlinje, støttelinje, ferja på linja og kjeldemerket nederst.
  * Heile det synlege kortet er aria-hidden; skjermlesar får éi setning (role=status, aria-label «Ferja no»).
@@ -162,12 +157,26 @@ export function NowCard({ base, live }) {
           </p>
         ))}
         {card.scene ? <Scene scene={card.scene} reducedMotion={reducedMotion} ready={ready} /> : null}
-        <div className="na-foot">
-          <span className="na-badge" data-state={card.state} data-tone={card.badge.tone} onClick={() => showFerry(reducedMotion)} data-fresh={view?.pulse && !reducedMotion ? "1" : undefined}>
-            <BadgeIcon icon={card.badge.icon} />
-            <span className="na-badge-text">{card.badge.text}</span>
-          </span>
-        </div>
+      </div>
+      <div className="na-foot">
+        {(() => {
+          const inner = (
+            <>
+              <BadgeIcon icon={card.badge.icon} />
+              <span className="na-badge-text">{card.badge.text}</span>
+              {/* Teksten endar på ↗: lenkja opnar ei ekstern side. */}
+              {card.nais ? <span className="na-badge-ext"> ↗</span> : null}
+            </>
+          );
+          const attrs = { className: "na-badge", "data-state": card.state, "data-tone": card.badge.tone, "data-fresh": view?.pulse && !reducedMotion ? "1" : undefined };
+          // Med AIS (MMSI): merket er ei lenkje til ferja i NAIS-kartet (ny fane). Elles berre eit merke.
+          if (!card.nais) return <span {...attrs} aria-hidden="true">{inner}</span>;
+          return (
+            <a {...attrs} href={card.nais.href} target="_blank" rel="noopener" aria-label={card.nais.label}>
+              {inner}
+            </a>
+          );
+        })()}
       </div>
     </section>
   );
