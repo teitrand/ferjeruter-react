@@ -19,7 +19,7 @@ URL: `https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/`
 
 ## Oppsett
 
-Tabellane (òg `ais_latest`, lagd til seinare; `CREATE TABLE IF NOT EXISTS`) står i `SCHEMA` i `src/index.js` og er oppretta i D1 éin gong. Nøkkelen:
+Tabellane (òg `ais_latest`, lagd til seinare; `CREATE TABLE IF NOT EXISTS`) står i `SCHEMA` i `src/index.js` og er oppretta i D1 éin gong. Kolonna `destination` (AIS-destinasjonen) kom seinare: køyr `ALTER TABLE ais_latest ADD COLUMN destination TEXT` i D1 éin gong før denne versjonen av workeren blir deploya. Nøkkelen:
 
 ```bash
 npx wrangler secret put COLLECTOR_KEY   # same verdi som FERGERUTER_SENDER_KEY i /etc/fergeruter/collector.env

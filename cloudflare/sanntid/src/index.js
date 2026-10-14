@@ -34,7 +34,7 @@ export const SCHEMA = [
   // Siste AIS-posisjon per fartøy (éi rad per MMSI). Tillegg: gamle tabellar er uendra.
   `CREATE TABLE IF NOT EXISTS ais_latest (mmsi TEXT PRIMARY KEY, line TEXT NOT NULL, name TEXT, latitude REAL NOT NULL,
      longitude REAL NOT NULL, speed_kn REAL, course_deg REAL, heading INTEGER, nav_status INTEGER,
-     msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL)`,
+     msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL, destination TEXT)`,
 ];
 
 /** Signalloggen (same form som data/signalturar.json) frå signaljobben på heimeserveren. Lagra i meta (ingen ny tabell). */
@@ -104,6 +104,7 @@ export function validatePosition(pos, nowMs) {
   if (Date.parse(pos.msgtime) > nowMs + AIS_MAX_FUTURE_MS) return "msgtime-framtid";
   for (const key of ["speedKn", "courseDeg", "heading", "navStatus"]) if (pos[key] != null && num(pos[key]) == null) return key;
   if (!optStr(pos.name, 60)) return "name";
+  if (!optStr(pos.destination, 40)) return "destination";
   return null;
 }
 
@@ -170,9 +171,9 @@ async function postPositions(request, env, nowMs) {
   const receivedAt = new Date(nowMs).toISOString();
   // Berre nyare melding enn den som ligg der (msgtime_ms), så ei forseinka melding ikkje skriv over.
   const stmt = env.DB.prepare(
-    `INSERT INTO ais_latest (mmsi, line, name, latitude, longitude, speed_kn, course_deg, heading, nav_status, msgtime, msgtime_ms, received_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(mmsi) DO UPDATE SET line = excluded.line, name = excluded.name, latitude = excluded.latitude,
+    `INSERT INTO ais_latest (mmsi, line, name, latitude, longitude, speed_kn, course_deg, heading, nav_status, msgtime, msgtime_ms, received_at, destination)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(mmsi) DO UPDATE SET line = excluded.line, name = excluded.name, latitude = excluded.latitude, destination = excluded.destination,
        longitude = excluded.longitude, speed_kn = excluded.speed_kn, course_deg = excluded.course_deg, heading = excluded.heading,
        nav_status = excluded.nav_status, msgtime = excluded.msgtime, msgtime_ms = excluded.msgtime_ms, received_at = excluded.received_at
      WHERE excluded.msgtime_ms > ais_latest.msgtime_ms`,
@@ -180,7 +181,8 @@ async function postPositions(request, env, nowMs) {
   await env.DB.batch(
     body.positions.map((pos) =>
       stmt.bind(pos.mmsi, pos.line, pos.name ?? null, pos.latitude, pos.longitude, num(pos.speedKn), num(pos.courseDeg),
-        num(pos.heading), num(pos.navStatus), new Date(Date.parse(pos.msgtime)).toISOString(), Date.parse(pos.msgtime), receivedAt),
+        num(pos.heading), num(pos.navStatus), new Date(Date.parse(pos.msgtime)).toISOString(), Date.parse(pos.msgtime), receivedAt,
+        pos.destination ?? null),
     ),
   );
   return empty(204);
@@ -280,6 +282,7 @@ export function aisView(row, nowMs) {
     source: "ais",
     mmsi: row.mmsi,
     name: row.name,
+    destination: row.destination ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
     speedKn: row.speed_kn,

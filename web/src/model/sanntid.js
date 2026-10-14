@@ -40,6 +40,7 @@ export function parseSanntid(json) {
       const fix = fixFromAis({
         mmsi: ais.mmsi,
         name: ais.name,
+        destination: ais.destination,
         latitude: ais.latitude,
         longitude: ais.longitude,
         sog: ais.speedKn,

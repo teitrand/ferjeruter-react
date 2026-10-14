@@ -58,11 +58,13 @@ export function liveStatus(status, legs, now, ev, data) {
   const fixes = positionFixes(data);
   // pending: AIS-svaret er ikkje komme enno; «No»-raden viser då «Hentar posisjon», ikkje «Berekna frå rutetabellen».
   const pending = Boolean(data.sanntidPending);
-  if (!status?.underway) return { crossing: null, fixes, pending };
+  // Kaiane på ruta i dag: «På veg til X» (core approachTo) gjeld berre kaier på ruta.
+  const quays = [...new Set((legs || []).flatMap((leg) => [leg.from, leg.to]))];
+  if (!status?.underway) return { crossing: null, fixes, pending, quays };
   const running = runningLegs(legs, now, ev);
   const nowMs = Date.now();
   const leg = liveLeg(running, fixes, nowMs) || running.find((item) => within(item, nowMs, 0)) || null;
-  return { crossing: leg ? { leg, fixes } : null, fixes, pending };
+  return { crossing: leg ? { leg, fixes } : null, fixes, pending, quays };
 }
 
 /** AIS-fart (knop) til «No»-raden: berre på overfart etter statuslinja, og berre frå AIS (aisSpeed). */

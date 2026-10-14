@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -68,6 +68,8 @@ export function badgeFor(state, view) {
     case "unknown":
       return { icon: "clock", text: t("na.badgeLast", { age: ageText(view.ageMs ?? 0) }) };
     case "outside":
+      // På veg til ei kai på ruta (AIS-destinasjonen): blått merke «Destinasjon frå AIS», elles «Siste kjende frå AIS».
+      if (view.approach) return { icon: (view.ageMs ?? 0) <= FIX_FRESH_MS ? "live" : "clock", text: approachBadge(view), tone: "approach" };
       return { icon: "live", text: crossingBadgeText(view, (view.ageMs ?? 0) < FIX_FRESH_MS ? "live" : "stale") };
     case "loading":
       return { icon: "loading", text: t("crossing.loading") };
@@ -98,7 +100,10 @@ export function composeNowCard(base, view) {
   let head = base.place; // setninga til skjermlesar, same meining utan «Ferja»-forkortinga
   let tag = null;
 
-  if (mode === "outside") {
+  const approach = mode === "outside" ? view?.approach || null : null;
+  if (approach) {
+    main = head = approachText(approach);
+  } else if (mode === "outside") {
     tag = t("na.tagOutside");
     main = head = t("status.outside");
     support.push({ kind: "note", text: t("crossing.noteOutside") });
@@ -154,7 +159,9 @@ export function composeNowCard(base, view) {
 
   // Scenen: to kaier med ferja på linja. Ferja går alltid frå venstre mot høgre (frå-kaia til venstre).
   let scene = null;
-  if (mode === "outside") scene = { kind: "outside" };
+  // På veg til ei kai: ferja på ei stipla linje mot kaia (ingen startkai, ingen framdrift).
+  if (approach) scene = { kind: "line", from: "", to: approach.quay, x: 0.5, fill: "none", dashed: true, moving: false, marker: null, faded: false };
+  else if (mode === "outside") scene = { kind: "outside" };
   else if (leg || base.quay) {
     let from = leg ? leg.from : base.quay;
     let to = leg ? leg.to : null;

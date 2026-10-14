@@ -116,6 +116,8 @@ export function fixFromAis(msg) {
     expectedArrival: "",
     vessel: msg.mmsi ?? "",
     ...(msg.name ? { name: String(msg.name) } : {}),
+    // AIS-destinasjonen (fritekst frå ferja). Berre til «På veg til X», aldri til turstatus.
+    ...(msg.destination ? { destination: String(msg.destination) } : {}),
   };
 }
 
@@ -261,6 +263,61 @@ export function headingTowards(fix, from, to, previous = null) {
     if (before != null && now != null && Math.abs(before - now) >= 50) return now < before;
   }
   return null;
+}
+
+/** Under denne farten (knop) viser «På veg til X» inga framkomsttid. */
+export const APPROACH_MIN_KN = 2;
+
+/** AIS-tekst og kainamn på same form: store bokstavar utan æøå og mellomrom (AIS har berre ASCII). */
+function aisFold(text) {
+  return String(text || "")
+    .toUpperCase()
+    .replace(/Æ/g, "A")
+    .replace(/Ø/g, "O")
+    .replace(/Å/g, "A")
+    .replace(/AE/g, "A")
+    .replace(/AA/g, "A")
+    .replace(/OE/g, "O")
+    .replace(/[^A-Z]/g, "");
+}
+
+/** Kaiane på ruta som AIS-destinasjonen nemner («VALDEROY-STORE KALVO» → Valderøya og Store Kalvøy). */
+export function aisDestinationQuays(destination, quays) {
+  const parts = String(destination || "").split(/[-/>,]+/).map(aisFold).filter((part) => part.length >= 4);
+  if (!parts.length) return [];
+  return (quays || []).filter((quay) => {
+    const name = aisFold(quayPlace(quay));
+    return name && parts.some((part) => name.startsWith(part) || part.startsWith(name));
+  });
+}
+
+/**
+ * «På veg til X» for ei ferje utanfor ruta: AIS-destinasjonen svarer til ei kai på ruta, kursen er innanfor ±90° mot kaia
+ * (headingTowards) og ferja er i fart, så avstanden minkar. Berre AIS som er live eller siste kjende (ikkje ukjend).
+ * Framkomsttida er avstand / fart frå tida posisjonen vart målt, aldri AIS-ETA. Under APPROACH_MIN_KN: inga tid.
+ * Berre visning: rører ikkje turstatus eller signalloggen.
+ * @returns {{ quay: string, distanceM: number, arrival: string|null }|null}
+ */
+export function approachTo(fix, quays, nowMs) {
+  if (!fix || fix.source !== "ais" || !fix.destination) return null;
+  if (fixFreshness(fix, nowMs) === "unknown") return null;
+  let best = null;
+  for (const quay of aisDestinationQuays(fix.destination, quays)) {
+    if (headingTowards(fix, quay, quay) !== true) continue;
+    const distanceM = distanceTo(fix, quay);
+    if (distanceM == null || (best && distanceM >= best.distanceM)) continue;
+    best = { quay: quayPlace(quay), distanceM };
+  }
+  if (!best) return null;
+  const fast = fix.speedKn != null && fix.speedKn >= APPROACH_MIN_KN;
+  const arrival = fast ? clockOf(fix.at + (best.distanceM / ((fix.speedKn * 1852) / 3600)) * 1000) : null;
+  return { ...best, arrival };
+}
+
+/** «På veg til Valderøya · framme ca. 11:42», eller utan tid. Same tekst i statuslinja og «No»-kortet. */
+export function approachText(approach) {
+  if (!approach) return "";
+  return approach.arrival ? t("approach.toEta", { quay: approach.quay, time: approach.arrival }) : t("approach.to", { quay: approach.quay });
 }
 
 /** Oslo-minutt med sekund som brøk, for å samanlikne med rutetider. */
@@ -468,9 +525,10 @@ export function crossingView({ leg, fix = null, fixes = null, nowMs, previous = 
 }
 
 /** Visinga når AIS seier at ferja er utanfor ruta: berre kjelde og tid, ingen framdrift (percent 0 er ikkje ein måling). */
-function outsideView(fix, nowMs, trip, previous) {
+function outsideView(fix, nowMs, trip, previous, approach = null) {
   return {
     ...trip,
+    approach,
     left: null,
     source: "ais",
     state: "outside",
@@ -491,9 +549,9 @@ function outsideView(fix, nowMs, trip, previous) {
  * Kjelda når ferja ikkje er på overfart (ved kai, før fyrste tur): same merke, utan linje.
  * Nyaste målte posisjon avgjer; utan posisjon er statusen berekna frå rutetabellen.
  */
-export function positionSourceView(fixes, nowMs, previous = null) {
+export function positionSourceView(fixes, nowMs, previous = null, quays = []) {
   const away = outsideFix(fixes, nowMs);
-  if (away) return outsideView(away, nowMs, { trip: "", from: "", to: "", departure: "", arrival: "" }, previous);
+  if (away) return outsideView(away, nowMs, { trip: "", from: "", to: "", departure: "", arrival: "" }, previous, approachTo(away, quays, nowMs));
   const own = bestFix(fixes, nowMs);
   const state = own ? fixFreshness(own, nowMs) : "calc";
   const trusted = own && state !== "unknown";
@@ -539,10 +597,17 @@ export function crossingBadge(view) {
     case "unknown":
       return t("crossing.unknownSince", { time: clockOf(view.fixAt) });
     case "outside":
+      if (view.approach) return approachBadge(view);
       return t("crossing.outside", { time: clockOf(view.fixAt) });
     default:
       return t("crossing.calc");
   }
+}
+
+/** Merket for «På veg til X»: «Destinasjon frå AIS» når posisjonen er live, elles «Siste kjende frå AIS · 2 min sidan». */
+export function approachBadge(view) {
+  if ((view.ageMs ?? 0) <= FIX_FRESH_MS) return t("approach.badge");
+  return t("crossing.lastKnownAis", { age: ageText(view.ageMs ?? 0) });
 }
 
 /** Kjeldelina under linja. */
@@ -662,6 +727,12 @@ function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (!status || status.signal || status.cancelled) return status;
   // AIS seier at ferja er utanfor ruta: det vinn over rutetabellen, òg når AIS-meldinga er nokre minutt gammal.
   const away = outsideFix(fixes, nowMs);
+  // På veg til ei kai på ruta etter AIS-destinasjonen: same tekst som «No»-kortet. Berre visning, statusen er framleis «utanfor».
+  const approach = away ? approachTo(away, quays, nowMs) : null;
+  if (approach) {
+    const text = approachText(approach);
+    return { at: now, underway: false, outside: true, approach, short: text, text: `${text}.`, position: "ais" };
+  }
   if (away) {
     return {
       at: now,

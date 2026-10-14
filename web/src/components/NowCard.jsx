@@ -157,7 +157,7 @@ export function NowCard({ base, live }) {
         ))}
         {card.scene ? <Scene scene={card.scene} reducedMotion={reducedMotion} ready={ready} /> : null}
         <div className="na-foot">
-          <span className="na-badge" data-state={card.state} data-fresh={view?.pulse && !reducedMotion ? "1" : undefined}>
+          <span className="na-badge" data-state={card.state} data-tone={card.badge.tone} data-fresh={view?.pulse && !reducedMotion ? "1" : undefined}>
             <BadgeIcon icon={card.badge.icon} />
             <span className="na-badge-text">{card.badge.text}</span>
           </span>
