@@ -19,7 +19,7 @@ URL: `https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/`
 
 ## Oppsett
 
-Tabellane (òg `ais_latest`, lagd til seinare; `CREATE TABLE IF NOT EXISTS`) står i `SCHEMA` i `src/index.js` og er oppretta i D1 éin gong. Nøkkelen:
+Tabellane (òg `ais_latest`, lagd til seinare; `CREATE TABLE IF NOT EXISTS`) står i `SCHEMA` i `src/index.js` og er oppretta i D1 éin gong. Endringar etter det ligg som migreringar i `migrations/` (wrangler sin standardmappe). Før workeren blir deploya: `npx wrangler d1 migrations list fergeruter-sanntid --remote` for å sjå kva som manglar, så `npx wrangler d1 migrations apply fergeruter-sanntid --remote`. Fyrste migrering, `0001_ais_destination.sql`, legg til kolonna `destination` (AIS-destinasjonen) i `ais_latest`. Nøkkelen:
 
 ```bash
 npx wrangler secret put COLLECTOR_KEY   # same verdi som FERGERUTER_SENDER_KEY i /etc/fergeruter/collector.env

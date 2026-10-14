@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -53,6 +53,13 @@ function ageText(ms) {
 
 const clockOf = (ms) => (ms == null ? "" : osloHm(new Date(ms).toISOString()));
 
+/** «KVERNES» (AIS) → «M/F Kvernes»; utan namn «ferja». */
+function vesselTitle(name) {
+  const text = String(name || "").trim();
+  if (!text) return t("na.naisFerry");
+  return `M/F ${text.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase())}`;
+}
+
 function sailMinutes(leg) {
   const minutes = clockMinutes(leg.arrival) - clockMinutes(leg.departure);
   return minutes > 0 ? minutes : null;
@@ -68,6 +75,8 @@ export function badgeFor(state, view) {
     case "unknown":
       return { icon: "clock", text: t("na.badgeLast", { age: ageText(view.ageMs ?? 0) }) };
     case "outside":
+      // På veg til ei kai på ruta (AIS-destinasjonen): blått merke «Destinasjon frå AIS», elles «Siste kjende frå AIS».
+      if (view.approach) return { icon: (view.ageMs ?? 0) <= FIX_FRESH_MS ? "live" : "clock", text: approachBadge(view), tone: "approach" };
       return { icon: "live", text: crossingBadgeText(view, (view.ageMs ?? 0) < FIX_FRESH_MS ? "live" : "stale") };
     case "loading":
       return { icon: "loading", text: t("crossing.loading") };
@@ -98,7 +107,10 @@ export function composeNowCard(base, view) {
   let head = base.place; // setninga til skjermlesar, same meining utan «Ferja»-forkortinga
   let tag = null;
 
-  if (mode === "outside") {
+  const approach = mode === "outside" ? view?.approach || null : null;
+  if (approach) {
+    main = head = approachText(approach);
+  } else if (mode === "outside") {
     tag = t("na.tagOutside");
     main = head = t("status.outside");
     support.push({ kind: "note", text: t("crossing.noteOutside") });
@@ -154,7 +166,9 @@ export function composeNowCard(base, view) {
 
   // Scenen: to kaier med ferja på linja. Ferja går alltid frå venstre mot høgre (frå-kaia til venstre).
   let scene = null;
-  if (mode === "outside") scene = { kind: "outside" };
+  // På veg til ei kai: ferja på ei stipla linje mot kaia (ingen startkai, ingen framdrift).
+  if (approach) scene = { kind: "line", from: "", to: approach.quay, x: 0.5, fill: "none", dashed: true, moving: false, marker: null, faded: false };
+  else if (mode === "outside") scene = { kind: "outside" };
   else if (leg || base.quay) {
     let from = leg ? leg.from : base.quay;
     let to = leg ? leg.to : null;
@@ -188,5 +202,10 @@ export function composeNowCard(base, view) {
       faded: state === "unknown",
     };
   }
-  return { mode, state, tag, main, support, badge, scene, sentence, label: t("na.label") };
+  // Lenkje til ferja i NAIS når posisjonen er frå AIS (MMSI-en til ferja kortet viser).
+  // MMSI og namn kjem frå AIS-posisjonen til ferja kortet viser (MMSI-lista i innsamlaren), ikkje hardkoda her.
+  // Fast aria-label, så sekundteljaren i merket ikkje blir lesen opp på nytt.
+  const href = view?.source === "ais" ? naisVesselUrl(view.mmsi) : null;
+  const nais = href ? { href, label: t("na.naisLink", { name: vesselTitle(view.vesselName) }) } : null;
+  return { mode, state, tag, main, support, badge, scene, sentence, nais, label: t("na.label") };
 }

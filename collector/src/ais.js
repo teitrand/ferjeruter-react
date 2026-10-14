@@ -116,6 +116,8 @@ export function fromAisMessage(msg, line, observedAt = new Date().toISOString())
     heading: num(msg.trueHeading) === 511 ? null : num(msg.trueHeading),
     navStatus: num(msg.navigationalStatus),
     name: typeof msg.name === "string" ? msg.name.trim() || null : null,
+    // AIS-destinasjonen ferja sjølv har sett (t.d. «VALDEROY-STORE KALVO»). Berre til visning i appen, aldri til turstatus.
+    aisDestination: typeof msg.destination === "string" ? msg.destination.trim().slice(0, 40) || null : null,
   };
 }
 

@@ -175,7 +175,12 @@
   border-radius: 14px;
 }
 .na-badge[data-state="live"], .na-badge[data-state="outside"] { color: var(--ok-fg); background: var(--ok-bg); }
+/* «Destinasjon frå AIS»: blått, som utanfor ruta (info). */
+.na-badge[data-tone="approach"] { color: var(--info-fg); background: var(--info-bg); }
 .na-badge[data-state="calc"], .na-badge[data-state="loading"] { background: transparent; border: 1px dashed var(--unknown-line); }
+/* Lenkja til NAIS: trykkflate minst 44 px. */
+a.na-badge { text-decoration: none; min-height: 44px; min-width: 44px; }
+a.na-badge:hover .na-badge-text, a.na-badge:focus-visible .na-badge-text { text-decoration: underline; }
 .na-badge-icon { flex: none; width: 1.05em; height: 1.05em; }
 .na-badge-text { min-width: 0; overflow-wrap: anywhere; }
 @keyframes na-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

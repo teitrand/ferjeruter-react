@@ -194,7 +194,7 @@ test("POST /v1/positions lagrar siste per fartøy, GET /v1/latest viser ais per 
   assert.equal(d.schema, 1);
   const k = d.lines["1136"].ais;
   assert.deepEqual({ ...k, ageMs: undefined, receivedAt: undefined },
-    { source: "ais", mmsi: "257297400", name: "KVERNES", latitude: 62.2607, longitude: 6.5005, speedKn: 9.2, courseDeg: 44.4, heading: 22,
+    { source: "ais", mmsi: "257297400", name: "KVERNES", destination: null, latitude: 62.2607, longitude: 6.5005, speedKn: 9.2, courseDeg: 44.4, heading: 22,
       navStatus: 0, msgtime: new Date(T0 - 5000).toISOString(), receivedAt: undefined, moored: false, ageMs: undefined, state: "live", stale: false, staleReason: null });
   assert.equal(k.ageMs, 5000);
   assert.equal(d.lines["1135"].ais.name, "GEIRANGER");

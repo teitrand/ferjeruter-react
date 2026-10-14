@@ -307,7 +307,7 @@ test("crossing.js les ikkje tripStatus: posisjonen er aldri bevis for at ein tur
   const view = crossingView({ leg: OUT, fix: null, nowMs: oslo(20, 6) });
   assert.deepEqual(
     Object.keys(view).sort(),
-    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "left", "measured", "percent", "progress", "pulse", "seenLive", "source", "speedKn", "state", "to", "trip"]
+    ["ageMs", "arrival", "atQuay", "departure", "fixAt", "from", "lastEstimate", "lastMeasured", "left", "measured", "mmsi", "percent", "progress", "pulse", "seenLive", "source", "speedKn", "state", "to", "trip", "vesselName"]
   );
 });
 

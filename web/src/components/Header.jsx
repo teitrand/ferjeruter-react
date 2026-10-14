@@ -15,6 +15,13 @@ function BrandMark() {
   );
 }
 
+/** LIVE-knappen øvst: rull mjukt til «Nå»-punktet i tidslinja (utan animasjon ved redusert rørsle). */
+function scrollToNow() {
+  const target = document.querySelector(".timeline-now") || document.getElementById("na-card");
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  target?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+}
+
 const MARK = "\u0000";
 
 /** «Neste avgang 09:45 frå Trandal, om 4:05» med nedteljinga tikkande inne i setninga. */
@@ -47,6 +54,14 @@ export function Lede({ lede }) {
         {lede.status && lede.next ? ". " : null}
         {lede.next ? <NextDeparture next={lede.next} /> : null}
         {lede.status || lede.next ? "." : null}
+        {lede.liveNow ? (
+          <>
+            {" "}
+            <button type="button" className="lede-live" onClick={scrollToNow}>
+              {t("lede.live")}
+            </button>
+          </>
+        ) : null}
         {lede.logWarning ? (
           <>
             {" "}

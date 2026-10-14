@@ -1,6 +1,8 @@
 /** Toppen: kva rute som gjeld, og statuslinja (alltid om i dag). */
 import {
   activeMode,
+  bestFix,
+  fixFreshness,
   clockMinutes,
   countdown,
   formatDateOnly,
@@ -92,8 +94,8 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
   // AIS er sanninga: seier ferja ved kai (eller i fart) noko anna enn rutetabellen, vinn AIS.
   const status = nowStatus(data, ctx, legs, now, ev, running);
   const info = nowInfo({ status, legs, running, ev, nowMs: Date.now(), today: todayIso(), legsOn: (iso) => legsForDate(iso, ctx), arrivalShown, speedKn: nowSpeed(data, status) });
-  // Neste avgang ferja kan ta (ikkje ein signaltur der fristen er ute og ingen bestilling er sett).
-  const next = pickNextDeparture(running.filter((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)), ev, now);
+  // Neste avgang frå dei same turane som lista: fyrste synlege avgang som ikkje har gått (òg signaltur der fristen er ute).
+  const next = running.find((leg) => isVisibleDeparture(leg) && !hasPassed(leg.departure)) || null;
   const liveInfo = liveStatus(status, legs, now, ev, data);
   const stale = signalLogStale(Date.now(), data.signalLog) && legs.some((leg) => leg.signal);
   return {
@@ -117,6 +119,8 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
     info,
     // «No»-kortet (model/nowcard.js): kva som skal visast ved kai, på veg, utanfor ruta osv.
     card: nowCardBase({ status, info, live: liveInfo, data, quays: knownQuays(ctx) }),
+      // LIVE-knappen øvst: berre når «Nå»-kortet finst og posisjonen er live (AIS eller Entur).
+    liveNow: Boolean(liveInfo && fixFreshness(bestFix(liveInfo.fixes, Date.now()), Date.now()) === "live"),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }

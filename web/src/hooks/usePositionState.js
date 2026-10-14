@@ -25,9 +25,9 @@ export function usePositionState(live, { nowMs: fixedNow = null, announce: speak
     () =>
       crossing
         ? crossingView({ leg: crossing.leg, fixes: crossing.fixes, nowMs, previous: previous.current })
-        : positionSourceView(fixes, nowMs, previous.current),
+        : positionSourceView(fixes, nowMs, previous.current, live?.quays || []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [crossing?.leg, crossing?.fixes, fixes, nowMs]
+    [crossing?.leg, crossing?.fixes, fixes, nowMs, live?.quays]
   );
   const announce = useAnnounce();
   useEffect(() => {

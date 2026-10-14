@@ -75,6 +75,7 @@ export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () 
         mmsi, ms,
         line: String(live.line),
         name: live.name ?? null,
+        destination: live.aisDestination ?? null,
         latitude: live.latitude,
         longitude: live.longitude,
         speedKn: live.speedKn ?? null,

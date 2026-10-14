@@ -114,7 +114,7 @@ test("posisjonar: første melding går med ein gong, med source ais og nøkkel i
   assert.equal(reqs[0].body.schema, 1);
   assert.deepEqual(reqs[0].body.positions[0], {
     mmsi: "257297400", line: "1136", name: "KVERNES", latitude: 62.2607, longitude: 6.5005, speedKn: 0,
-    courseDeg: 44.4, heading: 22, navStatus: 0, msgtime: "2026-10-09T17:00:00.000Z", source: "ais",
+    courseDeg: 44.4, heading: 22, navStatus: 0, destination: null, msgtime: "2026-10-09T17:00:00.000Z", source: "ais",
   });
   assert.doesNotMatch(JSON.stringify(s.status()), /hemmeleg|w\.example/);
   assert.equal(s.status().positions.sent, 1);
