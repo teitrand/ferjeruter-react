@@ -67,3 +67,6 @@
 .about-data dd { margin: 0.2rem 0 0; line-height: 1.45; }
 .about-data ul { margin: 0; padding-left: 1.1rem; }
 
+
+/* LIVE-knappen i statuslinja: rullar til «Nå». Minst 44 px trykkflate. */
+.lede-live { min-height: 44px; min-width: 44px; padding: 0 0.7rem; border: 0; border-radius: 22px; font: inherit; font-weight: 700; font-size: 0.8125rem; color: var(--ok-fg); background: var(--ok-bg); cursor: pointer; vertical-align: middle; }

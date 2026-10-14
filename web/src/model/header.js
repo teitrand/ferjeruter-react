@@ -1,6 +1,8 @@
 /** Toppen: kva rute som gjeld, og statuslinja (alltid om i dag). */
 import {
   activeMode,
+  bestFix,
+  fixFreshness,
   clockMinutes,
   countdown,
   formatDateOnly,
@@ -117,6 +119,8 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
     info,
     // «No»-kortet (model/nowcard.js): kva som skal visast ved kai, på veg, utanfor ruta osv.
     card: nowCardBase({ status, info, live: liveInfo, data, quays: knownQuays(ctx) }),
+      // LIVE-knappen øvst: berre når «Nå»-kortet finst og posisjonen er live (AIS eller Entur).
+    liveNow: Boolean(liveInfo && fixFreshness(bestFix(liveInfo.fixes, Date.now()), Date.now()) === "live"),
     logWarning: stale ? { when: data.signalLog?.updatedAt ? formatDateTime(data.signalLog.updatedAt) : "" } : null,
   };
 }
