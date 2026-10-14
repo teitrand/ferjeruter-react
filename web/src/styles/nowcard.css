@@ -178,6 +178,7 @@
 /* «Destinasjon frå AIS»: blått, som utanfor ruta (info). */
 .na-badge[data-tone="approach"] { color: var(--info-fg); background: var(--info-bg); }
 .na-badge[data-state="calc"], .na-badge[data-state="loading"] { background: transparent; border: 1px dashed var(--unknown-line); }
+.na-badge { cursor: pointer; }
 .na-badge-icon { flex: none; width: 1.05em; height: 1.05em; }
 .na-badge-text { min-width: 0; overflow-wrap: anywhere; }
 @keyframes na-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
