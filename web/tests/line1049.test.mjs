@@ -173,10 +173,30 @@ test("meldingspanelet: 1049-fana viser 1049-meldinga først, og dei andre fanene
   assert.deepEqual(messagesPanel(payload, "route", "1049", now).filters, ["local", "route"]);
 });
 
-test("1049-melding om innstilt avgang frå Hundeidvik gjev ikkje avlysing på 1136, og motsett", () => {
+// Meldinga gjeld 12.10.2026: avlysingane les vi medan ho er gyldig (validMessages ser på klokka).
+test("1049-melding om innstilt avgang frå Hundeidvik gjev ikkje avlysing på 1136, og motsett", () => pinnedNow(Date.parse("2026-10-12T08:00:00Z"), () => {
   const cancel1049 = norm({ ...MSG_1049, id: "c1", text: "Rute 1049: avgangar innstilt: 11:00 frå Hundeidvik og 11:30 frå Festøya." });
   const set = cancelledDepartureSet([cancel1049]);
   assert.equal(set.has("Hundeidvik|11:00:00"), true);
   assert.equal(set.has("Festøya|11:30:00"), true);
   assert.equal([...set].some((key) => /^(Standal|Trandal|Sæbø|Skår|Leknes)\|/.test(key)), false);
-});
+}));
+
+/** Køyr `fn` med Date.now() låst til `ms`, så testen ikkje er avhengig av den verkelege datoen. */
+function pinnedNow(ms, fn) {
+  const RealDate = Date;
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [ms]));
+    }
+    static now() {
+      return ms;
+    }
+  };
+  try {
+    return fn();
+  } finally {
+    globalThis.Date = RealDate;
+  }
+}
+

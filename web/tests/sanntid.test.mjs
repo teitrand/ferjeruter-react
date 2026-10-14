@@ -111,7 +111,8 @@ test("feil gjev backoff 1 → 2 → 4 min, held siste posisjon, og suksess nulls
   assert.deepEqual([state.failed, state.backoffMs, state.blockedUntil], [false, 0, 0]);
 });
 
-test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, berre i driftsvindauget", () => {
+// «I dag» er 8.10 (T0): rutetabellen for den dagen avgjer driftsvindauget, ikkje den verkelege datoen.
+test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, berre i driftsvindauget", () => pinnedNow(T0, () => {
   const data = { routes: JSON.parse(readTimetable()), kombirute: null, messages: null };
   const ui = { routeChoice: "1136", date: null, lang: "nn", showPast: false, override: null };
   assert.equal(sanntidDue({ fetchedAt: 0 }, data, ui, T0, false), true);
@@ -134,7 +135,7 @@ test("sanntidDue: ikkje gøymd fane, ikkje oftare enn 15 s, ikkje i backoff, ber
   assert.equal(sanntidDue({ fetchedAt: T0 - 60000 }, { routes: null, kombirute: null }, ui, T0), false, "berre det fyrste");
   assert.equal(sanntidDue({ fetchedAt: 0 }, { routes: null, kombirute: null }, ui, T0, true), false);
   assert.equal(sanntidDue({ fetchedAt: 0, blockedUntil: T0 + 1 }, { routes: null, kombirute: null }, ui, T0), false);
-});
+}));
 
 function readTimetable() {
   return readFileSync(new URL("../../tests/fixtures/ruter.json", import.meta.url), "utf8");
@@ -239,3 +240,21 @@ test("tilstand: loaded etter fyrste svar eller feil, og sanntidPending til då",
   assert.equal(fresh.entries[0].fix.at, T0);
   assert.equal(fresh.loaded, true);
 });
+
+/** Køyr `fn` med Date.now() låst til `ms`, så testen ikkje er avhengig av den verkelege datoen. */
+function pinnedNow(ms, fn) {
+  const RealDate = Date;
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [ms]));
+    }
+    static now() {
+      return ms;
+    }
+  };
+  try {
+    return fn();
+  } finally {
+    globalThis.Date = RealDate;
+  }
+}
