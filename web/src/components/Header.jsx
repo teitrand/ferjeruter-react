@@ -1,3 +1,4 @@
+import { scrollToNowCard } from "../model/header.js";
 import { Countdown } from "./Countdown.jsx";
 import { InstallButton } from "./InstallDialog.jsx";
 import { LangSwitch } from "./LangSwitch.jsx";
@@ -15,11 +16,8 @@ function BrandMark() {
   );
 }
 
-/** LIVE-knappen øvst: rull mjukt til «Nå»-punktet i tidslinja (utan animasjon ved redusert rørsle). */
 function scrollToNow() {
-  const target = document.querySelector(".timeline-now") || document.getElementById("na-card");
-  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  target?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  scrollToNowCard(document, window);
 }
 
 const MARK = "\u0000";
