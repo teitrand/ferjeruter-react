@@ -54,7 +54,7 @@ jobs:
       - name: Bygg React-skalet
         run: npm run build:web
         env:
-          WEB_BASE: ${{ vars.WEB_BASE || '/ferjeruter-react/' }}
+          WEB_BASE: ${{ vars.WEB_BASE || '/' }}
           # Tom (standard): rutetabellen følgjer med i byggjet som ./data/ (vite legg då ein kopi i dist/data/). Sett ho berre
           # med repo-variabelen DATA_BASE; ein sett VITE_DATA_BASE (også «./data/») gjev INGEN kopi i byggjet.
           VITE_DATA_BASE: ${{ vars.DATA_BASE }}
