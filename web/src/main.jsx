@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "../../assets/styles.css";
 import "./styles/crossing.css";
 import "./styles/nowcard.css";
+import "./styles/messages.css";
 import "./styles/picker.css";
 import "./styles/theme.css";
 import "./styles/ferries.css";

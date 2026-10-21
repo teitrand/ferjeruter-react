@@ -23,6 +23,22 @@ function MessageCard({ msg }) {
   );
 }
 
+/** Uklar melding om sambanda våre (t.d. «1136 innstilt» utan avgangsliste): berre vist, tabellen er uendra. */
+function RouteBanner({ banner }) {
+  return (
+    <div className="messages-banner" id="messages-banner" role="note">
+      {banner.heading ? <strong>{banner.heading}</strong> : null}
+      <p>{banner.text}</p>
+      <p className="messages-banner-note">
+        {t("messages.bannerNote")}{" "}
+        <a href={banner.href} target="_blank" rel="noreferrer">
+          {t("messages.bannerLink")}
+        </a>
+      </p>
+    </div>
+  );
+}
+
 /** Stripa øvst i panelet: tittel, tal, utdrag og «vis/skjul». */
 function SummaryBar({ messages, expanded, onToggle }) {
   const top = messages[0];
@@ -83,7 +99,13 @@ export function MessagesPanel({ panel, route, expanded, onToggle, onFilter, fail
   return (
     <section className="panel panel-messages" id="messages-panel" aria-labelledby="meldingar-title">
       <div id="messages-summary" className="messages-summary">
+        {panel.banner ? <RouteBanner banner={panel.banner} /> : null}
         <SummaryBar messages={panel.messages} expanded={expanded} onToggle={onToggle} />
+        {panel.fetchedText ? (
+          <p className={panel.fetchedOld ? "messages-fetched is-old" : "messages-fetched"} id="messages-fetched" role={panel.fetchedOld ? "status" : undefined}>
+            {panel.fetchedText}
+          </p>
+        ) : null}
       </div>
       <div id="messages-details" className="messages-details" hidden={!expanded}>
         <div className="panel-head">

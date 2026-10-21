@@ -62,6 +62,8 @@ export function createSender(cfg, { fetchImpl = fetch, now = Date.now, log = () 
 
   return {
     enabled,
+    /** Rå POST til workeren med nøkkelen (trafikkmeldingar, messages.js). */
+    post,
     /** Hugsar siste AIS-posisjon per fartøy (live frå ais.js). Sender ingenting sjølv. */
     enqueuePosition(live) {
       if (!enabled || !live) return false;

@@ -43,6 +43,8 @@ export function loadConfig(env = process.env) {
       clientSecret: aisSecret,
       mmsi: env.FERGERUTER_AIS_MMSI || "",
     },
+    // Fjord1-trafikkmeldingar til workeren (krev avsendaren). Standard på; 0 slår av.
+    messages: { enabled: env.FERGERUTER_MESSAGES_ENABLED == null || on(env.FERGERUTER_MESSAGES_ENABLED) },
     sender: {
       enabled: on(env.FERGERUTER_SENDER_ENABLED) && Boolean(senderUrl) && Boolean(senderKey),
       requested: on(env.FERGERUTER_SENDER_ENABLED),

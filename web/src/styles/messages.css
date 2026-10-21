@@ -1,0 +1,13 @@
+/* Trafikkmeldingar i React-skalet: banner for uklare meldingar og «Meldingar henta HH:MM». */
+.messages-banner {
+  margin: 0 0 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 4px solid var(--delay-fg, #8a5a00);
+  border-radius: 8px;
+  background: var(--delay-bg, #fff4dd);
+  overflow-wrap: break-word;
+}
+.messages-banner p { margin: 0.25rem 0 0; }
+.messages-banner-note { font-size: 0.9rem; }
+.messages-fetched { margin: 0.35rem 0 0; font-size: 0.85rem; color: var(--muted); }
+.messages-fetched.is-old { color: var(--delay-fg, #8a5a00); font-weight: 600; }

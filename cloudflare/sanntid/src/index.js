@@ -5,12 +5,14 @@
  * Workeren spør aldri Entur og lagrar ingen persondata.
  */
 
+import { fetchMessages as fetchFjord1Messages } from "../../trafikkmeldinger/src/index.js";
+
 export const KEY_HEADER = "X-Fergeruter-Key";
 export const MAX_EVENTS = 50;
 export const MAX_BODY_BYTES = 64 * 1024;
 export const KINDS = new Set(["sailed", "departed", "arrived", "cancelled"]);
 /** Minste tid mellom godtekne kall per endepunkt (innsamlaren: hendingar kvart 30. s, puls kvart 2. min). */
-export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000, positions: 10_000, signalturar: 60_000 };
+export const MIN_INTERVAL_MS = { events: 10_000, heartbeat: 30_000, positions: 10_000, signalturar: 60_000, trafikkmeldinger: 30_000 };
 export const MAX_POSITIONS = 10;
 /** AIS-ferskleik, same tersklar som packages/core/crossing.js (docs/ais.md). Testen held dei like. */
 export const AIS_FRESH_MS = 60_000;
@@ -36,6 +38,15 @@ export const SCHEMA = [
      longitude REAL NOT NULL, speed_kn REAL, course_deg REAL, heading INTEGER, nav_status INTEGER,
      msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL, destination TEXT)`,
 ];
+
+/** Trafikkmeldingar: innsamlaren sender kvart 2. min. Eldre enn dette: workeren hentar sjølv frå Fjord1 (reserve). */
+export const MESSAGES_FRESH_MS = 10 * 60_000;
+export const MESSAGES_SOURCE = "https://www.fjord1.no/trafikkmeldingar";
+export const MAX_MESSAGES_BODY_BYTES = 512 * 1024;
+export const MAX_MESSAGES = 500;
+/** Reserven hentar frå Fjord1 maks éin gong i minuttet (forsøkstida ligg i D1 meta, òg ved feil). */
+export const FJORD1_MIN_GAP_MS = 60_000;
+export const FJORD1_ATTEMPT_META = "last:fjord1-fallback";
 
 /** Signalloggen (same form som data/signalturar.json) frå signaljobben på heimeserveren. Lagra i meta (ingen ny tabell). */
 export const SIGNAL_LOG_META = "signalturar";
@@ -235,6 +246,81 @@ async function getSignalLog(env) {
   return json({ ...stored.log, receivedAt: stored.receivedAt }, 200, { ...CORS, "Cache-Control": "no-cache" });
 }
 
+/** @returns {string|null} feilmelding, eller null om meldingane er gyldige */
+export function validateMessages(body, nowMs) {
+  if (!body || body.schema !== 1) return "form";
+  if (!isIso(body.fetchedAt)) return "fetchedAt";
+  if (Date.parse(body.fetchedAt) > nowMs + AIS_MAX_FUTURE_MS) return "fetchedAt-framtid";
+  if (!Array.isArray(body.messages) || body.messages.length > MAX_MESSAGES) return "messages";
+  if (body.messages.some((m) => !m || typeof m !== "object" || Array.isArray(m))) return "messages";
+  return null;
+}
+
+async function storeMessages(db, { fetchedAt, messages }, origin, nowMs) {
+  const value = JSON.stringify({ source: MESSAGES_SOURCE, fetchedAt, complete: true, messages });
+  await db
+    .prepare(
+      `INSERT INTO trafikkmeldinger (id, fetched_at, fetched_ms, origin, body, received_at) VALUES (1, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET fetched_at = excluded.fetched_at, fetched_ms = excluded.fetched_ms, origin = excluded.origin,
+       body = excluded.body, received_at = excluded.received_at WHERE excluded.fetched_ms >= trafikkmeldinger.fetched_ms`,
+    )
+    .bind(fetchedAt, Date.parse(fetchedAt), origin, value, new Date(nowMs).toISOString())
+    .run();
+}
+
+async function postMessages(request, env, nowMs) {
+  const len = Number(request.headers.get("content-length") || 0);
+  if (len > MAX_MESSAGES_BODY_BYTES) return empty(413);
+  let body;
+  try {
+    const text = await request.text();
+    if (text.length > MAX_MESSAGES_BODY_BYTES) return empty(413);
+    body = JSON.parse(text);
+  } catch {
+    return json({ error: "json" }, 400);
+  }
+  const err = validateMessages(body, nowMs);
+  if (err) return json({ error: err }, 400);
+  const wait = await rateLimited(env.DB, "trafikkmeldinger", nowMs);
+  if (wait) return empty(429, { "Retry-After": String(wait) });
+  await storeMessages(env.DB, body, "collector", nowMs);
+  return empty(204);
+}
+
+/**
+ * Meldingane til appen, same form som trafikkmeldinger-workeren (`source`, `fetchedAt`, `complete`, `messages`) pluss
+ * `origin` («collector» eller «worker»). Er innsamlardata eldre enn 10 min (eller manglar), hentar workeren sjølv frå
+ * Fjord1 og lagrar. Feilar det, får appen det gamle med `stale: true`, elles 502.
+ */
+export async function getMessages(env, nowMs, { fetchImpl = fetch } = {}) {
+  const row = await env.DB.prepare("SELECT fetched_ms, origin, body FROM trafikkmeldinger WHERE id = 1").first().catch(() => null);
+  let stored = null;
+  try {
+    stored = row ? { ...JSON.parse(row.body), origin: row.origin } : null;
+  } catch {
+    stored = null;
+  }
+  const headers = { ...CORS, "Cache-Control": "public, max-age=60" };
+  if (stored && nowMs - row.fetched_ms <= MESSAGES_FRESH_MS) return json({ ...stored, stale: false }, 200, headers);
+  const fallback = () =>
+    stored
+      ? json({ ...stored, stale: true }, 200, { ...CORS, "Cache-Control": "no-cache" })
+      : json({ error: "fjord1" }, 502, { ...CORS, "Cache-Control": "no-store" });
+  const last = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(FJORD1_ATTEMPT_META).first().catch(() => null);
+  if (last && nowMs - Number(last.v) < FJORD1_MIN_GAP_MS) return fallback();
+  await env.DB.prepare("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+    .bind(FJORD1_ATTEMPT_META, String(nowMs)).run().catch(() => {});
+  try {
+    const messages = await fetchFjord1Messages({ fetchImpl });
+    const fetchedAt = new Date(nowMs).toISOString();
+    await storeMessages(env.DB, { fetchedAt, messages }, "worker", nowMs).catch(() => {});
+    return json({ source: MESSAGES_SOURCE, fetchedAt, complete: true, messages, origin: "worker", stale: false }, 200, headers);
+  } catch (error) {
+    console.error("fjord1-feil", String(error?.message || error));
+    return fallback();
+  }
+}
+
 async function postHeartbeat(request, env, nowMs) {
   const read = await readBody(request);
   if (read.status) return empty(read.status);
@@ -348,12 +434,19 @@ export async function buildLatest(db, nowMs) {
   };
 }
 
-export async function handle(request, env, nowMs = Date.now()) {
+export async function handle(request, env, nowMs = Date.now(), opts = {}) {
   const { pathname } = new URL(request.url);
   if (pathname === "/v1/latest") {
     if (request.method === "OPTIONS") return empty(204, CORS);
     if (request.method !== "GET" && request.method !== "HEAD") return empty(405, { Allow: "GET, OPTIONS", ...CORS });
     return json(await buildLatest(env.DB, nowMs), 200, { ...CORS, "Cache-Control": "public, max-age=15" });
+  }
+  if (pathname === "/v1/trafikkmeldinger") {
+    if (request.method === "OPTIONS") return empty(204, { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" });
+    if (request.method === "GET" || request.method === "HEAD") return getMessages(env, nowMs, opts);
+    if (request.method !== "POST") return empty(405, { Allow: "GET, POST, OPTIONS", ...CORS });
+    if (!(await keyMatches(request.headers.get(KEY_HEADER), env.COLLECTOR_KEY))) return empty(401);
+    return postMessages(request, env, nowMs);
   }
   if (pathname === "/v1/signalturar") {
     if (request.method === "OPTIONS") return empty(204, { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" });
