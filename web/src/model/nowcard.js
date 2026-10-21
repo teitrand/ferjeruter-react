@@ -175,6 +175,7 @@ export function composeNowCard(base, view) {
     let from = leg ? leg.from : base.quay;
     let to = leg ? leg.to : null;
     let x = 0;
+    let before = false;
     // Ved kai (AIS): ferja står på kaia ho ligg ved. Passar ikkje turen kortet viser planen for (t.d. ligg ved til-kaia,
     // eller ei heilt anna kai), står ferja på sin eigen ende, ikkje på startkaia til neste tur.
     const here = !underway && base.quay && state !== "unknown" ? quayPlace(base.quay) : null;
@@ -192,8 +193,8 @@ export function composeNowCard(base, view) {
     } else if (underway) {
       x = Math.min(1, Math.max(0, view?.progress ?? 0));
     } else if (base.toQuay && !base.quay) {
-      // På veg til startkaia: ferja står til venstre for kaia til ho er framme.
-      x = -0.08;
+      // På veg til startkaia: ferja står til venstre for kaia til ho er framme (CSS is-before).
+      before = true;
     }
     scene = {
       kind: "line",
@@ -205,6 +206,7 @@ export function composeNowCard(base, view) {
       moving: underway && state === "live" && view?.speedKn != null,
       marker: state === "unknown" ? "?" : state === "calc" ? "≈" : null,
       faded: state === "unknown",
+      ...(before ? { before: true } : {}),
     };
   }
   // Lenkje til ferja i NAIS når posisjonen er frå AIS (MMSI-en til ferja kortet viser).

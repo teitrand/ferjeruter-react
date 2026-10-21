@@ -24,6 +24,6 @@ test("forflytting til Valderøya: kortet viser 11:10 Valderøya→Store Kalvøy,
   const card = composeNowCard(base, { state: "calc" });
   assert.equal(card.scene.from, "Valderøya");
   assert.equal(card.scene.to, "Store Kalvøy");
-  assert.ok(card.scene.x < 0, "ferja til venstre for Valderøya");
+  assert.equal(card.scene.before, true, "ferja til venstre for Valderøya");
   assert.doesNotMatch(card.support.map((s) => s.text).join(" "), /14:40|Planlagd/);
 });

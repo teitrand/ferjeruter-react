@@ -79,6 +79,7 @@ function Scene({ scene, reducedMotion, ready }) {
     scene.dashed ? "is-dashed" : "is-solid",
     scene.faded ? "is-faded" : "",
     scene.moving ? "is-moving" : "",
+    scene.before ? "is-before" : "",
     scene.to ? "" : "is-single",
     ready ? "is-ready" : "",
     reducedMotion ? "is-reduced" : "",
