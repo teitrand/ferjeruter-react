@@ -137,7 +137,7 @@ test("statuslinja tek neste avgang frå dei same turane som lista (signaltur ett
 test("LIVE-merket på «No»-kortet lenkjer til ferja i NAIS ut frå MMSI-en", () => {
   const view = positionSourceView([kvernes()], NOW, null, QUAYS);
   const card = composeNowCard({ mode: "outside", place: "", leg: null, quay: null }, view);
-  assert.equal(card.nais.href, "https://nais.kystverket.no/embed/aisstream/257297400");
+  assert.match(card.nais.href, /^https:\/\/nais\.kystverket\.no\/embed\/\?selectedFeature=datasetId:aisstream;featureId:257297400&zoomAndCenter=12;\d+\.\d{5}:\d+\.\d{5}$/);
   assert.equal(card.nais.label, "Opne M/F Kvernes i NAIS-kartet (opnar ny fane)");
   const noAis = composeNowCard({ mode: "other", place: "x", leg: null, quay: null }, { state: "calc", source: "computed" });
   assert.equal(noAis.nais, null);

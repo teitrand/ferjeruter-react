@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isNoPassengerTrip, nowInfo } from "../../packages/core/index.js";
+import { isNoPassengerTrip, naisVesselUrl, nowInfo } from "../../packages/core/index.js";
 import { composeNowCard } from "../src/model/nowcard.js";
 
 test("«utan passasjerar» berre Standal–Valderøya, ikkje Valderøya–Store Kalvøy", () => {
@@ -24,6 +24,26 @@ test("forflytting til Valderøya: kortet viser 11:10 Valderøya→Store Kalvøy,
   const card = composeNowCard(base, { state: "calc" });
   assert.equal(card.scene.from, "Valderøya");
   assert.equal(card.scene.to, "Store Kalvøy");
-  assert.equal(card.scene.before, true, "ferja til venstre for Valderøya");
+  assert.equal(card.scene.before, true, "dempa ferje på veg inn");
+  assert.equal(card.scene.x, 0, "ferja ligg ved startkaia på linja, ikkje utanfor");
   assert.doesNotMatch(card.support.map((s) => s.text).join(" "), /14:40|Planlagd/);
+});
+
+test("is-before: ingen padding/forskyving utanfor linja, berre dempa ferje", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const css = await readFile(new URL("../src/styles/nowcard.css", import.meta.url), "utf8");
+  const rules = css.split("\n").filter((l) => l.includes("is-before"));
+  assert.ok(rules.length > 0);
+  assert.doesNotMatch(rules.join("\n"), /padding|translate/);
+  assert.match(rules.join("\n"), /opacity/);
+});
+
+test("NAIS-lenkja zoomar inn på ferja når AIS-posisjonen er kjend", () => {
+  assert.equal(
+    naisVesselUrl(257297400, 62.26036, 6.49975),
+    "https://nais.kystverket.no/embed/?selectedFeature=datasetId:aisstream;featureId:257297400&zoomAndCenter=12;6.49975:62.26036",
+  );
+  assert.equal(naisVesselUrl("mmsi:257297400"), "https://nais.kystverket.no/embed/aisstream/257297400");
+  assert.equal(naisVesselUrl(257297400, null, 6.5), "https://nais.kystverket.no/embed/aisstream/257297400");
+  assert.equal(naisVesselUrl("123"), null);
 });
