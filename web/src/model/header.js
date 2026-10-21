@@ -143,3 +143,18 @@ export function footnoteModel(data, ui, chrome) {
     signal: chrome?.mode !== "1049" && chrome?.mode !== "1069",
   };
 }
+
+/** Fast id på «Nå»-kortet (NowCard), uansett tilstand: «Ligg til kai på X», «På veg mot Y», «Utanfor ruta» … */
+export const NOW_CARD_ID = "na-card";
+
+/**
+ * LIVE-knappen øvst: rull mjukt til «Nå»-kortet (fast id, aldri teksten). Utan animasjon ved redusert rørsle.
+ * @returns {boolean} om kortet fanst
+ */
+export function scrollToNowCard(doc, win) {
+  const card = doc?.getElementById?.(NOW_CARD_ID);
+  if (!card) return false;
+  const reduce = Boolean(win?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  card.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  return true;
+}

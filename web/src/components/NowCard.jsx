@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePositionState } from "../hooks/usePositionState.js";
 import { useReducedMotion } from "../hooks/useReducedMotion.js";
+import { NOW_CARD_ID } from "../model/header.js";
 import { composeNowCard } from "../model/nowcard.js";
 import { FerryV2 } from "./FerryV2.jsx";
 import { t } from "./i18n.js";
@@ -132,7 +133,7 @@ export function NowCard({ base, live }) {
   return (
     <section
       className={`na na-${card.mode} na-state-${card.state}`}
-      id="na-card"
+      id={NOW_CARD_ID}
       role="status"
       aria-live="off"
       aria-label={card.label}
