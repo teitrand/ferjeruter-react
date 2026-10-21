@@ -9,7 +9,7 @@ binding = "DB"
 database_name = "fergeruter-sanntid"
 database_id = "44c10237-2b40-4f72-8b1f-2b4645fb131e"
 
-# Ingen cron. Løyndomen COLLECTOR_KEY blir sett med `wrangler secret put COLLECTOR_KEY`
+# Cron kvart minutt: hentar Entur VM (to gonger, 30 s mellomrom) til vm_latest. Løyndomen COLLECTOR_KEY blir sett med `wrangler secret put COLLECTOR_KEY`
 # og står aldri i repoet.
 [triggers]
-crons = []
+crons = ["* * * * *"]
