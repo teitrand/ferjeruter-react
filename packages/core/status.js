@@ -43,7 +43,10 @@ export const NO_PASSENGER_QUAY = "Valderøya";
 export function isNoPassengerTrip(fromQuay, toQuay) {
   const from = quayPlace(fromQuay);
   const to = quayPlace(toQuay);
-  return from === NO_PASSENGER_QUAY || to === NO_PASSENGER_QUAY;
+  // Valderøya–Store Kalvøy er signalturar med passasjerar; berre Valderøya mot ei indre kai (t.d. Standal) er utan.
+  if (from === NO_PASSENGER_QUAY) return !isOuterQuay(to);
+  if (to === NO_PASSENGER_QUAY) return !isOuterQuay(from);
+  return false;
 }
 
 /** Statuslinje for ferja på veg tilbake til heimkaia etter siste tur: «utan passasjerar» berre ved Valderøya. */
@@ -279,6 +282,8 @@ export function ferryStatus(legs, now, allLegs, view) {
           {
             at: start + 0.5,
             underway: true,
+            // Kaia ferja er på veg til (forflytting). «No»-kortet viser då neste avgang derifrå.
+            toQuay: next.from,
             text: isNoPassengerTrip(leg.to, next.from)
               ? t("status.repositionTo", { quay: next.from })
               : t("status.underwayTo", { dest: next.from }),

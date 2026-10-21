@@ -43,6 +43,8 @@ export function nowCardBase({ status, info, live, data, quays, nowMs = Date.now(
     cancelled: line("cancelled"),
     lastQuay,
     pending: Boolean(live?.pending),
+    // Forflytting til startkaia for turen kortet viser: ferja er ikkje der enno.
+    toQuay: mode !== "underway" && status.toQuay && leg && quayPlace(status.toQuay) === quayPlace(leg.from) ? leg.from : null,
   };
 }
 
@@ -139,7 +141,7 @@ export function composeNowCard(base, view) {
   // Ved kai (AIS eller rutetabell): planlagd avgang og overfart frå turen kortet viser planen for.
   if (!underway && mode !== "outside" && state !== "unknown" && leg) {
     const from = quayPlace(leg.from);
-    const here = base.quay ? quayPlace(base.quay) === from : true;
+    const here = base.toQuay ? false : base.quay ? quayPlace(base.quay) === from : true;
     if (base.legKind === "first") {
       const day = base.legDay ? formatDay(base.legDay) : "";
       const text = here
@@ -189,6 +191,9 @@ export function composeNowCard(base, view) {
       x = to ? (seen === quayPlace(to) ? 1 : seen === quayPlace(from) ? 0 : 0.5) : 0;
     } else if (underway) {
       x = Math.min(1, Math.max(0, view?.progress ?? 0));
+    } else if (base.toQuay && !base.quay) {
+      // På veg til startkaia: ferja står til venstre for kaia til ho er framme.
+      x = -0.08;
     }
     scene = {
       kind: "line",
