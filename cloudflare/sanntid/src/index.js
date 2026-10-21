@@ -44,6 +44,9 @@ export const MESSAGES_FRESH_MS = 10 * 60_000;
 export const MESSAGES_SOURCE = "https://www.fjord1.no/trafikkmeldingar";
 export const MAX_MESSAGES_BODY_BYTES = 512 * 1024;
 export const MAX_MESSAGES = 500;
+/** Reserven hentar frå Fjord1 maks éin gong i minuttet (forsøkstida ligg i D1 meta, òg ved feil). */
+export const FJORD1_MIN_GAP_MS = 60_000;
+export const FJORD1_ATTEMPT_META = "last:fjord1-fallback";
 
 /** Signalloggen (same form som data/signalturar.json) frå signaljobben på heimeserveren. Lagra i meta (ingen ny tabell). */
 export const SIGNAL_LOG_META = "signalturar";
@@ -299,6 +302,14 @@ export async function getMessages(env, nowMs, { fetchImpl = fetch } = {}) {
   }
   const headers = { ...CORS, "Cache-Control": "public, max-age=60" };
   if (stored && nowMs - row.fetched_ms <= MESSAGES_FRESH_MS) return json({ ...stored, stale: false }, 200, headers);
+  const fallback = () =>
+    stored
+      ? json({ ...stored, stale: true }, 200, { ...CORS, "Cache-Control": "no-cache" })
+      : json({ error: "fjord1" }, 502, { ...CORS, "Cache-Control": "no-store" });
+  const last = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(FJORD1_ATTEMPT_META).first().catch(() => null);
+  if (last && nowMs - Number(last.v) < FJORD1_MIN_GAP_MS) return fallback();
+  await env.DB.prepare("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+    .bind(FJORD1_ATTEMPT_META, String(nowMs)).run().catch(() => {});
   try {
     const messages = await fetchFjord1Messages({ fetchImpl });
     const fetchedAt = new Date(nowMs).toISOString();
@@ -306,8 +317,7 @@ export async function getMessages(env, nowMs, { fetchImpl = fetch } = {}) {
     return json({ source: MESSAGES_SOURCE, fetchedAt, complete: true, messages, origin: "worker", stale: false }, 200, headers);
   } catch (error) {
     console.error("fjord1-feil", String(error?.message || error));
-    if (stored) return json({ ...stored, stale: true }, 200, { ...CORS, "Cache-Control": "no-cache" });
-    return json({ error: "fjord1" }, 502, { ...CORS, "Cache-Control": "no-store" });
+    return fallback();
   }
 }
 

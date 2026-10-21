@@ -258,7 +258,11 @@ export function messageIsHeld(msg, now = Date.now()) {
   // Utan sluttdato: gjeld seinast ut dagen han vart publisert (Oslo), eller så lenge teksten seier.
   if (!msg?.validTo) {
     const day = osloIsoFromInstant(msg?.publishedAt || msg?.validFrom);
-    if (!day) return true;
+    // Utan nokon dato: seinast ut dagen (Oslo) appen såg ho fyrste gong (firstSeenAt, nextMessages).
+    if (!day) {
+      const seenDay = msg?.firstSeenAt ? osloIsoFromInstant(msg.firstSeenAt) : null;
+      return !seenDay || osloIsoFromMs(now) <= seenDay;
+    }
     return osloIsoFromMs(now) <= day || textWindowCoversToday(msg, now);
   }
   const until = Date.parse(msg.validTo);
@@ -729,6 +733,17 @@ export async function fetchFjord1Messages(fetchImpl) {
 }
 
 /** Nytt svar, med meldingar vi framleis held på frå `previous` (t.d. omleggingar). */
+/** Meldingar utan nokon dato fell bort ved slutten av dagen (Oslo) dei fyrst vart sett. */
+const undated = (msg) => msg && !msg.validTo && !msg.publishedAt && !msg.validFrom;
+
+/** Set `firstSeenAt` på udaterte meldingar: frå førre tilstand (same melding), elles no. */
+export function stampFirstSeen(payload, previous, now = Date.now()) {
+  if (!payload?.messages?.some(undated)) return payload;
+  const seen = new Map((previous || []).filter((m) => m?.firstSeenAt).map((m) => [messageMergeKey(m), m.firstSeenAt]));
+  const at = new Date(now).toISOString();
+  return { ...payload, messages: payload.messages.map((m) => (undated(m) && !m.firstSeenAt ? { ...m, firstSeenAt: seen.get(messageMergeKey(m)) || at } : m)) };
+}
+
 export function withHeldMessages(payload, previous, now = Date.now()) {
   if (!payload || !previous?.length) return payload;
   return { ...payload, messages: retainHeldMessages(payload.messages, previous, now) };
@@ -742,7 +757,7 @@ export function withHeldMessages(payload, previous, now = Date.now()) {
  */
 export function nextMessages(previous, incoming, now = Date.now()) {
   if (!incoming) return previous;
-  const payload = withHeldMessages(incoming, previous?.messages, now);
+  const payload = withHeldMessages(stampFirstSeen(incoming, previous?.messages, now), previous?.messages, now);
   if (!previous || messagesFingerprint(previous) !== messagesFingerprint(payload)) return payload;
   if (previous.fetchedAt === payload.fetchedAt && previous.fetchedLive === payload.fetchedLive) return previous;
   return { ...previous, fetchedAt: payload.fetchedAt, fetchedLive: payload.fetchedLive };

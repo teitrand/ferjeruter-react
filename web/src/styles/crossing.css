@@ -75,7 +75,7 @@
 .daynav { flex-wrap: wrap; }
 .daybtn { height: auto; min-height: 44px; white-space: normal; }
 h2.day-label { min-width: 0; overflow-wrap: anywhere; }
-.stop-state { white-space: normal; overflow-wrap: normal; min-width: 0; }
+.stop-state { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
 
 /* NAIS-lenkjene i fotnoten og botnteksten: minst 44 px trykkflate. */
 .nais-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; vertical-align: middle; }

@@ -80,3 +80,17 @@ test("trafikkmeldingar: eldre enn 10 min → workeren hentar sjølv (reserve); f
   const emptyEnv = { DB: fakeD1(), COLLECTOR_KEY: KEY };
   assert.equal((await handle(req("/v1/trafikkmeldinger"), emptyEnv, T0, { fetchImpl: down })).status, 502);
 });
+
+test("reserven hentar frå Fjord1 maks éin gong i minuttet, òg ved feil", async () => {
+  const env = { DB: fakeD1(), COLLECTOR_KEY: KEY };
+  let n = 0;
+  const down = async () => (n++, new Response("nei", { status: 503 }));
+  assert.equal((await handle(req("/v1/trafikkmeldinger"), env, T0, { fetchImpl: down })).status, 502);
+  assert.equal((await handle(req("/v1/trafikkmeldinger"), env, T0 + 30_000, { fetchImpl: down })).status, 502);
+  assert.equal(n, 1, "feila forsøk tel òg");
+  const calls = { n: 0 };
+  const ok = await handle(req("/v1/trafikkmeldinger"), env, T0 + 61_000, { fetchImpl: fjord1(calls) });
+  assert.equal(ok.status, 200);
+  assert.equal(calls.n, 1);
+  assert.ok(env.DB.raw.prepare("SELECT v FROM meta WHERE k = 'last:fjord1-fallback'").get());
+});

@@ -50,5 +50,23 @@ test("bygget tek ikkje med data/trafikkmeldinger.json; stadnamn blir ikkje delte
   assert.match(css, /\.na-quays > span \{[^}]*overflow-wrap: normal/);
   assert.doesNotMatch(css, /is-before \.na-quays/);
   const crossing = readFileSync(new URL("../src/styles/crossing.css", import.meta.url), "utf8");
-  assert.doesNotMatch(crossing, /\.stop-state \{[^}]*anywhere/);
+  // .stop-state held «anywhere» (normal gav 10 px sidelengs overflyt på 320 px/150 %).
+  assert.match(crossing, /\.stop-state \{[^}]*overflow-wrap: anywhere/);
+});
+
+test("udatert melding (ingen slutt- eller publiseringsdato): borte når ho manglar i kjelda, seinast ved slutten av dagen (Oslo) ho fyrst vart sett", async () => {
+  const { nextMessages, validMessages } = await import("../../packages/core/index.js");
+  const msg = { id: "u", heading: "Standal-Trandal", text: "Rute 1136 er innstilt.", isLocal: true };
+  const t0 = Date.parse("2026-10-21T09:00:00Z");
+  const first = nextMessages(null, { fetchedAt: "2026-10-21T09:00:00Z", messages: [msg] }, t0);
+  assert.equal(first.messages[0].firstSeenAt, "2026-10-21T09:00:00.000Z");
+  // Same melding seinare: fyrste-sett-tida blir halden.
+  const later = nextMessages(first, { fetchedAt: "2026-10-21T20:00:00Z", messages: [msg] }, t0 + 11 * 3600e3);
+  assert.equal(later.messages[0].firstSeenAt, "2026-10-21T09:00:00.000Z");
+  // Sett 11:00 Oslo 21.10: gjeld til 23:59 same dag, borte 00:01 22.10.
+  assert.equal(validMessages(later.messages, Date.parse("2026-10-21T21:59:00Z")).length, 1);
+  assert.equal(validMessages(later.messages, Date.parse("2026-10-21T22:01:00Z")).length, 0);
+  // Borte frå kjelda: blir ikkje halden.
+  const gone = nextMessages(later, { fetchedAt: "2026-10-21T21:00:00Z", messages: [] }, t0 + 12 * 3600e3);
+  assert.equal(gone.messages.length, 0);
 });
