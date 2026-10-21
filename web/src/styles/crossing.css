@@ -70,3 +70,12 @@
 
 /* LIVE-knappen i statuslinja: rullar til «Nå». Minst 44 px trykkflate. */
 .lede-live { min-height: 44px; min-width: 44px; padding: 0 0.7rem; border: 0; border-radius: 22px; font: inherit; font-weight: 700; font-size: 0.8125rem; color: var(--ok-fg); background: var(--ok-bg); cursor: pointer; vertical-align: middle; }
+
+/* Stor tekst (150 %) på 320 px: dagnavigasjonen og «om X min» bryt linja i staden for å gje horisontal scroll. */
+.daynav { flex-wrap: wrap; }
+.daybtn { height: auto; min-height: 44px; white-space: normal; }
+h2.day-label { min-width: 0; overflow-wrap: anywhere; }
+.stop-state { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+
+/* NAIS-lenkjene i fotnoten og botnteksten: minst 44 px trykkflate. */
+.nais-link { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; vertical-align: middle; }

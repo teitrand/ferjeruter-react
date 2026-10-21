@@ -80,7 +80,7 @@ function RouteRow({ item, index, rowRef, onSelect, onKeyDown }) {
  * (<dialog>, modalt) med ei rad per samband. Radiogruppe med piltastar; Enter/mellomrom vel og lukkar.
  * Fokus går til valt rad ved opning og tilbake til kortet ved lukking (Esc, «Lukk» eller trykk på sløret).
  */
-export function RoutePicker({ picker, onSelect }) {
+export function RoutePicker({ picker, onSelect, activeMode = null }) {
   const [open, setOpen] = useState(false);
   // Stor tekst på lite skjerm: tek kortet meir enn ein tredjedel av høgda, ligg det i flyten sist på sida i staden for
   // å liggje fast over innhaldet (då kan «No»-raden aldri bli dekt, og sida får ikkje mindre plass enn ho treng).
@@ -159,7 +159,7 @@ export function RoutePicker({ picker, onSelect }) {
         >
           <span className="route-card-text">
             <span className="route-card-label">{t("route.card.label")}</span>
-            <span className="route-card-name">{current ? <RouteName id={current.id} /> : null}</span>
+            <span className="route-card-name">{activeMode === "kombi" ? t("route.titleKombi") : current ? <RouteName id={current.id} /> : null}</span>
           </span>
           <span className="route-card-action">
             {t("route.card.change")}
