@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, fixFreshness, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -208,4 +208,15 @@ export function composeNowCard(base, view) {
   const href = view?.source === "ais" ? naisVesselUrl(view.mmsi) : null;
   const nais = href ? { href, label: t("na.naisLink", { name: vesselTitle(view.vesselName) }) } : null;
   return { mode, state, tag, main, support, badge, scene, sentence, nais, label: t("na.label") };
+}
+
+/**
+ * NAIS-lenkja i fotnoten når ferja er live frå AIS: MMSI og namn frå posisjonen (data), ikkje frå rutetabellen.
+ * Slik følgjer lenkja den faktiske ferja (t.d. Geiranger på kombiruta). null utan fersk AIS-posisjon.
+ */
+export function liveNaisLink(live, nowMs = Date.now()) {
+  const fix = bestFix(live?.crossing?.fixes || live?.fixes || [], nowMs);
+  if (fix?.source !== "ais" || fixFreshness(fix, nowMs) === "unknown") return null;
+  const href = naisVesselUrl(fix.vessel);
+  return href ? { href, text: t("footnote.naisVessel", { name: vesselTitle(fix.name) }) } : null;
 }

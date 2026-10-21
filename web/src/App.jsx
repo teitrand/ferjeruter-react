@@ -30,6 +30,7 @@ import { ferryRows } from "./model/ferries.js";
 import { sanntidMode, sanntidUrl, withSanntid } from "./model/sanntid.js";
 import { chromeForMode, footnoteModel, ledeModel, routeChrome } from "./model/header.js";
 import { routePicker } from "./model/routes.js";
+import { liveNaisLink } from "./model/nowcard.js";
 import { RoutePicker } from "./components/RoutePicker.jsx";
 import { FerryList } from "./components/FerryList.jsx";
 import { NowCard } from "./components/NowCard.jsx";
@@ -158,7 +159,7 @@ export function App({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, todaySelected, data, ui, memory, memoryVersion, now, clockMs]);
   const detail = ui.detail && ready ? detailModel(data, ui, memory, ui.detail, now) : null;
-  const notes = footnoteModel(data, ui, chrome);
+  const notes = footnoteModel(data, ui, chrome, todaySelected ? liveNaisLink(lede?.live) : null);
 
   // Plausible. uiRef gjev hendingane gjeldande språk og samband utan å lage nye funksjonar.
   const uiRef = useRef(ui);
@@ -284,7 +285,7 @@ export function App({
         </div>
       </main>
       <Footer chrome={chrome} notes={notes} onFeedback={() => setFeedbackOpen(true)} />
-      <RoutePicker picker={routePicker(data, ui, now, osloIsoFromMs(clockMs))} onSelect={onRoute} />
+      <RoutePicker picker={routePicker(data, ui, now, osloIsoFromMs(clockMs))} activeMode={chrome?.mode} onSelect={onRoute} />
       <InstallDialog open={install.helpOpen} onClose={install.closeHelp} />
       <DepartureDialog detail={detail} onClose={() => dispatch({ type: "detail", leg: null })} />
       <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />

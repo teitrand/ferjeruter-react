@@ -18,7 +18,7 @@ export function Footnote({ notes, connection }) {
         frammr.no
       </a>{" "}
       ·{" "}
-      <a id="footnote-nais" href={NAIS_URL} target="_blank" rel="noreferrer">
+      <a id="footnote-nais" className="nais-link" href={notes.naisHref || NAIS_URL} target="_blank" rel="noreferrer">
         {notes.nais}
       </a>
     </p>

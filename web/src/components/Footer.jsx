@@ -66,7 +66,7 @@ export function Footer({ chrome, notes, onFeedback }) {
       </p>
       <p id="footer-credit">
         {t("footer.credit")}{" "}
-        <a href={NAIS_URL} target="_blank" rel="noreferrer">
+        <a className="nais-link" href={NAIS_URL} target="_blank" rel="noreferrer">
           NAIS
         </a>{" "}
         ·{" "}

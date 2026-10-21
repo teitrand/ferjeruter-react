@@ -131,7 +131,7 @@ export function ledeModel(data, ui, memory, now = nowMinutes(), { arrivalShown =
  * Før rutetabellen er lasta: same standardtekstar som index.html.
  * @returns {{ position: string, updated: string|null, pdf: { href: string, text: string }, nais: string }}
  */
-export function footnoteModel(data, ui, chrome) {
+export function footnoteModel(data, ui, chrome, liveNais = null) {
   const ready = Boolean(data.routes || data.kombirute);
   const quays = ready ? knownQuays(planContext(data, ui)) : [];
   return {
@@ -141,6 +141,8 @@ export function footnoteModel(data, ui, chrome) {
     ...routeFootnotes(chrome?.mode, { kombirute: data.kombirute, vessel: chrome?.vessel }),
     // 1049 og 1069 har ingen signalturar: ingen forklaring om bestilling på telefon.
     signal: chrome?.mode !== "1049" && chrome?.mode !== "1069",
+    // Live AIS-ferje (MMSI frå data) vinn over ferja rutetabellen seier, t.d. Geiranger på kombiruta.
+    ...(liveNais?.href ? { nais: liveNais.text, naisHref: liveNais.href } : {}),
   };
 }
 

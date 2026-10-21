@@ -399,7 +399,7 @@ test("bunnteksten: kreditering av AIS frå Kystverket (NLOD) og «Om dataa» (sa
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
   const html = renderApp({ initialEntur: { live: enturLive(0.7, 10000) }, initialSanntid: { entries: [aisEntry(0.5, 8000)] } });
   const footer = html.slice(html.indexOf('<footer class="site-footer">'));
-  assert.match(footer, /<p id="footer-credit">AIS-data frå Kystverket \(NLOD\)\. Sanntidsdata frå Entur\. <a href="https:\/\/[^"]*"[^>]*>NAIS<\/a> · <a href="https:\/\/data\.norge\.no\/nlod\/no\/2\.0"[^>]*>NLOD-lisens<\/a><\/p>/);
+  assert.match(footer, /<p id="footer-credit">AIS-data frå Kystverket \(NLOD\)\. Sanntidsdata frå Entur\. <a class="nais-link" href="https:\/\/[^"]*"[^>]*>NAIS<\/a> · <a href="https:\/\/data\.norge\.no\/nlod\/no\/2\.0"[^>]*>NLOD-lisens<\/a><\/p>/);
   assert.match(footer, /<details class="about-data" id="about-data"><summary>Om dataa<\/summary>/);
   assert.doesNotMatch(footer, /<details[^>]* open/, "lukka frå start");
   assert.match(footer, /<span id="position-note">Posisjonen kjem frå AIS i sanntid no\.<\/span> Rekkjefølgje: AIS når vi har ein fersk posisjon/);

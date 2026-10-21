@@ -185,3 +185,31 @@ test("?samband= gjev valbare samband, elles null; adresselinja følgjer valet be
   syncRouteQuery("1135", url(""), hist);
   assert.equal(calls.length, 1, "ingen ?samband= i adresselinja: ingen endring");
 });
+
+test("kombiruta: kortet nederst viser kombiruta, ikkje valt samband", async () => {
+  const { RoutePicker } = await server.ssrLoadModule("/src/components/RoutePicker.jsx");
+  const picker = routePicker({ routes: ROUTES }, { routeChoice: "1136" });
+  const html = renderToString(createElement(RoutePicker, { picker, onSelect: () => {}, activeMode: "kombi" }));
+  assert.match(text(card(html)), /Sæbø–Leknes–Skår–Trandal–Standal/);
+  assert.doesNotMatch(text(card(html)), /Valt samband Standal–Trandal/);
+});
+
+test("NAIS-lenkja i fotnoten følgjer live AIS-ferja (MMSI frå data)", async () => {
+  const { liveNaisLink } = await server.ssrLoadModule("/src/model/nowcard.js");
+  const at = Date.now() - 10_000;
+  const fix = { source: "ais", vessel: 257123456, name: "GEIRANGER", at, speedKn: 10 };
+  const link = liveNaisLink({ fixes: [fix] }, Date.now());
+  assert.equal(link.href, "https://nais.kystverket.no/embed/aisstream/257123456");
+  assert.match(link.text, /Geiranger/);
+  assert.equal(liveNaisLink({ fixes: [{ ...fix, source: "entur" }] }, Date.now()), null);
+  assert.equal(liveNaisLink(null), null);
+});
+
+test("320 px / 150 %: dagnavigasjon og «om X min» bryt, NAIS-lenkjer har 44 px", () => {
+  const css = read("web/src/styles/crossing.css");
+  assert.match(css, /\.daynav \{ flex-wrap: wrap; \}/);
+  assert.match(css, /\.stop-state \{ white-space: normal;/);
+  assert.match(css, /\.nais-link \{[^}]*min-height: 44px/);
+  assert.match(read("web/src/components/Footnote.jsx"), /className="nais-link"/);
+  assert.match(read("web/src/components/Footer.jsx"), /className="nais-link"/);
+});
