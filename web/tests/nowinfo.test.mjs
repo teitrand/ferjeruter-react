@@ -184,7 +184,7 @@ test("signalturen er framleis open (før fristen): han er neste avgang, med fris
   // Fristen for 12:15 går ut kl. 09:15: då er 13:15 (frist 10:15) neste, og først etter 10:15 er det 16:05 frå Standal.
   assert.equal(pickNextDeparture(SAT.slice(1), fullEv(SAT), minutes(9, 16)).id, "Store Kalvøy-13:15");
   assert.equal(pickNextDeparture(SAT.slice(1), fullEv(SAT), minutes(10, 16)).id, "Standal-16:05");
-  assert.equal(onRequestTag(SAT[1], { today: true, now: minutes(9, 16) }), "på signal, fristen er ute");
+  assert.equal(onRequestTag(SAT[1], { today: true, now: minutes(9, 16) }), "på signal, ringefrist passert");
 });
 
 test("bestilt signaltur er neste avgang, òg etter fristen", () => {
@@ -199,7 +199,7 @@ test("berre utgåtte signalturar att i dag: han står (med «fristen er ute»), 
   const only = [sig("Standal", "Trandal", "20:00", "20:20", 60)];
   const next = pickNextDeparture(only, fullEv(only), minutes(19, 30));
   assert.equal(next.id, "Standal-20:00");
-  assert.equal(onRequestTag(next, { today: true, now: minutes(19, 30) }), "på signal, fristen er ute");
+  assert.equal(onRequestTag(next, { today: true, now: minutes(19, 30) }), "på signal, ringefrist passert");
   const result = info(oslo(10, 19, 30), { status: { short: "x" }, legs: only, running: only, today: "2026-10-10", event: fullEv(only) });
   assert.equal(result.first, null);
 });

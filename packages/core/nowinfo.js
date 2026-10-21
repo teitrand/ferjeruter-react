@@ -139,7 +139,11 @@ export function nowInfo({ status, legs, running, ev, nowMs, today, legsOn, arriv
     return { lines, first: null, leg: current, legKind: "scheduled" };
   }
 
-  const upcoming = pickNextDeparture(ran.filter((leg) => clockMs(leg.departure, nowMs) > nowMs), ev, nowMinutes(nowMs));
+  const ahead = ran.filter((leg) => clockMs(leg.departure, nowMs) > nowMs);
+  // Forflytting (t.d. Standal → Valderøya): neste avgang i tabellen frå kaia ferja er på veg til, òg ein signaltur der
+  // ringefristen er passert. Berre visning: turstatus og signalloggen er uendra.
+  const toQuay = status?.toQuay ? quayPlace(status.toQuay) : null;
+  const upcoming = (toQuay && ahead.find((leg) => quayPlace(leg.from) === toQuay)) || pickNextDeparture(ahead, ev, nowMinutes(nowMs));
   const cancelled = visible(legs).find(
     (leg) => clockMs(leg.departure, nowMs) > nowMs && !ran.includes(leg) && isCancelledDeparture(leg, ev)
   );

@@ -258,7 +258,7 @@ test("appen: ved kai (rutetabell): statuslinja har tikkande nedteljing, kortet s
     const html = renderApp();
     assert.match(
       statusArea(html),
-      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal · <span class="countdown"><span class="countdown-text" aria-hidden="true">om 4\u00a0min<\/span><span class="visually-hidden">om 4 minutt<\/span><\/span> · på signal, fristen er ute\./
+      /<p class="lede" id="lede-status">Ferja ligg til kai på Trandal\. Neste avgang 20:20 frå Trandal · <span class="countdown"><span class="countdown-text" aria-hidden="true">om 4\u00a0min<\/span><span class="visually-hidden">om 4 minutt<\/span><\/span> · på signal, ringefrist passert\./
     );
     assert.equal(mainLine(html), "Ferja ligg til kai på Trandal");
     assert.deepEqual(supportLines(html), ["plan: Planlagd avgang 20:20 til Standal", "trip: Overfart ca. 15 min · framme 20:35"]);

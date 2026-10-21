@@ -222,3 +222,8 @@ a.na-badge:hover .na-badge-text, a.na-badge:focus-visible .na-badge-text { text-
 .timeline-now:has(.na-state-live)::before { --na-dot: var(--ok-fg); }
 .timeline-now:has(.na-outside)::before { --na-dot: var(--info-fg); }
 .timeline-now:has(.na-state-stale)::before { --na-dot: var(--delay-fg); }
+
+/* Forflytting til startkaia: ferja ligg heilt til venstre for kaia (ikkje oppå) til ho er framme. */
+.na-scene.is-before .na-rail { padding-left: calc(var(--fw) + 6px); }
+.na-scene.is-before .na-runner { transform: translateX(calc(-1 * (var(--fw) + 25px))); }
+.na-scene.is-before .na-quays { padding-left: calc(var(--fw) + 6px); }
