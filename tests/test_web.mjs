@@ -934,16 +934,16 @@ test("meldingar frå Fjord1: workeren fyrst, så HTML-sida når workeren feilar"
     return { ok: true, status: 200, json: async () => ({ fetchedAt: "2026-10-08T06:00:00Z", messages: [] }) };
   };
   const fromWorker = await core.fetchFjord1Messages(workerOk);
-  assert.deepEqual(asked, [core.FJORD1_MESSAGES_API]);
+  assert.deepEqual(asked, [core.MESSAGES_SANNTID_API]);
   assert.ok(Array.isArray(fromWorker.messages));
   asked.length = 0;
   const workerDown = async (url) => {
     asked.push(url);
-    if (url === core.FJORD1_MESSAGES_API) return { ok: false, status: 503, statusText: "503" };
+    if (url === core.FJORD1_MESSAGES_API || url === core.MESSAGES_SANNTID_API) return { ok: false, status: 503, statusText: "503" };
     return { ok: true, status: 200, text: async () => "<html><body>ingen meldingar</body></html>" };
   };
   await assert.rejects(core.fetchFjord1Messages(workerDown), /Ingen Fjord1-meldingar/);
-  assert.deepEqual(asked, [core.FJORD1_MESSAGES_API, core.FJORD1_HTML_READER]);
+  assert.deepEqual(asked, [core.MESSAGES_SANNTID_API, core.FJORD1_MESSAGES_API, core.FJORD1_HTML_READER]);
 });
 
 test("detaljvindauget: same tekst som vanilla-appen for vanleg tur og signaltur", () => {

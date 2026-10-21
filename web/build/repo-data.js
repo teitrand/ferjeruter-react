@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 /** data/ i rota av repoet. Same filer som vanilla-appen les. */
 const DATA_DIR = fileURLToPath(new URL("../../data/", import.meta.url));
 
+/** Ferske filer appen les frå workeren/LIVE_DATA_BASE: ein gammal kopi i byggjet ville berre villeie (21.10: frå august). */
+export const NOT_IN_BUILD = new Set(["trafikkmeldinger.json"]);
+
 function dataFiles() {
   return readdirSync(DATA_DIR).filter((name) => name.endsWith(".json"));
 }
@@ -29,7 +32,7 @@ export function repoData({ emit = true } = {}) {
     },
     generateBundle() {
       if (!emit) return;
-      for (const name of dataFiles()) {
+      for (const name of dataFiles().filter((file) => !NOT_IN_BUILD.has(file))) {
         this.emitFile({ type: "asset", fileName: `data/${name}`, source: readFileSync(DATA_DIR + name) });
       }
     },

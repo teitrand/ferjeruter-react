@@ -13,6 +13,7 @@ import { loadData, legsFor, writeJsonAtomic } from "./data.js";
 import { eventKey, openDb } from "./db.js";
 import { createRestPoller } from "./rest.js";
 import { createSender } from "./sender.js";
+import { MESSAGES_EVERY_MS, createMessagesPusher } from "./messages.js";
 import { buildStatus } from "./status.js";
 import { createStream } from "./stream.js";
 import { osloDate } from "./time.js";
@@ -160,7 +161,11 @@ export async function run(cfg) {
     }
   };
 
+  // Trafikkmeldingar til workeren: på når avsendaren er på, og FERGERUTER_MESSAGES_ENABLED ikkje er 0.
+  const messages = createMessagesPusher({ post: sender.post, enabled: sender.enabled && cfg.messages.enabled }, { log });
+  if (messages.state.enabled) messages.tick();
   const timers = [
+    setInterval(() => messages.tick(), MESSAGES_EVERY_MS),
     setInterval(async () => {
       const nowMs = Date.now();
       if (stream.state.connected) streamDownSince = null;
@@ -190,6 +195,7 @@ export async function run(cfg) {
         rest: { active: s.rest.active, requests: s.rest.requests, last60s: s.rest.requestsLast60s, errors: s.rest.errors },
         ais: s.ais.enabled ? { connected: s.ais.connected, connects: s.ais.connects, positions: s.ais.positions, error: s.ais.lastError } : false,
         db: { positions: s.db.positions, events: s.db.events },
+        meldingar: messages.state.enabled ? { sent: messages.state.sent, failed: messages.state.failed, local: messages.state.local, error: messages.state.lastError } : false,
         lines: Object.fromEntries(Object.entries(s.lines).map(([l, v]) => [l, { stale: v.stale, reason: v.staleReason, ageS: v.ageSeconds }])),
       });
     }, 10 * 60000),

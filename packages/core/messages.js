@@ -199,17 +199,40 @@ export function modeFromText(text) {
   const has1135 = HAS_1135_RE.test(blob);
   const has1136 = HAS_1136_RE.test(blob);
   if (hasNormal && hasCancel && !hasKombi) return "1136";
-  if (hasKombi || (hasCancel && has1135 && has1136)) return "kombi";
-  if (hasCancel && has1136 && !has1135) {
-    return isPartialCancel(blob) ? "1136" : "1135";
-  }
+  // Berre tydelege signal byter tabell: «kombi…». «1136 innstilt» utan avgangsliste (og anna uklart) blir eit
+  // synleg banner (routeBanner), aldri ein annan tabell. Lista over innstilte avgangar merkar berre dei turane.
+  void hasCancel; void has1135; void has1136;
+  if (hasKombi) return "kombi";
   return "1136";
 }
 
 export function messageMode(msg) {
   if (!msg) return "1136";
   if (isPartialCancel(messageBlob(msg))) return "1136";
-  return msg.routeMode || modeFromText(messageBlob(msg));
+  // «1135» kom frå den gamle tolkinga av «1136 innstilt» (uklart signal): ikkje lenger ein tabellbyte.
+  const mode = msg.routeMode || modeFromText(messageBlob(msg));
+  return mode === "1135" ? "1136" : mode;
+}
+
+/** Ord som tyder at noko er annleis, utan at vi veit kva tabell som gjeld. */
+export const UNCLEAR_RE = /innstil|avlys|kanseller|ute av drift|ikkje i drift|ikke i drift|redusert|endra rute|endret rute|omlegg/i;
+
+/**
+ * Melding om sambanda våre som ikkje er eit tydeleg signal (kombi…, liste over innstilte avgangar, normal drift),
+ * t.d. «1136 innstilt» utan avgangsliste. Blir berre vist som banner; rører aldri tabell eller turstatus.
+ */
+export function isUnclearRouteMessage(msg) {
+  if (!msg || !isRouteControl(msg)) return false;
+  const blob = messageBlob(msg);
+  if (KOMBI_RE.test(blob) || msg.routeMode === "kombi" || NORMAL_RE.test(blob) || isPartialCancel(blob)) return false;
+  return UNCLEAR_RE.test(blob);
+}
+
+/** Banneret over tidslina: nyaste uklare melding som gjeld i dag, med tekst og lenkje til Fjord1. */
+export function routeBanner(messages, now = Date.now(), date = osloIsoFromMs(now)) {
+  const msg = controllingMessages(messages, date, now)[0];
+  if (!msg || !isUnclearRouteMessage(msg)) return null;
+  return { heading: msg.heading || "", text: String(msg.text || "").trim(), href: FJORD1_MESSAGES_PAGE };
 }
 
 export function publishedMs(msg) {
@@ -232,7 +255,12 @@ export function textWindowCoversToday(msg, now = Date.now()) {
 
 /** Hald meldinga ut CMS-dagen i Oslo, éin time etter validTo, eller ut tekstvindauget. */
 export function messageIsHeld(msg, now = Date.now()) {
-  if (!msg?.validTo) return true;
+  // Utan sluttdato: gjeld seinast ut dagen han vart publisert (Oslo), eller så lenge teksten seier.
+  if (!msg?.validTo) {
+    const day = osloIsoFromInstant(msg?.publishedAt || msg?.validFrom);
+    if (!day) return true;
+    return osloIsoFromMs(now) <= day || textWindowCoversToday(msg, now);
+  }
   const until = Date.parse(msg.validTo);
   if (Number.isFinite(until) && until >= now - 60 * 60 * 1000) return true;
   const validDay = osloIsoFromInstant(msg.validTo);
@@ -561,6 +589,8 @@ export const CONN_1135 = 134;
 
 /** CORS-JSON frå cloudflare/trafikkmeldinger/. Må vere lik MESSAGES_API_URL der. */
 export const FJORD1_MESSAGES_API = "https://fergeruter-trafikkmeldinger.fergeruter-teitrand.workers.dev/";
+/** Innsamlaren skubbar meldingar hit (D1); workeren hentar sjølv frå Fjord1 når dei er eldre enn 10 min. */
+export const MESSAGES_SANNTID_API = "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/trafikkmeldinger";
 /** Siste utveg om workeren feilar. Fjord1-sida har ikkje CORS. */
 export const FJORD1_HTML_READER = `https://r.jina.ai/${FJORD1_MESSAGES_PAGE}`;
 
@@ -628,7 +658,25 @@ export function messagesPanel(payload, filter, route, now = Date.now()) {
     filter: active,
     messages: messagesForFilter(all, active, route),
     meta: t(payload.fetchedLive ? "messages.fetchedLive" : "messages.fetched", { when: formatDateTime(payload.fetchedAt) }),
+    ...fetchedInfo(payload, now),
+    banner: routeBanner(payload.messages || [], now),
   };
+}
+
+/** Meldingar eldre enn dette får åtvaring i panelet. */
+export const MESSAGES_WARN_MS = 15 * 60 * 1000;
+
+/** «Meldingar henta HH:MM» og om dei er for gamle (> 15 min), til panelet. */
+export function fetchedInfo(payload, now = Date.now()) {
+  const ms = Date.parse(payload?.fetchedAt || "");
+  if (!Number.isFinite(ms)) return { fetchedText: "", fetchedOld: false };
+  const old = now - ms > MESSAGES_WARN_MS;
+  const time = osloHmOf(ms);
+  return { fetchedText: t(old ? "messages.fetchedOld" : "messages.fetchedAt", { time }), fetchedOld: old };
+}
+
+function osloHmOf(ms) {
+  return new Intl.DateTimeFormat("nb-NO", { timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
 }
 
 export async function fetchWithTimeout(fetchImpl, url, options = {}, ms = 12000) {
@@ -641,10 +689,10 @@ export async function fetchWithTimeout(fetchImpl, url, options = {}, ms = 12000)
   }
 }
 
-async function fetchFjord1Api(fetchImpl) {
+async function fetchFjord1Api(fetchImpl, url = FJORD1_MESSAGES_API) {
   const response = await fetchWithTimeout(
     fetchImpl,
-    FJORD1_MESSAGES_API,
+    url,
     { headers: { Accept: "application/json" }, cache: "no-store" },
     5000
   );
@@ -668,10 +716,15 @@ async function fetchFjord1Html(fetchImpl) {
 
 /** Direkte frå Fjord1: workeren fyrst, så HTML-sida via lesaren. */
 export async function fetchFjord1Messages(fetchImpl) {
+  // Fyrst sanntid-workeren (innsamlaren + eigen reserve), så den gamle trafikkmelding-workeren, så HTML-sida.
   try {
-    return await fetchFjord1Api(fetchImpl);
+    return await fetchFjord1Api(fetchImpl, MESSAGES_SANNTID_API);
   } catch {
-    return fetchFjord1Html(fetchImpl);
+    try {
+      return await fetchFjord1Api(fetchImpl);
+    } catch {
+      return fetchFjord1Html(fetchImpl);
+    }
   }
 }
 

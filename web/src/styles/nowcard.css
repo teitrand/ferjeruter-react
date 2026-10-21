@@ -150,7 +150,7 @@
 }
 
 .na-quays { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0 0.75rem; margin-top: 0.3rem; font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
-.na-quays > span { min-width: 0; overflow-wrap: break-word; }
+.na-quays > span { min-width: 0; overflow-wrap: normal; hyphens: manual; }
 .na-quays > span:last-child:not(:first-child) { text-align: right; margin-left: auto; }
 
 /* Utanfor ruta: ferja med ei blå stipla pil, ingen line mellom kaiane. */
@@ -226,4 +226,3 @@ a.na-badge:hover .na-badge-text, a.na-badge:focus-visible .na-badge-text { text-
 /* Forflytting til startkaia: ferja ligg heilt til venstre for kaia (ikkje oppå) til ho er framme. */
 .na-scene.is-before .na-rail { padding-left: calc(var(--fw) + 6px); }
 .na-scene.is-before .na-runner { transform: translateX(calc(-1 * (var(--fw) + 25px))); }
-.na-scene.is-before .na-quays { padding-left: calc(var(--fw) + 6px); }

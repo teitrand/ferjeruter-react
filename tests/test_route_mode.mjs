@@ -101,8 +101,8 @@ test("normal drift med falsk innstilt blir 1136", () => {
   );
 });
 
-test("berre 1136 innstilt blir 1135", () => {
-  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1135");
+test("berre 1136 innstilt (utan avgangsliste) byter ikkje tabell, det blir banner", () => {
+  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1136");
 });
 
 test("datoar i meldinga styrer når kombiruta gjeld", () => {
@@ -338,14 +338,9 @@ test("normal drift frå klokka skøyt mot førre modus same dag", () => {
     },
   ];
   const day = resolveRoutePlan(messages, Date.parse("2026-04-07T16:10:00+02:00"), "2026-04-07");
+  // «1136 innstilt» utan avgangsliste byter ikkje lenger til 1135, så det er ingenting å skøyte frå.
   assert.equal(day.mode, "1136");
-  assert.deepEqual(day.switch, {
-    time: "21:00:00",
-    quay: null,
-    before: "1135",
-    after: "1136",
-    acute: null,
-  });
+  assert.equal(day.switch, null);
   const next = resolveRoutePlan(messages, Date.parse("2026-04-08T10:00:00+02:00"), "2026-04-08");
   assert.equal(next.mode, "1136");
   assert.equal(next.switch, null);
@@ -405,11 +400,10 @@ test("normal drift frå klokka skøyt tabellen same dag", () => {
       ],
     },
   });
+  // Uklar «1136 innstilt» gjev ikkje 1135-tabell: heile dagen står på 1136.
   const legs = legsForDate(WEEKDAY);
-  assert.ok(legs.some((leg) => leg.table === "1135" && leg.departure < "14:00:00"));
-  assert.ok(legs.some((leg) => leg.table === "1136" && leg.departure >= "14:00:00"));
-  assert.ok(legs.every((leg) => !(leg.table === "1136" && leg.departure < "14:00:00")));
-  assert.ok(legs.every((leg) => !(leg.table === "1135" && leg.departure >= "14:00:00")));
+  assert.ok(legs.length > 0);
+  assert.ok(legs.every((leg) => leg.table !== "1135"));
 });
 
 test("enskild kansellert avgang skøyt ikkje til 1135", () => {
@@ -443,7 +437,7 @@ const KVILE_SMS =
 
 test("innstilte kveldsavgangar skøyt ikkje til 1135, men merkar turane", () => {
   assert.equal(modeFromText(KVILE_SMS), "1136");
-  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1135");
+  assert.equal(modeFromText("Rute 1136 Standal-Trandal er innstilt inntil vidare."), "1136");
   assert.ok(isPartialCancel(KVILE_SMS));
   assert.equal(
     isRouteControl({
@@ -1294,19 +1288,12 @@ test("1135 merkar matpause som liggetid, ikkje innkomst ved valt kai", () => {
 });
 
 test("1135 har inga PDF-fotnote og inga signalmerke", () => {
+  // 1135-tabellen kjem no berre frå sambandsvalet, aldri frå ei uklar melding.
   setTestState({
     routes: ruter,
     kombirute: kombi,
-    messages: {
-      messages: [
-        {
-          isLocal: true,
-          text: "Rute 1136 Standal-Trandal er innstilt inntil vidare.",
-          routeMode: "1135",
-          validTo: "2099-01-01T00:00:00Z",
-        },
-      ],
-    },
+    routeChoice: "1135",
+    messages: null,
   });
   const legs = legsForDate(WEEKDAY);
   assert.ok(legs.length > 0);
@@ -1585,7 +1572,8 @@ test("live Fjord1-meldingar blir fletta inn i gammal GitHub-kopi", () => {
     messages: merged,
   });
   assert.equal(routeModeFromMessages(merged.messages, Date.parse("2026-09-13T16:10:00Z"), "2026-09-13"), "1136");
-  assert.equal(isCancelledDeparture({ from: "Standal", departure: "20:00:00" }), true);
+  // Meldinga har ingen sluttdato og fell bort etter dagen ho vart publisert, så i dag (etter 13.09) merkar ho ingenting.
+  assert.equal(isCancelledDeparture({ from: "Standal", departure: "20:00:00" }), false);
   assert.equal(isCancelledDeparture({ from: "Standal", departure: "19:20:00" }), false);
 });
 

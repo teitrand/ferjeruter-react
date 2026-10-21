@@ -29,3 +29,9 @@ npx wrangler deploy
 ## Stopp
 
 Set `FERGERUTER_SENDER_ENABLED=0` på serveren, eller slett workeren. Appen les `/v1/latest` og fell tilbake til Entur og rutetabell når workeren manglar.
+
+## Trafikkmeldingar (`/v1/trafikkmeldinger`)
+
+- `POST` (nøkkel `X-Fergeruter-Key`, same som AIS-push): `{ schema: 1, fetchedAt, messages }` frå innsamlaren kvart 2. min. Lagra i D1-tabellen `trafikkmeldinger` (migrering `0003_trafikkmeldinger.sql`).
+- `GET` (CORS): `{ source, fetchedAt, complete, messages, origin, stale }`. Er innsamlardata eldre enn 10 min, hentar workeren sjølv frå Fjord1 (same kode som `cloudflare/trafikkmeldinger`) og lagrar. Feilar det, får appen det gamle med `stale: true`, elles 502.
+- Deploy: `npx wrangler d1 migrations apply fergeruter-sanntid --remote` og `npx wrangler deploy` i `cloudflare/sanntid/`.

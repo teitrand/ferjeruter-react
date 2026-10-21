@@ -184,7 +184,7 @@ test("workeren startar ikkje GitHub-workflowen", () => {
   assert.equal(source.includes("api.github.com"), false);
   assert.equal(worker.scheduled, undefined);
   assert.equal(app.includes(MESSAGES_API_URL), true);
-  assert.match(app, /fetchWithTimeout\(\s*fetchImpl,\s*FJORD1_MESSAGES_API,[\s\S]*?5000\s*\)/);
+  assert.match(app, /fetchFjord1Api\(fetchImpl, url = FJORD1_MESSAGES_API\)[\s\S]*?fetchWithTimeout\(\s*fetchImpl,\s*url,[\s\S]*?5000\s*\)/);
   assert.equal(app.includes("www.fjord1.no/graphql"), false);
   assert.equal(app.includes("FJORD1_GRAPHQL"), false);
 });
