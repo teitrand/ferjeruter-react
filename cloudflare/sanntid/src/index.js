@@ -2,7 +2,9 @@
  * fergeruter-sanntid: tek imot hendingar og puls frå innsamlaren og svarar appen med siste kjende.
  * Design: docs/innsamlar-worker-endepunkt.md. Eigen worker, så trafikkmeldingar og signaltur-cron
  * ikkje blir rørte. Lagring i D1 (binding DB). Nøkkelen er Worker-løyndomen COLLECTOR_KEY.
- * Workeren spør aldri Entur og lagrar ingen persondata.
+ * Entur VM (sanntid) hentar workeren sjølv på cron (kvart minutt, to gonger med 30 s mellomrom) og lagrar
+ * svaret i D1 (vm_latest). GET /v1/vm les berre det lagra svaret og går aldri vidare til Entur.
+ * Ingen persondata.
  */
 
 export const KEY_HEADER = "X-Fergeruter-Key";
@@ -35,7 +37,58 @@ export const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS ais_latest (mmsi TEXT PRIMARY KEY, line TEXT NOT NULL, name TEXT, latitude REAL NOT NULL,
      longitude REAL NOT NULL, speed_kn REAL, course_deg REAL, heading INTEGER, nav_status INTEGER,
      msgtime TEXT NOT NULL, msgtime_ms INTEGER NOT NULL, received_at TEXT NOT NULL, destination TEXT)`,
+  // Siste VM-svar frå Entur per linje (rå SIRI-JSON), henta av cron. Migrering 0002.
+  `CREATE TABLE IF NOT EXISTS vm_latest (line TEXT PRIMARY KEY, body TEXT NOT NULL, fetched_at TEXT NOT NULL)`,
 ];
+
+/** Entur VM: linjene workeren hentar, klientnamnet og kor ofte (cron kvart minutt, + éin gong til etter 30 s). */
+export const ET_CLIENT_NAME = "teitrand-fergeruter";
+export const VM_LINES = ["1136", "1135", "1049", "1069"];
+export const VM_POLL_GAP_MS = 30_000;
+export const VM_MAX_BYTES = 512 * 1024;
+export const vmEnturUrl = (line) => `https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:${line}`;
+
+/** Hentar VM for alle linjene éin gong og lagrar dei som svarte. Feil på éi linje stoppar ikkje dei andre. */
+export async function pollVm(env, fetchImpl = fetch, nowMs = () => Date.now()) {
+  const results = await Promise.all(
+    VM_LINES.map(async (line) => {
+      try {
+        const response = await fetchImpl(vmEnturUrl(line), { headers: { "ET-Client-Name": ET_CLIENT_NAME, Accept: "application/json" } });
+        if (!response.ok) return { line, status: response.status };
+        const body = await response.text();
+        if (body.length > VM_MAX_BYTES) return { line, status: 413 };
+        JSON.parse(body);
+        const fetchedAt = new Date(nowMs()).toISOString();
+        await env.DB.prepare(
+          "INSERT INTO vm_latest (line, body, fetched_at) VALUES (?, ?, ?) ON CONFLICT(line) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at",
+        ).bind(line, body, fetchedAt).run();
+        return { line, status: 200 };
+      } catch (error) {
+        return { line, status: 0, error: String(error?.message || error) };
+      }
+    }),
+  );
+  const failed = results.filter((r) => r.status !== 200);
+  if (failed.length) console.error("vm-feil", JSON.stringify(failed));
+  return results;
+}
+
+/** GET /v1/vm?LineRef=MOR:Line:1136: lagra VM-svar med hentetidspunkt. 503 når ingenting er lagra enno. */
+async function getVm(request, env, nowMs) {
+  const ref = new URL(request.url).searchParams.get("LineRef") || "";
+  const line = ref.replace(/^MOR:Line:/, "");
+  if (!VM_LINES.includes(line)) return json({ error: "line" }, 400, CORS);
+  const row = await env.DB.prepare("SELECT body, fetched_at FROM vm_latest WHERE line = ?").bind(line).first();
+  if (!row) return json({ error: "ikkje henta enno" }, 503, { ...CORS, "Retry-After": "30" });
+  let siri;
+  try {
+    siri = JSON.parse(row.body);
+  } catch {
+    return json({ error: "lagra svar" }, 503, { ...CORS, "Retry-After": "30" });
+  }
+  const ageMs = Math.max(0, nowMs - Date.parse(row.fetched_at));
+  return json({ schema: 1, line, fetchedAt: row.fetched_at, ageMs, ...siri }, 200, { ...CORS, "Cache-Control": "public, max-age=10" });
+}
 
 /** Signalloggen (same form som data/signalturar.json) frå signaljobben på heimeserveren. Lagra i meta (ingen ny tabell). */
 export const SIGNAL_LOG_META = "signalturar";
@@ -355,6 +408,11 @@ export async function handle(request, env, nowMs = Date.now()) {
     if (request.method !== "GET" && request.method !== "HEAD") return empty(405, { Allow: "GET, OPTIONS", ...CORS });
     return json(await buildLatest(env.DB, nowMs), 200, { ...CORS, "Cache-Control": "public, max-age=15" });
   }
+  if (pathname === "/v1/vm") {
+    if (request.method === "OPTIONS") return empty(204, CORS);
+    if (request.method !== "GET" && request.method !== "HEAD") return empty(405, { Allow: "GET, OPTIONS", ...CORS });
+    return getVm(request, env, nowMs);
+  }
   if (pathname === "/v1/signalturar") {
     if (request.method === "OPTIONS") return empty(204, { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" });
     if (request.method === "GET" || request.method === "HEAD") return getSignalLog(env);
@@ -380,5 +438,15 @@ export default {
       console.error("sanntid-feil", String(error?.message || error));
       return json({ error: "intern feil" }, 500);
     }
+  },
+  /** Cron kvart minutt: hent VM no og éin gong til etter 30 s, så lagra svar aldri er eldre enn ~30 s. */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      (async () => {
+        await pollVm(env);
+        await new Promise((resolve) => setTimeout(resolve, VM_POLL_GAP_MS));
+        await pollVm(env);
+      })(),
+    );
   },
 };
