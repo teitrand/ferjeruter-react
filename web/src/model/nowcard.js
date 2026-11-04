@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, fixFreshness, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, QUAY_COORDS, distanceMeters, fixFreshness, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -44,8 +44,27 @@ export function nowCardBase({ status, info, live, data, quays, nowMs = Date.now(
     lastQuay,
     pending: Boolean(live?.pending),
     // Forflytting til startkaia for turen kortet viser: ferja er ikkje der enno.
+    reposition: repositionLeg(status, best, mode),
     toQuay: mode !== "underway" && status.toQuay && leg && quayPlace(status.toQuay) === quayPlace(leg.from) ? leg.from : null,
   };
+}
+
+/**
+ * Forflytting (tomtur til startkaia for neste tur) med AIS undervegs: vist som ei vanleg overfart frå kaia ho
+ * forlét til kaia ho skal til, med framdrift = AIS-posisjonen projisert på strekninga (0–1).
+ */
+function repositionLeg(status, fix, mode) {
+  if (mode === "underway" || mode === "moored" || !status?.toQuay || !status.fromQuay || status.atQuay) return null;
+  const a = QUAY_COORDS[quayPlace(status.fromQuay)];
+  const b = QUAY_COORDS[quayPlace(status.toQuay)];
+  if (!a || !b) return null;
+  let progress = 0;
+  if (fix && Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude)) {
+    const da = distanceMeters(fix.latitude, fix.longitude, a.latitude, a.longitude);
+    const db = distanceMeters(fix.latitude, fix.longitude, b.latitude, b.longitude);
+    progress = da + db > 0 ? Math.min(1, Math.max(0, da / (da + db))) : 0;
+  }
+  return { from: status.fromQuay, to: status.toQuay, progress };
 }
 
 function ageText(ms) {
@@ -98,7 +117,8 @@ function crossingBadgeText(view, kind) {
  */
 export function composeNowCard(base, view) {
   if (!base) return null;
-  const mode = view?.state === "outside" ? "outside" : base.mode;
+  // Kjend forflytting til startkaia vinn over «utanfor ruta»: posisjonen er vegen dit.
+  const mode = view?.state === "outside" && !base.toQuay ? "outside" : base.mode;
   let state = view?.state || "calc";
   if (base.pending && (state === "calc" || state === "unknown")) state = "loading";
   const leg = base.leg;
@@ -110,12 +130,16 @@ export function composeNowCard(base, view) {
   let tag = null;
 
   const approach = mode === "outside" ? view?.approach || null : null;
-  if (approach) {
+  const reposition = base.reposition || null;
+  if (view?.state === "outside" && mode !== "outside") state = (view.ageMs ?? 0) <= FIX_FRESH_MS ? "live" : "stale";
+  if (reposition) {
+    main = head = t("status.repositionTo", { quay: reposition.to });
+  } else if (approach) {
     main = head = approachText(approach);
   } else if (mode === "outside") {
-    tag = t("na.tagOutside");
-    main = head = t("status.outside");
-    support.push({ kind: "note", text: t("crossing.noteOutside") });
+    // Éi line: «Ferja er ikkje på ruta no» (+ fart). Ingen merkelapp, pil eller framdriftsforklaring.
+    main = head = t("na.offRoute");
+    if (view?.speedKn != null) main = `${main} · ${t("speed.knots", { n: view.speedKn })}`;
   } else if (state === "unknown") {
     main = t("crossing.unknownSince", { time: clockOf(view?.fixAt) });
     head = main;
@@ -169,8 +193,12 @@ export function composeNowCard(base, view) {
   // Scenen: to kaier med ferja på linja. Ferja går alltid frå venstre mot høgre (frå-kaia til venstre).
   let scene = null;
   // På veg til ei kai: ferja på ei stipla linje mot kaia (ingen startkai, ingen framdrift).
-  if (approach) scene = { kind: "line", from: "", to: approach.quay, x: 0.5, fill: "none", dashed: true, moving: false, marker: null, faded: false };
-  else if (mode === "outside") scene = { kind: "outside" };
+  if (reposition) {
+    // Som ei vanleg overfart, men ferja dempa og «Utan passasjerar» under linja.
+    const live = state === "live";
+    scene = { kind: "line", from: reposition.from, to: reposition.to, x: reposition.progress, fill: live ? "solid" : "soft", dashed: !live, moving: live, marker: null, faded: false, before: true, caption: t("na.noPassengers") };
+  } else if (approach) scene = { kind: "line", from: "", to: approach.quay, x: 0.5, fill: "none", dashed: true, moving: false, marker: null, faded: false };
+  else if (mode === "outside") scene = null;
   else if (leg || base.quay) {
     let from = leg ? leg.from : base.quay;
     let to = leg ? leg.to : null;

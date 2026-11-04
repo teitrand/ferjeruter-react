@@ -150,13 +150,13 @@ test("modellen: siste kjende, ukjend, berekna og laster – stipla, ≈ og ? ber
   assert.match(loading.sentence, /Hentar posisjon\.$/);
 });
 
-test("modellen: utanfor ruta – blå tagg, ingen line mellom kaiane, ingen fart, ingen ankomst", async () => {
+test("modellen: utanfor ruta – éi line, ingen merkelapp, ingen scene, ingen ankomst", async () => {
   const { setLang } = await server.ssrLoadModule("/src/components/i18n.js");
   setLang("nn");
   const card = nowcard.composeNowCard({ ...BASE, mode: "outside" }, { state: "outside", source: "ais", ageMs: 15000, fixAt: FIXED - 15000 });
-  assert.equal(card.tag, "Utanfor ruta");
-  assert.equal(card.main, "Ferja er utanfor ruta");
-  assert.deepEqual(card.scene, { kind: "outside" });
+  assert.equal(card.tag, null);
+  assert.equal(card.main, "Ferja er ikkje på ruta no");
+  assert.equal(card.scene, null);
   assert.equal(card.badge.text, "Live frå AIS · 15 s");
   assert.doesNotMatch(card.sentence, /framme|knop|Planlagd/);
 });
@@ -535,18 +535,16 @@ test("natt: fersk AIS ved kai gjev «Live frå AIS» og «ligg til kai på X» f
   assert.doesNotMatch(badgeText(old), /Live/);
 });
 
-test("utanfor ruta: kortet og overskrifta seier det, utan ferjelinje, framdrift eller neste tur", () => {
+test("utanfor ruta: kortet seier det på éi line med fart, utan merkelapp, pil, ferjelinje eller forklaring", () => {
   const far = core.fixFromAis({ mmsi: 257297400, latitude: 62.45, longitude: 6.2, sog: 8, cog: 200, navStatus: 0, timestamp: FIXED - 20000 });
   const html = renderApp({ initialSanntid: { entries: [{ line: "1136", fix: far }] } });
   const now = nowArea(html);
-  assert.match(now, /<span class="na-tag">.*Utanfor ruta<\/span>/s);
-  assert.equal(mainLine(html), "Ferja er utanfor ruta");
+  assert.doesNotMatch(now, /na-tag|na-arrow|na-scene/);
+  assert.equal(mainLine(html), "Ferja er ikkje på ruta no · 8 knop");
   assert.equal(badgeText(html), "Live frå AIS · 20 s");
-  assert.deepEqual(supportLines(html), ["note: AIS-posisjonen ligg utanfor ruta mellom kaiane. Vi viser ingen framdrift og følgjer ikkje rutetabellen."]);
-  assert.match(now, /class="na-scene na-scene-outside"/);
-  assert.match(now, /class="na-arrow"/, "stipla pil, ingen line mellom kaiane");
+  assert.deepEqual(supportLines(html), []);
   assert.doesNotMatch(now, /na-rail|na-quays|na-pier|na-wake|na-fill/);
-  assert.doesNotMatch(strip(now), /Planlagd|Overfart|framme|knop/);
+  assert.doesNotMatch(strip(now), /Planlagd|Overfart|framme|framdrift/);
   assert.match(statusArea(html), /Ferja er utanfor ruta\./);
   assert.doesNotMatch(statusArea(html), /på veg mot/);
 });

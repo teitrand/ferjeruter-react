@@ -538,6 +538,7 @@ function outsideView(fix, nowMs, trip, previous, approach = null) {
     lat: fix.latitude ?? null,
     lon: fix.longitude ?? null,
     left: null,
+    speedKn: aisSpeed(fix, nowMs),
     source: "ais",
     state: "outside",
     measured: true,
@@ -740,6 +741,13 @@ function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   // AIS seier at ferja er utanfor ruta: det vinn over rutetabellen, òg når AIS-meldinga er nokre minutt gammal.
   const away = outsideFix(fixes, nowMs);
   // På veg til ei kai på ruta etter AIS-destinasjonen: same tekst som «No»-kortet. Berre visning, statusen er framleis «utanfor».
+  // Kjend forflytting (eller ferja skal vere ved startkaia for neste tur): posisjonen mellom kaiane er vegen dit,
+  // ikkje «utanfor ruta». «No»-kortet viser då ferja dempa ved startkaia (toQuay).
+  const expected = away ? status.toQuay || status.planQuay || null : null;
+  if (expected) {
+    const text = quayPlace(expected) === "Valderøya" ? t("status.repositionTo", { quay: expected }) : t("status.underwayTo", { dest: expected });
+    return { ...status, at: now, underway: true, toQuay: expected, short: text, text: `${text}.`, position: "ais" };
+  }
   const approach = away ? approachTo(away, quays, nowMs) : null;
   if (approach) {
     const text = approachText(approach);
