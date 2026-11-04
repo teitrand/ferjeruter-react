@@ -137,7 +137,9 @@ export function windowFromText(text, published) {
   );
   if (range) {
     const start = parseNumDate(range[1], range[2], range[3], ref);
-    const end = parseNumDate(range[4], range[5], range[6], ref);
+    let end = parseNumDate(range[4], range[5], range[6], ref);
+    // «30.12–02.01» utan årstal: slutten ligg i året etter starten.
+    if (start && end && end < start && !range[6]) end = `${Number(start.slice(0, 4)) + 1}${end.slice(4)}`;
     if (start || end) return { from: start, to: end };
   }
   const fromMatch = blob.match(
