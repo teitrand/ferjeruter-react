@@ -176,6 +176,7 @@ test("Fjord1 24-timars validTo blir halden ut Oslo-dagen", () => {
     date: "18.09.2026 07:59:22",
     countyNumber: 15,
     connectionNumber: 132,
+  publishedAt: "2026-09-11T10:00:00+02:00",
     validFrom: { timestamp: 1789711162 },
     validTo: { timestamp: 1789797550 },
   });
@@ -1610,6 +1611,7 @@ const KOMBI_1135 = {
   isRouteControl: true,
   routeMode: "kombi",
   connectionNumber: 134,
+  publishedAt: "2026-09-11T10:00:00+02:00",
   severity: "info",
   validTo: "2099-01-01T00:00:00Z",
 };
@@ -1649,15 +1651,27 @@ test("lagra meldingar gjev kombirute med ein gong, utan å vente på nett", () =
   assert.equal(readCachedMessages(storage).messages[0].id, "msg-1136");
   hydrateCachedMessages(storage);
   setTestState({ date: "2026-09-16" });
-  // Meldinga har dato utan årstal (14.09–18.09); året blir rekna frå klokka, så lås ho.
-  const realNow = Date.now;
-  Date.now = () => Date.parse("2026-09-16T06:00:00Z");
-  try {
-    assert.equal(operationalMode("2026-09-16"), "kombi");
-  } finally {
-    Date.now = realNow;
-  }
+  assert.equal(operationalMode("2026-09-16"), "kombi");
   writeLastMode("kombi", "2026-09-16", storage);
   assert.deepEqual(readLastMode(storage), { date: "2026-09-16", mode: "kombi" });
 });
 
+
+test("dato utan årstal: året blir rekna frå publiseringa, også over nyttår", () => {
+  assert.deepEqual(windowFromText("Kombinert rute frå 02.01 til 05.01.", "2026-12-30T10:00:00+01:00"), {
+    from: "2027-01-02",
+    to: "2027-01-05",
+  });
+  assert.deepEqual(windowFromText("Kombinert rute frå 30.12 til 02.01.", "2026-12-20T10:00:00+01:00"), {
+    from: "2026-12-30",
+    to: "2027-01-02",
+  });
+  assert.deepEqual(windowFromText("Kombinert rute frå 30.12 til 02.01.", "2026-12-31T10:00:00+01:00"), {
+    from: "2026-12-30",
+    to: "2027-01-02",
+  });
+  assert.deepEqual(windowFromText("Kombinert rute frå 14.09 til 18.09.", "2026-09-11T10:00:00+02:00"), {
+    from: "2026-09-14",
+    to: "2026-09-18",
+  });
+});
