@@ -19,10 +19,19 @@ export const FJORD1_PDF_1049 = "https://www.fjord1.no/ruteoversikt/moere-og-roms
 export const FRAMMR_URL = "https://frammr.no/";
 export const NAIS_URL = "https://nais.kystverket.no/";
 
-/** Éi ferje i NAIS-kartet (BarentsWatch/Kystverket), følgd ut frå MMSI. null utan gyldig MMSI. */
-export function naisVesselUrl(mmsi) {
+/**
+ * Éi ferje i NAIS-kartet (BarentsWatch/Kystverket), vald ut frå MMSI. null utan gyldig MMSI.
+ * Med AIS-posisjon opnar kartet innzooma på ferja (NAIS sine delingsparametrar
+ * selectedFeature og zoomAndCenter=zoom;lon:lat), elles berre med ferja vald.
+ */
+export const NAIS_ZOOM = 12;
+export function naisVesselUrl(mmsi, lat = null, lon = null) {
   const id = String(mmsi ?? "").replace(/^mmsi:/, "");
-  return /^\d{9}$/.test(id) ? `${NAIS_URL}embed/aisstream/${id}` : null;
+  if (!/^\d{9}$/.test(id)) return null;
+  const la = Number(lat);
+  const lo = Number(lon);
+  if (lat == null || lon == null || !Number.isFinite(la) || !Number.isFinite(lo)) return `${NAIS_URL}embed/aisstream/${id}`;
+  return `${NAIS_URL}embed/?selectedFeature=datasetId:aisstream;featureId:${id}&zoomAndCenter=${NAIS_ZOOM};${lo.toFixed(5)}:${la.toFixed(5)}`;
 }
 export const FJORD1_SMS_URL = "https://www.fjord1.no/kundeservice/foer-du-reiser/SMS-om-trafikken";
 

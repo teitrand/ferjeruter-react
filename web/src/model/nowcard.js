@@ -193,7 +193,7 @@ export function composeNowCard(base, view) {
     } else if (underway) {
       x = Math.min(1, Math.max(0, view?.progress ?? 0));
     } else if (base.toQuay && !base.quay) {
-      // På veg til startkaia: ferja står til venstre for kaia til ho er framme (CSS is-before).
+      // På veg til startkaia: ferja ligg ved startkaia på linja, dempa til ho er framme (CSS is-before).
       before = true;
     }
     scene = {
@@ -212,7 +212,7 @@ export function composeNowCard(base, view) {
   // Lenkje til ferja i NAIS når posisjonen er frå AIS (MMSI-en til ferja kortet viser).
   // MMSI og namn kjem frå AIS-posisjonen til ferja kortet viser (MMSI-lista i innsamlaren), ikkje hardkoda her.
   // Fast aria-label, så sekundteljaren i merket ikkje blir lesen opp på nytt.
-  const href = view?.source === "ais" ? naisVesselUrl(view.mmsi) : null;
+  const href = view?.source === "ais" ? naisVesselUrl(view.mmsi, view.lat, view.lon) : null;
   const nais = href ? { href, label: t("na.naisLink", { name: vesselTitle(view.vesselName) }) } : null;
   return { mode, state, tag, main, support, badge, scene, sentence, nais, label: t("na.label") };
 }
@@ -224,6 +224,6 @@ export function composeNowCard(base, view) {
 export function liveNaisLink(live, nowMs = Date.now()) {
   const fix = bestFix(live?.crossing?.fixes || live?.fixes || [], nowMs);
   if (fix?.source !== "ais" || fixFreshness(fix, nowMs) === "unknown") return null;
-  const href = naisVesselUrl(fix.vessel);
+  const href = naisVesselUrl(fix.vessel, fix.latitude, fix.longitude);
   return href ? { href, text: t("footnote.naisVessel", { name: vesselTitle(fix.name) }) } : null;
 }

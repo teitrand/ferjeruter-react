@@ -197,9 +197,9 @@ test("kombiruta: kortet nederst viser kombiruta, ikkje valt samband", async () =
 test("NAIS-lenkja i fotnoten følgjer live AIS-ferja (MMSI frå data)", async () => {
   const { liveNaisLink } = await server.ssrLoadModule("/src/model/nowcard.js");
   const at = Date.now() - 10_000;
-  const fix = { source: "ais", vessel: 257123456, name: "GEIRANGER", at, speedKn: 10 };
+  const fix = { source: "ais", vessel: 257123456, name: "GEIRANGER", at, speedKn: 10, latitude: 62.25, longitude: 6.5 };
   const link = liveNaisLink({ fixes: [fix] }, Date.now());
-  assert.equal(link.href, "https://nais.kystverket.no/embed/aisstream/257123456");
+  assert.equal(link.href, "https://nais.kystverket.no/embed/?selectedFeature=datasetId:aisstream;featureId:257123456&zoomAndCenter=12;6.50000:62.25000");
   assert.match(link.text, /Geiranger/);
   assert.equal(liveNaisLink({ fixes: [{ ...fix, source: "entur" }] }, Date.now()), null);
   assert.equal(liveNaisLink(null), null);
