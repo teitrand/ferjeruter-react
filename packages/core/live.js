@@ -192,6 +192,22 @@ export function siriBool(value) {
   return null;
 }
 
+/**
+ * Posisjonen projisert på strekninga a→b (lokal flat projeksjon, godt nok for nokre mil):
+ * t = framdrift (0–1, avgrensa) og distM = avstand frå punktet til strekninga i meter.
+ */
+export function segmentPosition(lat, lon, a, b) {
+  const kx = 111320 * Math.cos((((a.latitude + b.latitude) / 2) * Math.PI) / 180);
+  const ky = 110540;
+  const bx = (b.longitude - a.longitude) * kx;
+  const by = (b.latitude - a.latitude) * ky;
+  const px = (lon - a.longitude) * kx;
+  const py = (lat - a.latitude) * ky;
+  const len2 = bx * bx + by * by;
+  const t = len2 > 0 ? Math.min(1, Math.max(0, (px * bx + py * by) / len2)) : 0;
+  return { t, distM: Math.hypot(px - t * bx, py - t * by) };
+}
+
 export function distanceMeters(lat1, lon1, lat2, lon2) {
   const radius = 6371000;
   const toRad = (degrees) => (degrees * Math.PI) / 180;

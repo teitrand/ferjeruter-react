@@ -6,7 +6,7 @@
  *  nowCardBase     det som endrar seg med turar og status (ledeModel, ein gong per minutt/data)
  *  composeNowCard  base + posisjonstilstand som tikkar kvart sekund (usePositionState) → tekstar, merke og scene
  */
-import { FIX_FRESH_MS, QUAY_COORDS, distanceMeters, fixFreshness, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
+import { FIX_FRESH_MS, QUAY_COORDS, segmentPosition, fixFreshness, naisVesselUrl, approachBadge, approachText, bestFix, clockMinutes, durationText, fixAtQuay, formatDay, hhmm, osloHm, quayPlace } from "../../../packages/core/index.js";
 import { t } from "../components/i18n.js";
 import { positionFixes } from "./crossing.js";
 
@@ -60,9 +60,7 @@ function repositionLeg(status, fix, mode) {
   if (!a || !b) return null;
   let progress = 0;
   if (fix && Number.isFinite(fix.latitude) && Number.isFinite(fix.longitude)) {
-    const da = distanceMeters(fix.latitude, fix.longitude, a.latitude, a.longitude);
-    const db = distanceMeters(fix.latitude, fix.longitude, b.latitude, b.longitude);
-    progress = da + db > 0 ? Math.min(1, Math.max(0, da / (da + db))) : 0;
+    progress = segmentPosition(fix.latitude, fix.longitude, a, b).t;
   }
   return { from: status.fromQuay, to: status.toQuay, progress };
 }

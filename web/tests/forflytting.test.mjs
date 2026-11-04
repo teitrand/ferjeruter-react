@@ -85,6 +85,14 @@ test("NAIS-lenkja zoomar inn på ferja når AIS-posisjonen er kjend", () => {
     }
   });
 
+  test("langt unna, men neste tur finst: «Ferja er ikkje på ruta no», ikkje «går til Valderøya»", () => {
+    // Langt vest for strekninga Trandal–Valderøya (> 10 km), t.d. ved ein verkstad.
+    const { out, card: c } = card({ underway: true, toQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja går til Valderøya utan passasjerar" }, [fix(62.36, 6.05, 0.2)]);
+    assert.equal(out.outside, true);
+    assert.match(c.main, /^Ferja er ikkje på ruta no/);
+    assert.equal(c.scene, null);
+  });
+
   test("ligg ved Valderøya før 11:10: «Ligg til kai på Valderøya» med ferja ved kaia på linja", () => {
     const v = { latitude: 62.495872, longitude: 6.128569 };
     const { out, card: c } = card({ planQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja ligg til kai på Valderøya" }, [fix(v.latitude, v.longitude, 0)]);

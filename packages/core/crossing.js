@@ -13,7 +13,7 @@
 import { t } from "../../assets/i18n.js?v=84";
 import { clockMinutes, durationText, hhmm, nowMinutes, osloHm } from "./time.js?v=84";
 import { quayPlace, serviceJourneyId } from "./legs.js?v=84";
-import { QUAY_COORDS, QUAY_RADIUS_M, distanceMeters, nearLeg } from "./live.js?v=84";
+import { QUAY_COORDS, QUAY_RADIUS_M, distanceMeters, nearLeg, segmentPosition } from "./live.js?v=84";
 
 /** Yngre enn dette: «Live». */
 export const FIX_FRESH_MS = 60 * 1000;
@@ -735,6 +735,13 @@ function aisQuay(fixes, quays, nowMs) {
   return (quays || []).find((name) => fixAtQuay(best, name)) || null;
 }
 
+export const REPOSITION_CORRIDOR_M = 2000;
+function onReposition(fix, fromQuay, toQuay) {
+  const a = QUAY_COORDS[quayPlace(fromQuay)];
+  const b = QUAY_COORDS[quayPlace(toQuay)];
+  return Boolean(a && b) && segmentPosition(fix.latitude, fix.longitude, a, b).distM <= REPOSITION_CORRIDOR_M;
+}
+
 /** Mot-seiingane over: ny status når AIS og rutetabellen er usamde, elles same objekt. */
 function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   if (!status || status.signal || status.cancelled) return status;
@@ -743,7 +750,8 @@ function overrideFromPosition(status, { running, fixes, quays, now, nowMs }) {
   // På veg til ei kai på ruta etter AIS-destinasjonen: same tekst som «No»-kortet. Berre visning, statusen er framleis «utanfor».
   // Kjend forflytting (eller ferja skal vere ved startkaia for neste tur): posisjonen mellom kaiane er vegen dit,
   // ikkje «utanfor ruta». «No»-kortet viser då ferja dempa ved startkaia (toQuay).
-  const expected = away ? status.toQuay || status.planQuay || null : null;
+  // Berre når AIS-posisjonen ligg nær strekninga fromQuay→toQuay (t.d. ikkje ved verkstad i Ålesund).
+  const expected = away && onReposition(away, status.fromQuay, status.toQuay || status.planQuay) ? status.toQuay || status.planQuay : null;
   if (expected) {
     const text = quayPlace(expected) === "Valderøya" ? t("status.repositionTo", { quay: expected }) : t("status.underwayTo", { dest: expected });
     return { ...status, at: now, underway: true, toQuay: expected, short: text, text: `${text}.`, position: "ais" };
