@@ -235,6 +235,9 @@ async function getSignalLog(env) {
   return json({ ...stored.log, receivedAt: stored.receivedAt }, 200, { ...CORS, "Cache-Control": "no-cache" });
 }
 
+const CLEANUP_META = "cleanup:last";
+const CLEANUP_INTERVAL_MS = 3_600_000;
+
 async function postHeartbeat(request, env, nowMs) {
   const read = await readBody(request);
   if (read.status) return empty(read.status);
@@ -246,11 +249,17 @@ async function postHeartbeat(request, env, nowMs) {
   if (wait) return empty(429, { "Retry-After": String(wait) });
   const receivedAt = new Date(nowMs).toISOString();
   const day = 86_400_000;
-  await env.DB.batch([
-    env.DB.prepare("INSERT INTO heartbeats (received_at, body) VALUES (?, ?)").bind(receivedAt, text),
-    env.DB.prepare("DELETE FROM heartbeats WHERE received_at < ?").bind(new Date(nowMs - HEARTBEATS_KEEP_DAYS * day).toISOString()),
-    env.DB.prepare("DELETE FROM events WHERE received_at < ?").bind(new Date(nowMs - EVENTS_KEEP_DAYS * day).toISOString()),
-  ]);
+  const stmts = [env.DB.prepare("INSERT INTO heartbeats (received_at, body) VALUES (?, ?)").bind(receivedAt, text)];
+  // Rydding høgst éin gong i timen (D1-grensa for lesne rader). Tidspunktet ligg i meta.
+  const last = await env.DB.prepare("SELECT v FROM meta WHERE k = ?").bind(CLEANUP_META).first();
+  if (!last || !(nowMs - Number(last.v) < CLEANUP_INTERVAL_MS)) {
+    stmts.push(
+      env.DB.prepare("DELETE FROM heartbeats WHERE received_at < ?").bind(new Date(nowMs - HEARTBEATS_KEEP_DAYS * day).toISOString()),
+      env.DB.prepare("DELETE FROM events WHERE received_at < ?").bind(new Date(nowMs - EVENTS_KEEP_DAYS * day).toISOString()),
+      env.DB.prepare("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(CLEANUP_META, String(nowMs)),
+    );
+  }
+  await env.DB.batch(stmts);
   return empty(204);
 }
 
