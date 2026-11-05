@@ -225,3 +225,4 @@ a.na-badge:hover .na-badge-text, a.na-badge:focus-visible .na-badge-text { text-
 
 /* Forflytting til startkaia: ferja ligg ved startkaia på linja, dempa til ho er framme (teksten fortel at ho er på veg). */
 .na-scene.is-before .na-ferry-svg { opacity: 0.5; }
+.na-caption { margin: 0.2rem 0 0; text-align: center; font-size: 0.85rem; color: var(--muted-fg, inherit); }

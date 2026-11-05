@@ -52,27 +52,7 @@ export function BadgeIcon({ icon }) {
   );
 }
 
-/** Blå stipla pil: ferja er utanfor ruta, ingen line mellom kaiane og ingen kai å peike på. */
-function OutsideArrow() {
-  return (
-    <svg className="na-arrow" viewBox="0 0 120 12" focusable="false" aria-hidden="true">
-      <path d="M2 6h100" fill="none" stroke="currentColor" strokeWidth="2.2" strokeDasharray="7 5" strokeLinecap="round" />
-      <path d="M100 1.5L113 6l-13 4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function Scene({ scene, reducedMotion, ready }) {
-  if (scene.kind === "outside") {
-    return (
-      <div className="na-scene na-scene-outside" aria-hidden="true">
-        <span className="na-ferry na-ferry-static">
-          <FerryV2 />
-        </span>
-        <OutsideArrow />
-      </div>
-    );
-  }
   const className = [
     "na-scene",
     `na-fill-${scene.fill}`,
@@ -110,6 +90,7 @@ function Scene({ scene, reducedMotion, ready }) {
         <span>{scene.from}</span>
         {scene.to ? <span>{scene.to}</span> : null}
       </div>
+      {scene.caption ? <p className="na-caption">{scene.caption}</p> : null}
     </div>
   );
 }

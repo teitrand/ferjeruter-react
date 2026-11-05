@@ -47,3 +47,67 @@ test("NAIS-lenkja zoomar inn på ferja når AIS-posisjonen er kjend", () => {
   assert.equal(naisVesselUrl(257297400, null, 6.5), "https://nais.kystverket.no/embed/aisstream/257297400");
   assert.equal(naisVesselUrl("123"), null);
 });
+
+// 04.11.2026 kl. 09:58: ferja på veg Trandal → Valderøya før 11:10 Valderøya→Store Kalvøy. AIS-posisjonen midt
+// mellom kaiane (> 4 km frå alle) gav «Utanfor ruta» sjølv om forflyttinga var kjend.
+{
+  const { statusFromPosition, positionSourceView } = await import("../../packages/core/index.js");
+  const { nowCardBase } = await import("../src/model/nowcard.js");
+  const nowMs = new Date("2026-11-04T09:58:00+01:00").getTime();
+  const quays = ["Standal", "Trandal", "Valderøya", "Store Kalvøy"];
+  const legs = [{ from: "Valderøya", to: "Store Kalvøy", departure: "11:10:00", arrival: "11:30:00", signal: true }];
+  const fix = (lat, lon, speedKn) => ({ source: "ais", vessel: 257297400, name: "KVERNES", latitude: lat, longitude: lon, speedKn, at: nowMs - 20000 });
+  const card = (status, fixes) => {
+    const out = statusFromPosition(status, { running: legs, fixes, quays, now: 598, nowMs });
+    const info = nowInfo({ status: out, legs, running: legs, ev: { dateLegs: [], messageCancelled: new Set(), cancelledJourneys: new Set() }, nowMs, today: "2026-11-04", legsOn: () => [] });
+    const base = nowCardBase({ status: out, info, live: { crossing: null }, data: { positions: fixes }, quays, nowMs });
+    return { out, card: composeNowCard(base, positionSourceView(fixes, nowMs, null, quays)) };
+  };
+  const enRoute = [fix(62.44, 6.22, 11.2)];
+
+  test("forflytting Trandal→Valderøya (planlagd framme): «Ferja går til Valderøya utan passasjerar», ikkje utanfor ruta", () => {
+    for (const status of [
+      { underway: true, toQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja går til Valderøya utan passasjerar" },
+      { planQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja ligg til kai på Valderøya" },
+    ]) {
+      const { out, card: c } = card(status, enRoute);
+      assert.ok(!out.outside);
+      assert.equal(out.short, "Ferja går til Valderøya utan passasjerar");
+      assert.equal(out.toQuay, "Valderøya");
+      assert.equal(c.tag, null);
+      assert.doesNotMatch(c.main, /utanfor ruta|ikkje på ruta/i);
+      assert.equal(c.main, "Ferja går til Valderøya utan passasjerar");
+      assert.equal(c.scene.from, "Trandal", "linja går frå kaia ho forlét");
+      assert.equal(c.scene.to, "Valderøya");
+      assert.ok(c.scene.x > 0.5 && c.scene.x < 1, `framdrift langs strekninga, fekk ${c.scene.x}`);
+      assert.equal(c.scene.before, true, "dempa ferje");
+      assert.equal(c.scene.caption, "Utan passasjerar");
+    }
+  });
+
+  test("langt unna, men neste tur finst: «Ferja er ikkje på ruta no», ikkje «går til Valderøya»", () => {
+    // Langt vest for strekninga Trandal–Valderøya (> 10 km), t.d. ved ein verkstad.
+    const { out, card: c } = card({ underway: true, toQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja går til Valderøya utan passasjerar" }, [fix(62.36, 6.05, 0.2)]);
+    assert.equal(out.outside, true);
+    assert.match(c.main, /^Ferja er ikkje på ruta no/);
+    assert.equal(c.scene, null);
+  });
+
+  test("ligg ved Valderøya før 11:10: «Ligg til kai på Valderøya» med ferja ved kaia på linja", () => {
+    const v = { latitude: 62.495872, longitude: 6.128569 };
+    const { out, card: c } = card({ planQuay: "Valderøya", fromQuay: "Trandal", text: "Ferja ligg til kai på Valderøya" }, [fix(v.latitude, v.longitude, 0)]);
+    assert.equal(out.atQuay, "Valderøya");
+    assert.match(c.main, /Ligg til kai på Valderøya/);
+    assert.equal(c.scene.from, "Valderøya");
+    assert.equal(c.scene.x, 0);
+  });
+
+  test("verkeleg utanfor ruta (ingen kjend tur): éi line «Ferja er ikkje på ruta no» + fart, utan merkelapp, pil eller forklaring", () => {
+    const { out, card: c } = card({ text: "Ferdig for dagen" }, enRoute);
+    assert.equal(out.outside, true);
+    assert.equal(c.main, "Ferja er ikkje på ruta no · 11 knop");
+    assert.equal(c.tag, null);
+    assert.equal(c.scene, null);
+    assert.deepEqual(c.support, []);
+  });
+}

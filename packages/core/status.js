@@ -271,6 +271,9 @@ export function ferryStatus(legs, now, allLegs, view) {
           return withSpan(
             {
               at: sailEnd + 0.5,
+              // Etter planen ved kaia neste tur går frå; viser AIS ferja framleis på veg dit, er det forflyttinga.
+              planQuay: next.from,
+              fromQuay: leg.to,
               text: t("status.mooredAt", { quay: next.from }),
             },
             sailEnd,
@@ -284,6 +287,7 @@ export function ferryStatus(legs, now, allLegs, view) {
             underway: true,
             // Kaia ferja er på veg til (forflytting). «No»-kortet viser då neste avgang derifrå.
             toQuay: next.from,
+            fromQuay: leg.to,
             text: isNoPassengerTrip(leg.to, next.from)
               ? t("status.repositionTo", { quay: next.from })
               : t("status.underwayTo", { dest: next.from }),
