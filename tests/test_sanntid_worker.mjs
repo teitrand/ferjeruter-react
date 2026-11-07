@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { handle, SCHEMA, eventKey, lineView, keyMatches, MIN_INTERVAL_MS, MAX_EVENTS, MAX_POSITIONS, aisView,
+import { handle, pollVm, ET_CLIENT_NAME, VM_LINES, SCHEMA, eventKey, lineView, keyMatches, MIN_INTERVAL_MS, MAX_EVENTS, MAX_POSITIONS, aisView,
   AIS_FRESH_MS, AIS_STALE_MS, AIS_MOORED_FRESH_MS, AIS_MOORED_STALE_MS, AIS_MOORED_MAX_KN } from "../cloudflare/sanntid/src/index.js";
 import { AIS_MOORED_FRESH_MS as C_MF, AIS_MOORED_STALE_MS as C_MS, AT_QUAY_MAX_KN, FIX_FRESH_MS, FIX_STALE_MS } from "../packages/core/crossing.js";
 
@@ -368,4 +368,32 @@ test("signalturar: dei gamle endepunkta og /v1/latest er uendra (bakoverkompatib
   assert.deepEqual(Object.keys(latest).sort(), ["collector", "generatedAt", "lines", "schema", "today"]);
   assert.equal((await handle(req("/v1/events", { key: null, method: "POST", body: {} }), e, T0)).status, 401);
   assert.equal((await handle(req("/nope", { key: null }), e, T0)).status, 404);
+});
+
+test("VM: cron hentar frå Entur med ET-Client-Name og lagrar; /v1/vm les berre lagra svar med fetchedAt", async () => {
+  const e = env();
+  const calls = [];
+  const siri = { Siri: { ServiceDelivery: { VehicleMonitoringDelivery: [{ VehicleActivity: [] }] } } };
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, client: init?.headers?.["ET-Client-Name"] });
+    if (url.includes("1049")) return new Response("struping", { status: 429 });
+    return new Response(JSON.stringify(siri), { status: 200 });
+  };
+  // Før cron: ingenting lagra, og ingen kall til Entur frå brukarforespurnaden.
+  const before = await handle(req("/v1/vm?LineRef=MOR:Line:1136"), e, T0);
+  assert.equal(before.status, 503);
+  const results = await pollVm(e, fakeFetch, () => T0);
+  assert.equal(calls.length, VM_LINES.length);
+  assert.ok(calls.every((c) => c.client === ET_CLIENT_NAME && c.url.startsWith("https://api.entur.io/realtime/v1/rest/vm")));
+  assert.equal(results.find((r) => r.line === "1049").status, 429);
+  const res = await handle(req("/v1/vm?LineRef=MOR:Line:1136"), e, T0 + 20_000);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Access-Control-Allow-Origin"), "*");
+  const body = await res.json();
+  assert.equal(body.fetchedAt, new Date(T0).toISOString());
+  assert.equal(body.ageMs, 20_000);
+  assert.deepEqual(body.Siri, siri.Siri);
+  assert.equal(calls.length, VM_LINES.length, "brukarforespurnaden gjekk ikkje til Entur");
+  assert.equal((await handle(req("/v1/vm?LineRef=MOR:Line:1049"), e, T0)).status, 503);
+  assert.equal((await handle(req("/v1/vm?LineRef=MOR:Line:9999"), e, T0)).status, 400);
 });

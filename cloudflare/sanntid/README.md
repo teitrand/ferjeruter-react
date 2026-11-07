@@ -29,3 +29,7 @@ npx wrangler deploy
 ## Stopp
 
 Set `FERGERUTER_SENDER_ENABLED=0` på serveren, eller slett workeren. Appen les `/v1/latest` og fell tilbake til Entur og rutetabell når workeren manglar.
+
+## Entur VM (sanntid) via workeren
+
+Appen spør ikkje Entur VM direkte lenger. Cron (`* * * * *`) hentar VM for 1136, 1135, 1049 og 1069 med `ET-Client-Name: teitrand-fergeruter`, to gonger per minutt (30 s mellomrom), og lagrar rå SIRI-JSON i `vm_latest` (migrering `0002_vm_latest.sql`). `GET /v1/vm?LineRef=MOR:Line:1136` les berre det lagra svaret (aldri Entur) og gjev `{ schema, line, fetchedAt, ageMs, Siri }`; 503 når ingenting er lagra. Appen har same backoff som før ved feil.

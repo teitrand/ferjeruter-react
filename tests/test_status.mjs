@@ -1634,10 +1634,10 @@ test("sanntidsvindauge er fyrste avgang til siste ankomst", () => {
 
 test("kombi spør 1136 fyrst, 1135 berre som reserveløype", () => {
   assert.deepEqual(liveFetchUrls("1136"), [
-    "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
+    "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/vm?LineRef=MOR:Line:1136",
   ]);
   assert.deepEqual(liveFetchUrls("1135"), [
-    "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
+    "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/vm?LineRef=MOR:Line:1135",
   ]);
   const kombi = liveFetchUrls("kombi");
   assert.equal(kombi.length, 2);

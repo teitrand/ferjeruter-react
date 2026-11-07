@@ -24,11 +24,13 @@ import { activityTime } from "./status.js?v=84";
 
 export const ENTUR_CLIENT = "teitrand-fergeruter";
 export const ENTUR_JOURNEY_URL = "https://api.entur.io/journey-planner/v3/graphql";
+/** VM går via workeren fergeruter-sanntid (cron hentar frå Entur og lagrar; appen les berre lagra svar). */
+export const VM_WORKER_URL = "https://fergeruter-sanntid.fergeruter-teitrand.workers.dev/v1/vm";
 export const LIVE_VM_URLS = {
-  1136: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1136",
-  1135: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1135",
-  1049: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1049",
-  1069: "https://api.entur.io/realtime/v1/rest/vm?datasetId=MOR&LineRef=MOR:Line:1069",
+  1136: `${VM_WORKER_URL}?LineRef=MOR:Line:1136`,
+  1135: `${VM_WORKER_URL}?LineRef=MOR:Line:1135`,
+  1049: `${VM_WORKER_URL}?LineRef=MOR:Line:1049`,
+  1069: `${VM_WORKER_URL}?LineRef=MOR:Line:1069`,
 };
 /** Minste tid mellom to sanntidskall. */
 export const LIVE_MIN_INTERVAL_MS = 55 * 1000;
@@ -119,9 +121,9 @@ export function parseVehicleMonitoring(data, quays = LINE_QUAYS) {
 
 /** Eitt VM-kall. 429 og 5xx er `retryable`. */
 export async function fetchVehicleMonitoring(fetchImpl, url, quays) {
-  const response = await fetchImpl(url, {
-    headers: { "ET-Client-Name": ENTUR_CLIENT, Accept: "application/json" },
-  });
+  // ET-Client-Name berre direkte mot Entur; mot workeren ville hovudet gje ein CORS-preflight.
+  const headers = url.includes("api.entur.io") ? { "ET-Client-Name": ENTUR_CLIENT, Accept: "application/json" } : { Accept: "application/json" };
+  const response = await fetchImpl(url, { headers });
   if (response.status === 429 || response.status >= 500) {
     const error = new Error(response.statusText);
     error.retryable = true;
